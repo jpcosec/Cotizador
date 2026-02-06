@@ -1,0 +1,311 @@
+<script>
+function cotizadorApp() {
+    return {
+        // --- ESTADO ---
+        cliente: null,
+        modalCliente: false,
+        busquedaCliente: '',
+        clientesEncontrados: [],
+        nuevoCliente: { nombre: '', rut: '', email: '', telefono: '', contacto: '' },
+        
+        catalogo: [],
+        busquedaCatalogo: '', // Variable para el filtro del sidebar
+        cargando: true,
+        
+        fechaInicio: new Date().toISOString().split('T')[0],
+        duracionDias: 3,
+        diaSeleccionado: 1,
+        horaInicio: '09:00',
+        dias: [],
+        
+        carrito: [],
+        paxGlobal: 10,
+        filtrarDia: null,
+        generandoPDF: false,
+        
+        // --- INIT ---
+        init() {
+            this.generarDias();
+            this.cargarCatalogo();
+        },
+        
+        // --- LÓGICA DE NEGOCIO ---
+        generarDias() {
+            if (!this.fechaInicio) return;
+            var inicio = new Date(this.fechaInicio + 'T00:00:00');
+            this.dias = [];
+            for (var i = 0; i < this.duracionDias; i++) {
+                var f = new Date(inicio);
+                f.setDate(f.getDate() + i);
+                this.dias.push({
+                    numero: i + 1,
+                    fecha: f.toISOString().split('T')[0],
+                    fechaCorta: f.getDate() + '/' + (f.getMonth() + 1)
+                });
+            }
+        },
+        
+        obtenerFechaDia(num) {
+            var d = this.dias.find(d => d.numero === num);
+            return d ? d.fecha : this.fechaInicio;
+        },
+        
+        cargarCatalogo() {
+            var self = this;
+            google.script.run.withSuccessHandler(function(data) {
+                self.catalogo = data || [];
+                self.cargando = false;
+                // YA NO NECESITAMOS initSelect2() !!
+            }).getCatalogo();
+        },
+        
+        // --- CLIENTE ---
+        buscarClientes() {
+            if (this.busquedaCliente.length < 2) return;
+            var self = this;
+            google.script.run.withSuccessHandler(function(res) {
+                self.clientesEncontrados = res || [];
+            }).buscarCliente(this.busquedaCliente);
+        },
+        
+        seleccionarCliente(cli) {
+            this.cliente = cli;
+            this.cerrarModalCliente();
+        },
+        
+        crearCliente() {
+            var self = this;
+            if(!this.nuevoCliente.nombre || !this.nuevoCliente.rut) {
+                alert("Nombre y RUT son obligatorios");
+                return;
+            }
+            google.script.run.withSuccessHandler(function(cli) {
+                self.seleccionarCliente(cli);
+            }).crearOObtenerCliente(this.nuevoCliente);
+        },
+        
+        cerrarModalCliente() {
+            this.modalCliente = false;
+            this.busquedaCliente = '';
+            this.clientesEncontrados = [];
+            this.nuevoCliente = { nombre: '', rut: '', email: '', telefono: '', contacto: '' };
+        },
+        
+        cambiarCliente() {
+            this.cliente = null;
+            this.modalCliente = true;
+        },
+        
+        // --- CARRITO ---
+        agregarItem(item) {
+            this.carrito.push({
+                nombre: item.nombre,
+                categoria: item.categoria,
+                precio: item.precio,
+                cantidad: this.paxGlobal,
+                dia: this.diaSeleccionado,
+                fecha: this.obtenerFechaDia(this.diaSeleccionado),
+                hora: this.horaInicio,
+                total: item.precio * this.paxGlobal
+            });
+            
+            this.carrito.sort((a,b) => {
+                if (a.dia !== b.dia) return a.dia - b.dia;
+                return a.hora.localeCompare(b.hora);
+            });
+        },
+        
+        actualizarCantidad(idx, val) {
+            var cant = parseInt(val) || 1;
+            this.carrito[idx].cantidad = cant;
+            this.carrito[idx].total = this.carrito[idx].precio * cant;
+        },
+        
+        eliminarItem(idx) {
+            this.carrito.splice(idx, 1);
+        },
+        
+        formatearBadge(item) {
+            try {
+               var fechaStr = item.fecha.split('-').reverse().join('/');
+               return "Día " + item.dia + " • " + fechaStr + " • " + item.hora; 
+            } catch(e) {
+               return "Día " + item.dia + " • " + item.hora;
+            }
+        },
+        
+        generarPDF() {
+            if (this.carrito.length === 0) return;
+            if (!this.cliente) {
+                this.modalCliente = true;
+                return;
+            }
+            this.generandoPDF = true;
+            var self = this;
+            google.script.run.withSuccessHandler(function(url) {
+                window.open(url);
+                self.generandoPDF = false;
+            }).withFailureHandler(function(e) {
+                alert(e.message);
+                self.generandoPDF = false;
+            }).generarPDF(this.cliente, this.carrito);
+        },
+        
+        // --- COMPUTED PROPERTIES (FILTROS PODEROSOS) ---
+        
+        get catalogoPorCategoria() {
+            if (!this.catalogo) return {};
+            
+            var g = {};
+            var busqueda = this.busquedaCatalogo.toLowerCase(); // Texto del input
+            
+            this.catalogo.forEach(function(i) {
+                // FILTRO: Si hay búsqueda, verificamos si el nombre coincide
+                if (busqueda && i.nombre.toLowerCase().indexOf(busqueda) === -1) {
+                    return; // Si no coincide, saltamos este item
+                }
+                
+                var c = i.categoria || 'Varios';
+                if (!g[c]) g[c] = [];
+                g[c].push(i);
+            });
+            
+            return g;
+        },
+        
+        get carritoFiltrado() {
+            if (!this.carrito) return [];
+            return this.carrito.filter(item => item.dia === this.diaSeleccionado);
+        },
+        
+        get diasUnicos() { // Mantenemos por compatibilidad aunque usamos tabs
+            if (!this.carrito) return [];
+            var unicos = [];
+            this.carrito.forEach(i => { if(unicos.indexOf(i.dia) === -1) unicos.push(i.dia); });
+            return unicos.sort((a,b) => a-b);
+        },
+        
+        get totalNeto() {
+            if (!this.carrito) return 0;
+            return this.carrito.reduce((sum, i) => sum + (i.total || 0), 0);
+        },
+        
+        get totalFinal() {
+            return Math.round(this.totalNeto * 1.19);
+        },
+
+        // --- ACCIONES DE PERSISTENCIA ---
+
+        guardarCotizacion() {
+            if (this.carrito.length === 0) return alert('Carrito vacío');
+            if (!this.cliente) { this.modalCliente = true; return; }
+
+            // Llamada al Backend
+            google.script.run
+                .withSuccessHandler((res) => {
+                    if(res.success) {
+                        alert('✅ ' + res.mensaje + '\nID: ' + res.id);
+                        // Opcional: Guardar el ID en el estado local si quieres editar luego
+                        // this.cotizacionActualID = res.id; 
+                    }
+                })
+                .withFailureHandler((e) => alert('Error: ' + e.message))
+                .guardarCotizacion(this.cliente, this.carrito);
+        },
+
+cargarCotizacion() {
+            var id = prompt("Ingrese el ID de la cotización (Ej: COT-0001):");
+            if (!id) return;
+
+            this.cargando = true;
+            
+            var self = this;
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    self.cargando = false;
+                    
+                    if(res && res.success) {
+                        // 1. Cargar Cliente
+                        self.cliente = res.cliente;
+                        
+                        // 2. Cargar Fecha Inicio (Backend ahora la calcula bien)
+                        if (res.fechaInicio) {
+                            self.fechaInicio = res.fechaInicio;
+                        }
+
+                        // 3. Cargar Carrito
+                        self.carrito = res.carrito || [];
+                        
+                        // ===============================================
+                        // 4. AUTO-AJUSTE DE DURACIÓN (Lo que faltaba)
+                        // ===============================================
+                        if (self.carrito.length > 0) {
+                            var maxDiaEncontrado = 1;
+                            
+                            // Recorremos el carrito buscando el día más alto
+                            self.carrito.forEach(function(item) {
+                                var diaItem = parseInt(item.dia) || 1;
+                                if (diaItem > maxDiaEncontrado) {
+                                    maxDiaEncontrado = diaItem;
+                                }
+                            });
+                            
+                            // Actualizamos la duración del viaje al máximo encontrado
+                            // (Si el viaje dura 4 días, el select se pondrá en 4 o se ajustará internamente)
+                            self.duracionDias = maxDiaEncontrado;
+                            
+                            // IMPORTANTE: Regenerar el array de días para que aparezcan los Tabs
+                            self.generarDias();
+                            
+                            // Seleccionar el Día 1 para empezar
+                            self.diaSeleccionado = 1;
+                        }
+                        
+                        alert('✅ Cotización cargada correctamente.');
+                    } else {
+                        alert('Error: Respuesta inválida o vacía del servidor.');
+                    }
+                })
+                .withFailureHandler(function(e) {
+                    self.cargando = false;
+                    alert('Error al cargar: ' + e.message);
+                })
+                .cargarCotizacion(id);
+        },
+
+
+        // --- PDF (FLUJO MODIFICADO) ---
+        generarPDF() {
+            if (this.carrito.length === 0) return;
+            if (!this.cliente) { this.modalCliente = true; return; }
+            
+            this.generandoPDF = true;
+
+            // PASO 1: Guardar primero para asegurar consistencia
+            google.script.run
+                .withSuccessHandler((resGuardado) => {
+                    if (resGuardado.success) {
+                        console.log('Guardado OK, generando PDF para ID:', resGuardado.id);
+                        
+                        // PASO 2: Generar PDF desde el ID guardado
+                        google.script.run
+                            .withSuccessHandler((url) => {
+                                window.open(url);
+                                this.generandoPDF = false;
+                            })
+                            .withFailureHandler((e) => {
+                                alert('Error generando PDF: ' + e.message);
+                                this.generandoPDF = false;
+                            })
+                            .generarPDF(resGuardado.id); // Enviamos solo el ID
+                    }
+                })
+                .withFailureHandler((e) => {
+                    alert('Error al guardar previo al PDF: ' + e.message);
+                    this.generandoPDF = false;
+                })
+                .guardarCotizacion(this.cliente, this.carrito);
+        }
+    };
+}
+</script>
