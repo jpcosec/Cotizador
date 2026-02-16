@@ -58,6 +58,8 @@ Para cada línea, resolver los valores de entrada al motor de precios.
 2. `ITEM_CATALOGO.Default_Duracion_Min`.
 3. `CATEGORIAS.Def_Duracion_Min`.
 
+**Persistencia:** guardar `T` final en `LINEA_DETALLE.Input_Duracion_Min`.
+
 ---
 
 ## 4. Cálculo de Precio Neto (Pricing Engine)
@@ -194,7 +196,6 @@ graph TD
 ---
 
 ## Referencias
-- `docs/db_docs_v2.md` (diccionario vigente en docs; requiere actualización a v3)
+- `docs/db_docs_v3.md` (diccionario vigente v3)
 - `src/Config/Config_Schema.js` (fuente de verdad actual para campos)
-- `docs/PRICING_AND_CONSTRAINTS_v2.md`
-- `docs/quotation-pipeline-flow.md` (flujo v2.1 legado)
+- `docs/legacy/` (documentación histórica v2/v2.4)
