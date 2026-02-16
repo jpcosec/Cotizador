@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visor de Esquema SF Lodge v3.2</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .mermaid { margin-top: 20px; text-align: center; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:hover { background: #0056b3; }
+        pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; display: none; }
+    </style>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Arquitectura de Datos SF Lodge (v3.2)</h1>
+        <p>Este diagrama se genera automáticamente desde <code>src/Config/Config_Schema.js</code>.</p>
+        
+        <button onclick="editInMermaidLive()">✏️ Editar / Experimentar en Mermaid Live</button>
+        
+        <div class="mermaid" id="graphDiv">
+            Cargando diagrama...
+        </div>
+        
+        <pre id="mermaidCode"></pre>
+    </div>
+
+    <script type="module">
+        import { DATA_SCHEMA } from './src/Config/Config_Schema.js';
+
+        function sanitizeType(rawType) {
+            const map = { PK: "string", FK: "string", MONEY: "float", DECIMAL: "float",
+                          JSON: "string", ENUM: "string", DATETIME: "string", DATE: "string",
+                          TIME: "string", INTEGER: "int", BOOLEAN: "bool", TEXT: "string" };
+            const base = rawType.replace(/\/NULL/g, "").replace(/PK\/FK/, "PK");
+            return map[base] || "string";
+        }
+
+        function sanitizeDesc(desc) {
+            return (desc || "")
+                .replace(/"/g, "'")
+                .replace(/[()]/g, "")
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function generateMermaidCode(schema) {
+            let code = "erDiagram\n";
+
+            Object.keys(schema).forEach(table => {
+                const def = schema[table];
+
+                code += `  ${table} {\n`;
+                def.columns.forEach(col => {
+                    code += `    ${sanitizeType(col.type)} ${col.name} "${sanitizeDesc(col.desc)}"\n`;
+                });
+                code += `  }\n\n`;
+
+                def.columns.forEach(col => {
+                    if (col.ref) {
+                        code += `  ${table} }|..|| ${col.ref} : "${col.name}"\n`;
+                    }
+                });
+            });
+            return code;
+        }
+
+        // Generar y Renderizar
+        const graphCode = generateMermaidCode(DATA_SCHEMA);
+        document.getElementById('graphDiv').innerHTML = graphCode;
+        document.getElementById('mermaidCode').innerText = graphCode; // Guardar texto crudo
+
+        // Exponer función global para el botón (ya que estamos en module)
+        window.editInMermaidLive = function() {
+            const code = document.getElementById('mermaidCode').innerText;
+            const state = {
+                code: code,
+                mermaid: { theme: 'default' },
+                autoSync: true,
+                updateDiagram: true
+            };
+            const json = JSON.stringify(state);
+            const data = btoa(json); // Base64 encode
+            window.open(`https://mermaid.live/edit#base64:${data}`, '_blank');
+        };
+    </script>
+</body>
+</html>

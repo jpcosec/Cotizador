@@ -1,123 +1,95 @@
-# Pipeline de Cálculo de Cotización v3.1 (Planning)
+# Pipeline de Cálculo de Cotización v3.2 (Planning)
 
-**Versión:** 3.1 (Planificación)  
-**Estado:** Definición Técnica (Motor de Reglas Unificado por Etapas)  
-**Objetivo:** Hacer explícito en qué etapa se ejecuta cada regla y cómo impacta UI, línea y total.
+**Versión:** 3.2
+**Fuente de verdad para tablas:** `src/Config/Config_Schema.js`
 
 ---
 
 ## 1. Contexto Global
 
-Inputs base del evento:
-- `Pax_Global`
-- `Fecha_Evento`
-- `Duracion_Dias`
-- Cliente y metadatos de cotización
+Inputs desde `COTIZACIONES`:
+- `Pax_Global`, `Fecha_Evento`, `Duracion_Dias`, `ID_Cliente`
 
 ---
 
 ## 2. Selección y Expansión de Ítems
 
 1. Usuario selecciona ítem.
-2. Se valida inmediatamente `RESTRICCION_UI` (reglas accionables en UI).
+2. Se validan reglas `RESTRICCION_UI`.
 3. Si es composición, se expande vía `COMPOSICION_KIT`.
-4. Se genera una o más `LINEA_DETALLE` iniciales.
+4. Se crea `LINEA_DETALLE` con inputs iniciales.
 
 ---
 
-## 3. Resolución de Defaults y Overrides (Q/T/P)
+## 3. Resolución de Defaults (Q/T/P)
 
-Para cada línea se resuelven valores finales de entrada:
+Para cada línea, resolver valores de entrada:
 
-- `Input_Cantidad` (`Q`)
-- `Input_Duracion_Min` (`T`)
-- `Input_Pax` (`P`)
+- **P (Pax):** `Override_Pax` → si vacío, `Pax_Global`
+- **Q (Cantidad):** `Override_Cantidad` → si vacío, calcular desde `Def_Unidades_Por_Pax` (item override > categoría) × P
+- **T (Duración):** `Override_Duracion_Min` → si vacío, `Categoría.Def_Duracion_Min`
 
-**Fuentes**: `CATEGORIA -> COMPOSICION -> ITEM -> USUARIO`  
-**Precedencia efectiva**: `USUARIO > ITEM > COMPOSICION > CATEGORIA`
-
-Reglas de etapa: `CANTIDAD_DEFAULT`.
+Reglas de etapa `CANTIDAD_DEFAULT` pueden modificar estos valores.
 
 ---
 
-## 4. Cálculo de Precio Base
+## 4. Resolución de Precio Base
 
-Aplicar fórmula base por línea:
-
-`Neto = Base + (P * Cp) + (T * Ct) + (Q * Cq)`
-
-Reglas de etapa: `PRECIO_BASE`.
-
-Aquí también se resuelven casos de tiempo especial (sobreturno, horarios, ventanas, etc.) si están modelados como reglas.
+1. Resolver perfil: `ITEM.ID_Perfil_Precio_Override` → si vacío, `CATEGORIA.ID_Perfil_Precio_Default`.
+2. Aplicar fórmula: `Neto = Base + (P * Cp) + (T * Ct) + (Q * Cq)`
+3. Solo usa las dimensiones activas según categoría (`Requiere_Pax`, `Requiere_Cant`, `Requiere_Tiempo`).
 
 ---
 
-## 5. Ajustes (Descuentos / Sobrecargos)
+## 5. Reglas de Ajuste
 
-Reglas de etapa:
-- `AJUSTE_LINEA`
-- `AJUSTE_GLOBAL`
+Etapas: `AJUSTE_LINEA`, `AJUSTE_GLOBAL`
 
-Las reglas pueden:
 - Modificar precio de línea.
-- Insertar líneas de ajuste.
-- Agregar automáticamente un ítem.
-
-Estos resultados deben volver como salida accionable para UI.
+- Insertar ajustes (sobreturno, recargos, descuentos automáticos).
 
 ---
 
-## 6. Restricciones de Canasta
+## 6. Ajustes Manuales del Usuario
 
-Reglas de etapa: `RESTRICCION_UI` / `RESTRICCION_FINAL`.
-
-Pueden:
-- Invalidar canasta (`ERROR`).
-- Emitir advertencias (`WARNING`).
-- Solicitar aprobación.
-
-Se evalúan al seleccionar ítems y al recalcular antes de guardar.
+Aplicar `AJUSTES_COTIZACION`:
+- Overrides de precio por línea o globales.
+- Descuentos manuales, recargos.
+- Se registra valor original vs valor nuevo.
 
 ---
 
-## 7. Impuestos (Final)
+## 7. Restricciones de Canasta
 
-Reglas de etapa: `IMPUESTO`.
+Etapa: `RESTRICCION_UI`
 
-Se aplican al final del cálculo sobre base neta consolidada y/o por línea.
-
-Persistir en línea:
-- `Impuesto_ID_Snapshot`
-- `Impuesto_Tasa_Snapshot`
-- `Impuesto_Monto`
+- `ERROR`: invalidar canasta.
+- `WARNING`: advertir al usuario.
+- Se evalúan al seleccionar ítems y antes de guardar.
 
 ---
 
-## 8. Agregación de Totales
+## 8. Impuestos (sobre total)
 
-En encabezado (`COTIZACIONES`):
-- `Total_Neto`
-- `Total_Impuestos`
-- `Total_Final`
-- `Desglose_Impuestos`
+Etapa: `IMPUESTO`
+
+Se aplican al neto consolidado (suma de todas las líneas + ajustes). No por línea.
 
 ---
 
-## 9. Contrato de Salida para UI
+## 9. Agregación y Cache
 
-Cada regla ejecutada puede generar eventos:
-- `ERROR`
-- `WARNING`
-- `INFO`
-- `APPLIED_ADJUSTMENT`
-- `AUTO_ADDED_ITEM`
+1. Calcular neto, impuestos, total final.
+2. Generar `CACHE_COTIZACION.Snapshot_JSON` con resultado completo.
+3. El frontend consume el snapshot directamente.
 
-Formato sugerido:
-- `ruleId`
-- `stage`
-- `target`
-- `message`
-- `delta`
+---
+
+## 10. Contrato de Salida para UI
+
+Cada regla genera: `{ ruleId, stage, target, message, delta }`
+
+Tipos: `ERROR`, `WARNING`, `INFO`, `APPLIED_ADJUSTMENT`, `AUTO_ADDED_ITEM`
 
 ---
 
@@ -125,20 +97,18 @@ Formato sugerido:
 
 ```mermaid
 graph TD
-    A[Contexto Global] --> B[Seleccion y Expansion de Items]
-    B --> C[Defaults y Overrides Q/T/P]
+    A[Contexto Global] --> B[Selección y Expansión]
+    B --> C[Defaults Q/T/P]
     C --> D[Precio Base]
-    D --> E[Ajustes Linea/Global]
-    E --> F[Restricciones de Canasta]
-    F --> G[Impuestos Finales]
-    G --> H[Agregacion Totales]
-    H --> I[Salida accionable para UI]
+    D --> E[Ajustes Automáticos]
+    E --> F[Ajustes Manuales Usuario]
+    F --> G[Restricciones Canasta]
+    G --> H[Impuestos sobre Total]
+    H --> I[Cache JSON Snapshot]
 ```
 
 ---
 
-## Referencias Activas
-- `docs/db_docs_v3_1.md` (modelo objetivo unificado)
-- `docs/db_docs_v3.md` (schema de transición actual)
-- `src/Config/Config_Schema.js` (implementación actual)
-- `docs/legacy/` (histórico v2)
+## Referencias
+- `src/Config/Config_Schema.js` (fuente de verdad)
+- `docs/db_docs_v3_1.md` (modelo conceptual)
