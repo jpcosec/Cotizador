@@ -4,6 +4,8 @@
 **Estado:** Definición para Implementación (Cascada de Defaults + Sobreturno)  
 **Fuente de Verdad:** `src/Config/Config_Schema.js`
 
+> Nota de transición: para la planificación vigente del motor unificado por etapas, revisar `docs/db_docs_v3_1.md`.
+
 ---
 
 ## 1. Datos Maestros

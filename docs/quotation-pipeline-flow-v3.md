@@ -1,201 +1,144 @@
-# Pipeline de Cálculo de Cotización v3.0
+# Pipeline de Cálculo de Cotización v3.1 (Planning)
 
-**Versión:** 3.0
-**Estado:** Definición Técnica (Orquestación Controller/Servicio)
-**Propósito:** Definir la secuencia completa de operaciones para recalcular una cotización con defaults en cascada, precios, descuentos, impuestos y validaciones.
-
----
-
-## 1. Contexto Global (Inicialización)
-Antes de procesar ítems, se construye el contexto base del evento.
-
-**Input:**
-- `Fecha_Evento` (inicio/fin)
-- `Pax_Global` (usuario)
-
-**Operaciones:**
-- Calcular `Duracion_Dias`.
-- Calcular `Es_Fin_De_Semana` (flag para reglas condicionales futuras).
+**Versión:** 3.1 (Planificación)  
+**Estado:** Definición Técnica (Motor de Reglas Unificado por Etapas)  
+**Objetivo:** Hacer explícito en qué etapa se ejecuta cada regla y cómo impacta UI, línea y total.
 
 ---
 
-## 2. Expansión de Kits (Composición)
-Si se selecciona un pack/kit, se expande a líneas operativas.
+## 1. Contexto Global
 
-**Input:**
-- Lista de ítems seleccionados por el usuario.
-
-**Operaciones:**
-- Consultar `COMPOSICION_KIT`.
-- Si es pack, traer hijos.
-- Aplicar `Tipo_Precio`:
-- `ABSORBIDO`: línea hija valorizada a 0.
-- `SUMAR`: línea hija valorizada con su regla normal.
-
-**Output:**
-- Lista plana de líneas operativas.
+Inputs base del evento:
+- `Pax_Global`
+- `Fecha_Evento`
+- `Duracion_Dias`
+- Cliente y metadatos de cotización
 
 ---
 
-## 3. Resolución de Cantidades y Tiempos (Cascada v3.0)
-Para cada línea, resolver los valores de entrada al motor de precios.
+## 2. Selección y Expansión de Ítems
 
-### 3.1 Resolución de Cantidad (`Q`)
-**Prioridad de herencia (3 capas):**
-1. `ITEM_CATALOGO.ID_Regla_Cant_Override` + `Factor_Cant_Override`.
-2. `CATEGORIAS.ID_Regla_Cant_Default` + `Factor_Cant_Default`.
-3. Edición manual del usuario si `Permite_Editar_Cantidad = TRUE`.
-
-**Ejecución de reglas (`REGLAS_CALCULO_CANTIDAD`):**
-- `FIJO`: cantidad fija (normalmente `1` o valor base definido).
-- `POR_PAX`: `Q = Pax`.
-- `FACTOR_PAX`: `Q = Pax_Global * Factor`.
-- `POR_TIEMPO`: `Q` en función de la duración (`T`).
-
-### 3.2 Resolución de Tiempo (`T`)
-**Prioridad recomendada:**
-1. Override manual del usuario si `Permite_Editar_Duracion = TRUE`.
-2. `ITEM_CATALOGO.Default_Duracion_Min`.
-3. `CATEGORIAS.Def_Duracion_Min`.
-
-**Persistencia:** guardar `T` final en `LINEA_DETALLE.Input_Duracion_Min`.
+1. Usuario selecciona ítem.
+2. Se valida inmediatamente `RESTRICCION_UI` (reglas accionables en UI).
+3. Si es composición, se expande vía `COMPOSICION_KIT`.
+4. Se genera una o más `LINEA_DETALLE` iniciales.
 
 ---
 
-## 4. Cálculo de Precio Neto (Pricing Engine)
-Con `P`, `T`, `Q` y la regla de precio resuelta, calcular valores netos.
+## 3. Resolución de Defaults y Overrides (Q/T/P)
 
-**Resolución de regla de precio:**
-1. `ITEM_CATALOGO.ID_Regla_Precio` (override de ítem).
-2. `CATEGORIAS.ID_Regla_Precio_Default` (herencia de categoría).
+Para cada línea se resuelven valores finales de entrada:
 
-**Regla base:**
+- `Input_Cantidad` (`Q`)
+- `Input_Duracion_Min` (`T`)
+- `Input_Pax` (`P`)
 
-`Total_Neto = Base + (P * Costo_Unitario_Pax) + (T * Costo_Unitario_Tiempo) + (Q * Costo_Unitario_Item)`
+**Fuentes**: `CATEGORIA -> COMPOSICION -> ITEM -> USUARIO`  
+**Precedencia efectiva**: `USUARIO > ITEM > COMPOSICION > CATEGORIA`
 
-**Sobreturno (Tiered Pricing, opcional):**
-Si `T > Tiempo_Base_Incluido`, aplicar:
-
-`Extra = (T - Tiempo_Base_Incluido) * Costo_Unitario_Tiempo_Extra`
-
-`Total_Neto = Total_Neto + Extra`
-
-**Output por línea:**
-- `Precio_Unitario_Calc`
-- `Precio_Total_Linea` (neto)
+Reglas de etapa: `CANTIDAD_DEFAULT`.
 
 ---
 
-## 5. Motor de Descuentos (Ajuste)
-Aplicar reglas automáticas o manuales sobre el carrito valorizado.
+## 4. Cálculo de Precio Base
 
-**Input:**
-- Líneas con precio neto.
+Aplicar fórmula base por línea:
 
-**Operaciones:**
-- Consultar `REGLAS_DESCUENTO`.
-- Evaluar triggers.
-- Calcular monto de descuento (`FIJO`, `POR_PAX`, `PORCENTAJE`).
-- Insertar línea negativa en `LINEA_DETALLE` con:
-- `Es_Descuento = true`
-- `ID_Regla_Descuento` referenciado.
+`Neto = Base + (P * Cp) + (T * Ct) + (Q * Cq)`
+
+Reglas de etapa: `PRECIO_BASE`.
+
+Aquí también se resuelven casos de tiempo especial (sobreturno, horarios, ventanas, etc.) si están modelados como reglas.
 
 ---
 
-## 6. Cálculo de Impuestos (Tax Engine)
-Calcular impuesto por línea y persistir snapshot.
+## 5. Ajustes (Descuentos / Sobrecargos)
 
-**Prioridad de tasa:**
-1. `ITEM_CATALOGO.ID_Impuesto`.
-2. `CATEGORIAS.Def_Impuesto_ID`.
+Reglas de etapa:
+- `AJUSTE_LINEA`
+- `AJUSTE_GLOBAL`
 
-**Operación:**
+Las reglas pueden:
+- Modificar precio de línea.
+- Insertar líneas de ajuste.
+- Agregar automáticamente un ítem.
 
-`Impuesto_Monto = Precio_Total_Linea * Tasa`
+Estos resultados deben volver como salida accionable para UI.
 
-**Persistencia en línea:**
-- `Impuesto_Monto`
+---
+
+## 6. Restricciones de Canasta
+
+Reglas de etapa: `RESTRICCION_UI` / `RESTRICCION_FINAL`.
+
+Pueden:
+- Invalidar canasta (`ERROR`).
+- Emitir advertencias (`WARNING`).
+- Solicitar aprobación.
+
+Se evalúan al seleccionar ítems y al recalcular antes de guardar.
+
+---
+
+## 7. Impuestos (Final)
+
+Reglas de etapa: `IMPUESTO`.
+
+Se aplican al final del cálculo sobre base neta consolidada y/o por línea.
+
+Persistir en línea:
+- `Impuesto_ID_Snapshot`
 - `Impuesto_Tasa_Snapshot`
+- `Impuesto_Monto`
 
 ---
 
-## 7. Agregación de Totales (Encabezado)
-Consolidar resultados en `COTIZACIONES`.
+## 8. Agregación de Totales
 
-**Operaciones:**
-- `Total_Neto` = suma de `Precio_Total_Linea`.
-- `Total_IVA` = suma de líneas con impuesto IVA.
-- `Total_Impuestos_Adic` = suma de líneas con impuestos adicionales (ILA, otros).
-- `Total_Final` = `Total_Neto + Total_IVA + Total_Impuestos_Adic`.
-- `Desglose_Impuestos` = snapshot JSON por tipo de impuesto.
+En encabezado (`COTIZACIONES`):
+- `Total_Neto`
+- `Total_Impuestos`
+- `Total_Final`
+- `Desglose_Impuestos`
 
 ---
 
-## 8. Validación Final (Constraint Validator)
-Validación antes de guardar/finalizar.
+## 9. Contrato de Salida para UI
 
-**Input:**
-- Cotización completa calculada.
+Cada regla ejecutada puede generar eventos:
+- `ERROR`
+- `WARNING`
+- `INFO`
+- `APPLIED_ADJUSTMENT`
+- `AUTO_ADDED_ITEM`
 
-**Operaciones:**
-- Consultar `RESTRICCION`.
-- Verificar mínimos (pax, venta).
-- Verificar dependencias (`REQUIERE`).
-- Verificar incompatibilidades (`EXCLUYE`).
-
-**Output:**
-- Lista de `ERROR` y `WARNING`.
-- Si existen `ERROR`, abortar guardado.
-
----
-
-## Orden Obligatorio del Pipeline
-1. Contexto
-2. Composición
-3. Resolución de drivers (`Q`, `T`, `P`)
-4. Precio neto
-5. Descuentos
-6. Impuestos
-7. Totales
-8. Validación
+Formato sugerido:
+- `ruleId`
+- `stage`
+- `target`
+- `message`
+- `delta`
 
 ---
 
-## Diagrama de Flujo (Operaciones)
+## Diagrama de Etapas
 
 ```mermaid
 graph TD
-    A[1. Contexto Global\nFecha + Pax + duración] --> B[2. Expansión Kits\nCOMPOSICION_KIT]
-    B --> C[3. Cascada de Defaults\nQ y T]
-    C --> D[4. Pricing Engine\nTotal Neto]
-    D --> E[5. Discount Engine\nLíneas negativas]
-    E --> F[6. Tax Engine\nImpuesto por línea]
-    F --> G[7. Agregación\nTotales encabezado]
-    G --> H[8. Constraint Validator\nERROR/WARNING]
-    H --> I{¿Errores bloqueantes?}
-    I -->|Sí| J[Abortar guardado]
-    I -->|No| K[Guardar cotización]
+    A[Contexto Global] --> B[Seleccion y Expansion de Items]
+    B --> C[Defaults y Overrides Q/T/P]
+    C --> D[Precio Base]
+    D --> E[Ajustes Linea/Global]
+    E --> F[Restricciones de Canasta]
+    F --> G[Impuestos Finales]
+    G --> H[Agregacion Totales]
+    H --> I[Salida accionable para UI]
 ```
 
 ---
 
-## Diagrama de Triple Capa (Cantidad)
-
-```mermaid
-graph TD
-    GP[Pax Evento] --> C1[Nivel 1: Categoria\nID_Regla_Cant_Default]
-    C1 --> C2{Item tiene override?}
-    C2 -->|Sí| I1[Nivel 2: Item\nID_Regla_Cant_Override]
-    C2 -->|No| CATR[Usar regla de categoria]
-    I1 --> CALC[Calcular Q]
-    CATR --> CALC
-    CALC --> U1[Nivel 3: Usuario\nPermite_Editar_Cantidad]
-    U1 --> OUT[Input_Cantidad final]
-```
-
----
-
-## Referencias
-- `docs/db_docs_v3.md` (diccionario vigente v3)
-- `src/Config/Config_Schema.js` (fuente de verdad actual para campos)
-- `docs/legacy/` (documentación histórica v2/v2.4)
+## Referencias Activas
+- `docs/db_docs_v3_1.md` (modelo objetivo unificado)
+- `docs/db_docs_v3.md` (schema de transición actual)
+- `src/Config/Config_Schema.js` (implementación actual)
+- `docs/legacy/` (histórico v2)
