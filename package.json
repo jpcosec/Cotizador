@@ -1,0 +1,18 @@
+{
+  "name": "claps-codelab-pricing",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SF Lodge quotation pricing pipeline",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "node scripts/demo.js",
+    "interactive": "node scripts/interactive.js"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "json-logic-js": "^2.0.5"
+  }
+}

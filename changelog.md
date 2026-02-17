@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.0] - 2026-02-17 — Pricing Engine Core
+
+### Added
+- **Project setup:** Node.js + Vitest (ES modules, `test` and `test:watch` scripts)
+- **InMemoryStore** (`src/DataStore/InMemoryStore.js`): table-based in-memory store with `seed`, `insert`, `findById`, `findAll`, `findByFK`, `all`
+- **Test fixtures** from real SF Lodge Excel catalog (20+ items, 7 categories, 21 pricing profiles)
+- **Pipeline stages:**
+  - `01_context.js` — create quotation context, update pax
+  - `02_expand.js` — recursive composition/pack expansion
+  - `03_defaults.js` — Q/T/P dimension resolution with inheritance chain
+  - `04_pricing.js` — universal formula `Neto = Base + P×Cp + T×Ct + Q×Cq`
+  - `05_adjustments.js` — automatic line/global adjustments (overtime surcharge)
+  - `06_manual_adjustments.js` — user overrides (price override, line discount)
+  - `07_taxes.js` — tax calculation (IVA 19%)
+  - `rules_engine.js` — shared condition evaluator + action executor
+  - `pipeline.js` — full recalculation orchestrator
+  - `add_item.js` — user-facing add-to-cart with expand→defaults→price flow
+- **71 tests** across 13 files (unit + integration), all passing
+- **Plan docs** (`docs/plan/step_01.md` through `step_14.md`)
+
+---
+
 ## [Unreleased] - v2 Design Phase
 
 ### 2026-02-16
