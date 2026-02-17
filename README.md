@@ -30,9 +30,10 @@ src/
 │   ├── expand.js                        # Composition/pack expansion
 │   ├── defaults.js                      # Q/T/P defaults resolution
 │   ├── pricing.js                       # Base price: Neto = Base + P×Cp + T×Ct + Q×Cq
-│   ├── adjustments.js                   # Automatic line/global adjustments
+│   ├── adjustments.js                   # Automatic line/global adjustments (with rules)
 │   ├── manual.js                        # Manual user overrides
-│   └── taxes.js                         # Tax calculation
+│   ├── taxes.js                         # Tax calculation (with rules)
+│   └── pipeline.js                      # Orchestration: item-level & full-basket recalc
 ├── RulesEngine/                         # Pluggable rules engine
 │   ├── RulesEngine.js                   # Stage/hook filtering + evaluation
 │   └── actions/                         # Self-registering action handlers
