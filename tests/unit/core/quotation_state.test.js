@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { QuotationState, resetLineSeq } from '../../../src/Core/QuotationState.js';
+import { QuotationState, resetLineSeq } from '../../../mock/Core/QuotationState.js';
 
 describe('QuotationState', () => {
   beforeEach(() => resetLineSeq());

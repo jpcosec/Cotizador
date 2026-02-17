@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.0] - 2026-02-17 — Event-Driven Architecture Rewrite
+
+### Changed
+- **Full rewrite** from linear pipeline to event-driven architecture
+- **Pricing modules** (`src/Pricing/`) — independent pure functions ported from pipeline stages
+- **Rules engine** (`src/RulesEngine/`) — pluggable action registry replacing monolithic switch
+- **Config_Schema** — added `Hook` column and `SET_DEFAULT` action type to REGLAS_NEGOCIO
+
+### Added
+- `src/Pricing/` — expand, defaults, pricing, adjustments, manual, taxes (pure, no framework dependency)
+- `src/RulesEngine/` — registry pattern with self-registering action handlers (9 actions)
+- `src/Core/` — AbstractEvent (lifecycle hooks), EventBus, AbstractScenario, QuotationState
+- `src/Events/quotation/` — 12 event orchestrators (init, basket, finalization steps)
+- `src/Scenarios/Quotation.js` — 3-step scenario (init → basket → finalization)
+- 117 tests across 20 files (unit + integration), all passing
+- Numerical parity verified against v0.1.0 (same dollar amounts)
+- Event history / audit log via EventBus
+- Step gating — events validated against current scenario step
+
+### Removed
+- `src/Pipeline/` — replaced by `src/Pricing/` + event orchestrators
+- Old pipeline tests (replaced by new unit/pricing/ and unit/events/ tests)
+
+### Architecture note
+State management (events, scenarios, bus) will migrate to `claps_codelab_xstate`. The event layer here serves as a reference/mock implementation.
+
+---
+
 ## [0.1.0] - 2026-02-17 — Pricing Engine Core
 
 ### Added

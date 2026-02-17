@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AbstractEvent } from '../../../src/Core/AbstractEvent.js';
+import { AbstractEvent } from '../../../mock/Core/AbstractEvent.js';
 
 class SuccessEvent extends AbstractEvent {
   constructor(payload) { super('SuccessEvent', payload); }

@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AddItem } from '../../../../src/Events/quotation/basket/AddItem.js';
-import { UpdateItem } from '../../../../src/Events/quotation/basket/UpdateItem.js';
-import { RemoveItem } from '../../../../src/Events/quotation/basket/RemoveItem.js';
-import { ChangePax } from '../../../../src/Events/quotation/basket/ChangePax.js';
-import { Recalculate } from '../../../../src/Events/quotation/basket/Recalculate.js';
-import { ApplyDiscount } from '../../../../src/Events/quotation/basket/ApplyDiscount.js';
-import { OverridePrice } from '../../../../src/Events/quotation/basket/OverridePrice.js';
-import { AddSurcharge } from '../../../../src/Events/quotation/basket/AddSurcharge.js';
-import { QuotationState, resetLineSeq } from '../../../../src/Core/QuotationState.js';
+import { AddItem } from '../../../../mock/Events/quotation/basket/AddItem.js';
+import { UpdateItem } from '../../../../mock/Events/quotation/basket/UpdateItem.js';
+import { RemoveItem } from '../../../../mock/Events/quotation/basket/RemoveItem.js';
+import { ChangePax } from '../../../../mock/Events/quotation/basket/ChangePax.js';
+import { Recalculate } from '../../../../mock/Events/quotation/basket/Recalculate.js';
+import { ApplyDiscount } from '../../../../mock/Events/quotation/basket/ApplyDiscount.js';
+import { OverridePrice } from '../../../../mock/Events/quotation/basket/OverridePrice.js';
+import { AddSurcharge } from '../../../../mock/Events/quotation/basket/AddSurcharge.js';
+import { QuotationState, resetLineSeq } from '../../../../mock/Core/QuotationState.js';
 import { createSeededStore } from '../../../helpers/store_factory.js';
 
 function freshState(pax = 25) {

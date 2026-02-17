@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { EventBus } from '../../../src/Core/EventBus.js';
-import { AbstractEvent } from '../../../src/Core/AbstractEvent.js';
-import { AbstractScenario } from '../../../src/Core/AbstractScenario.js';
-import { QuotationState, resetLineSeq } from '../../../src/Core/QuotationState.js';
+import { EventBus } from '../../../mock/Core/EventBus.js';
+import { AbstractEvent } from '../../../mock/Core/AbstractEvent.js';
+import { AbstractScenario } from '../../../mock/Core/AbstractScenario.js';
+import { QuotationState, resetLineSeq } from '../../../mock/Core/QuotationState.js';
 
 class SetValueEvent extends AbstractEvent {
   constructor(value) {

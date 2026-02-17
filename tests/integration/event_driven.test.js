@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { createEventBus } from '../helpers/event_bus_factory.js';
-import { LoadCatalog } from '../../src/Events/quotation/init/LoadCatalog.js';
-import { CreateQuotation } from '../../src/Events/quotation/init/CreateQuotation.js';
-import { AddItem } from '../../src/Events/quotation/basket/AddItem.js';
-import { ChangePax } from '../../src/Events/quotation/basket/ChangePax.js';
-import { Recalculate } from '../../src/Events/quotation/basket/Recalculate.js';
-import { Validate } from '../../src/Events/quotation/finalization/Validate.js';
-import { AdvanceStep } from '../../src/Events/quotation/AdvanceStep.js';
+import { LoadCatalog } from '../../mock/Events/quotation/init/LoadCatalog.js';
+import { CreateQuotation } from '../../mock/Events/quotation/init/CreateQuotation.js';
+import { AddItem } from '../../mock/Events/quotation/basket/AddItem.js';
+import { ChangePax } from '../../mock/Events/quotation/basket/ChangePax.js';
+import { Recalculate } from '../../mock/Events/quotation/basket/Recalculate.js';
+import { Validate } from '../../mock/Events/quotation/finalization/Validate.js';
+import { AdvanceStep } from '../../mock/Events/quotation/AdvanceStep.js';
 
 describe('Integration: Corporate Seminar (25 pax, EventBus)', () => {
   const bus = createEventBus({ paxGlobal: 25, clienteId: 'CLI_CORP' });

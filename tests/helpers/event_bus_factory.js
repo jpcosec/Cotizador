@@ -1,6 +1,6 @@
-import { EventBus } from '../../src/Core/EventBus.js';
-import { QuotationState, resetLineSeq } from '../../src/Core/QuotationState.js';
-import { QuotationScenario } from '../../src/Scenarios/Quotation.js';
+import { EventBus } from '../../mock/Core/EventBus.js';
+import { QuotationState, resetLineSeq } from '../../mock/Core/QuotationState.js';
+import { QuotationScenario } from '../../mock/Scenarios/Quotation.js';
 import { createSeededStore } from './store_factory.js';
 
 export function createEventBus(opts = {}) {

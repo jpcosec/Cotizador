@@ -1,12 +1,12 @@
-import { EventBus } from '../src/Core/EventBus.js';
-import { QuotationState, resetLineSeq } from '../src/Core/QuotationState.js';
-import { QuotationScenario } from '../src/Scenarios/Quotation.js';
+import { EventBus } from '../mock/Core/EventBus.js';
+import { QuotationState, resetLineSeq } from '../mock/Core/QuotationState.js';
+import { QuotationScenario } from '../mock/Scenarios/Quotation.js';
 import { createSeededStore } from '../tests/helpers/store_factory.js';
 
-import { AdvanceStep } from '../src/Events/quotation/AdvanceStep.js';
-import { AddItem } from '../src/Events/quotation/basket/AddItem.js';
-import { ChangePax } from '../src/Events/quotation/basket/ChangePax.js';
-import { Recalculate } from '../src/Events/quotation/basket/Recalculate.js';
+import { AdvanceStep } from '../mock/Events/quotation/AdvanceStep.js';
+import { AddItem } from '../mock/Events/quotation/basket/AddItem.js';
+import { ChangePax } from '../mock/Events/quotation/basket/ChangePax.js';
+import { Recalculate } from '../mock/Events/quotation/basket/Recalculate.js';
 
 const CYAN = '\x1b[36m', GREEN = '\x1b[32m', YELLOW = '\x1b[33m', DIM = '\x1b[2m';
 const BOLD = '\x1b[1m', RESET = '\x1b[0m';

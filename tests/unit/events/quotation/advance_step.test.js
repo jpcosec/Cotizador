@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AdvanceStep } from '../../../../src/Events/quotation/AdvanceStep.js';
-import { EventBus } from '../../../../src/Core/EventBus.js';
-import { AbstractScenario } from '../../../../src/Core/AbstractScenario.js';
-import { QuotationState, resetLineSeq } from '../../../../src/Core/QuotationState.js';
+import { AdvanceStep } from '../../../../mock/Events/quotation/AdvanceStep.js';
+import { EventBus } from '../../../../mock/Core/EventBus.js';
+import { AbstractScenario } from '../../../../mock/Core/AbstractScenario.js';
+import { QuotationState, resetLineSeq } from '../../../../mock/Core/QuotationState.js';
 
 const steps = [
   { name: 'init', allows: ['LoadCatalog', 'CreateQuotation'] },

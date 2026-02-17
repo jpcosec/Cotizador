@@ -1,10 +1,10 @@
-# SF Lodge Cotizador — Pricing Engine
+# SF Lodge — Pricing Engine
 
-> **Worktree** of the main SF Lodge Cotizador repo, focused exclusively on **core business logic and pricing management**. Frontend, data-layer integrations (SheetDB), and legacy code live in the parent repository.
+> Pure pricing calculation library. State management and event orchestration live in [`claps_codelab_xstate`](../claps_codelab_xstate/).
 
 ## Project Status
 
-**v0.1.0** — Pricing engine core complete (73 tests passing).
+**v0.2.0** — Event-driven rewrite complete (117 tests passing).
 
 ## Quick Start
 
@@ -23,27 +23,23 @@ All table and model definitions: [`src/Config/Config_Schema.js`](src/Config/Conf
 ## Directory Structure
 
 ```
-/
-├── src/
-│   ├── Config/Config_Schema.js        # v3.2 schema (single source of truth)
-│   ├── DataStore/InMemoryStore.js      # In-memory table store
-│   └── Pipeline/
-│       ├── 01_context.js              # Quotation context creation
-│       ├── 02_expand.js               # Composition/pack expansion
-│       ├── 03_defaults.js             # Q/T/P defaults resolution
-│       ├── 04_pricing.js              # Base price calculation
-│       ├── 05_adjustments.js          # Automatic adjustments
-│       ├── 06_manual_adjustments.js   # Manual user overrides
-│       ├── 07_taxes.js                # Tax calculation
-│       ├── rules_engine.js            # Shared condition evaluator
-│       ├── pipeline.js                # Full recalculation orchestrator
-│       └── add_item.js               # Add-to-cart entry point
-├── tests/                             # 73 tests (unit + integration)
-├── scripts/                           # demo.js, interactive.js
-├── docs/                              # Business logic docs
-│   ├── pricing-engine.md              # How the engine works (start here)
-│   └── plan/                          # Step-by-step implementation plan
-└── changelog.md
+src/
+├── Config/Config_Schema.js              # v3.2 schema (single source of truth)
+├── DataStore/InMemoryStore.js           # In-memory table store
+├── Pricing/                             # Library API — pure calculation modules
+│   ├── expand.js                        # Composition/pack expansion
+│   ├── defaults.js                      # Q/T/P defaults resolution
+│   ├── pricing.js                       # Base price: Neto = Base + P×Cp + T×Ct + Q×Cq
+│   ├── adjustments.js                   # Automatic line/global adjustments
+│   ├── manual.js                        # Manual user overrides
+│   └── taxes.js                         # Tax calculation
+├── RulesEngine/                         # Pluggable rules engine
+│   ├── RulesEngine.js                   # Stage/hook filtering + evaluation
+│   └── actions/                         # Self-registering action handlers
+└── mock/                                # Event-driven layer (reference for xstate)
+    ├── Core/                            # AbstractEvent, EventBus, Scenario, State
+    ├── Events/quotation/                # Event orchestrators
+    └── Scenarios/Quotation.js           # Step definitions
 ```
 
 ## Documentation
