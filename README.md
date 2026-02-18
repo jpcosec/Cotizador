@@ -1,68 +1,87 @@
-# SF Lodge Cotizador
+# SF Lodge Quotation System — Database Layer
 
-Quotation system for SF Lodge (events and catering venue). Built on Google Apps Script with Google Sheets as the data layer.
+**Purpose:** Persistence layer with pluggable adapters for the quotation system.
 
-**Status:** v2 Architectural Design Complete - Ready for Phase 1 Implementation
-
----
-
-## Quick Start: Understanding the System
-
-Start here to understand how everything works:
-
-1. **[worktrees.md](worktrees.md)** - Complete architecture (START HERE!)
-   - 5-worktree ecosystem overview
-   - 8 Mermaid diagrams showing data flow and module interactions
-   - Quotation flow narrative (8 steps from user click to PDF)
-   - Technical patterns used throughout
-
-2. **[TECHNICAL_DEPENDENCIES_AND_MOCKING.md](TECHNICAL_DEPENDENCIES_AND_MOCKING.md)** - Production specs
-   - External libraries: ONLY xstate@4.38 + alpinejs@3.12
-   - Rollup IIFE bundling for GAS
-   - Message contracts between modules
-   - Mock implementations for testing
-   - Bundle size (~55KB gzipped)
-
-3. **[DATABASE_ABSTRACTION_STRATEGY.md](DATABASE_ABSTRACTION_STRATEGY.md)** - Data layer design
-   - IStore interface (pluggable stores)
-   - 3 adapters: GasSheetStore, InMemoryStore, FileStore
-   - Dependency injection pattern
-
-4. **[DATABASE_SCHEMA_DRIVEN_MODELS.md](DATABASE_SCHEMA_DRIVEN_MODELS.md)** - Model generation
-   - ModelFactory approach (auto-generate all 11 models)
-   - Schema as single source of truth
-   - Runtime introspection strategy
+**Status:** ✅ Phase 1 Complete — 3 tests passing (103ms)
 
 ---
 
-## Architecture Overview
+## Quick Start
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Final: GAS App (IIFE Bundle)                    │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↑ (Rollup)
-
-┌──────────────────┬───────────────────────┬──────────────────────┐
-│ @claps/database  │  @claps/xstate        │  @claps/frontend     │
-│ (Stores+Models)  │  (Orchestration)      │  (Alpine.js)         │
-└──────────────────┴───────────────────────┴──────────────────────┘
-                              ↑
-                  (Depends on all 3 ↓)
-
-           ┌────────────────────────────┐
-           │    @claps/pricing          │
-           │ (Pure calculation engine)  │
-           └────────────────────────────┘
+```bash
+cd packages/database
+npm test                    # Run 3 integration tests
 ```
 
-**Key characteristics:**
-- ✅ **Zero external dependencies** except xstate + alpinejs
-- ✅ **Pure functions** for pricing (no side effects)
-- ✅ **Pluggable stores** (test with InMemory, deploy with GasSheetStore)
-- ✅ **Event-driven** (UI dispatches events, XState updates state)
-- ✅ **Fully testable** in isolation (no GAS API needed for tests)
-- ✅ **Single bundle** for GAS deployment (~55KB gzipped)
+## What This Worktree Does
+
+This is the **database/persistence layer** of the quotation system:
+
+- **IStore interface** - Abstract storage contract
+- **Pluggable adapters** - InMemory, FileStore, GasSheetStore
+- **Model factory** - Auto-generates all 11 models from schema
+- **Zero external dependencies** - Pure JavaScript
+- **Fully testable** - Works without Google Sheets API
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `packages/database/src/IStore.js` | Abstract storage interface (8 methods) |
+| `packages/database/src/ModelFactory.js` | Auto-generates models from schema |
+| `packages/database/src/createDatabase.js` | Factory function (adapter selection) |
+| `packages/database/src/stores/InMemoryStore.js` | Testing (fast, no I/O) |
+| `packages/database/src/stores/FileStore.js` | Development (local JSON) |
+| `packages/database/src/stores/GasSheetStore.js` | Production (Google Sheets) |
+| `packages/database/test/database.test.js` | 3 integration tests |
+
+## Documentation
+
+See root `/CLAUDE.md` and `claps_codelab/CLAUDE.md` for complete architecture documentation:
+- [DATABASE_ABSTRACTION_STRATEGY.md](../claps_codelab/DATABASE_ABSTRACTION_STRATEGY.md) - IStore design
+- [DATABASE_SCHEMA_DRIVEN_MODELS.md](../claps_codelab/DATABASE_SCHEMA_DRIVEN_MODELS.md) - Model generation
+- [worktrees.md](../claps_codelab/worktrees.md) - Full ecosystem overview
+
+## Architecture
+
+```
+┌──────────────────────────────────────┐
+│  XState Machine                      │
+│  Owns all DB access                  │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│  IStore Interface (THIS LAYER)       │
+│  - create(), findById(), update()    │
+│  - delete(), find(), deleteById()    │
+└──────────────┬───────────────────────┘
+               │
+       ┌───────┴────────┐
+       ▼                ▼
+   ┌─────────┐      ┌──────────┐
+   │InMemory │      │GasSheet  │
+   │Store    │      │Store     │
+   │(Test)   │      │(Prod)    │
+   └─────────┘      └──────────┘
+```
+
+## Usage Example
+
+```javascript
+import { createDatabase } from './src/createDatabase.js';
+
+// Use any adapter
+const db = createDatabase({ adapter: 'memory' });
+
+// All 11 models auto-generated
+const Cliente = db.models.CLIENTES;
+
+// Same API works with all adapters
+const created = Cliente.create({ Nombre_Empresa: 'Acme' });
+const found = Cliente.findById(created.ID_Cliente);
+const updated = Cliente.update({ ...found, Email: 'new@email' });
+```
 
 ---
 
