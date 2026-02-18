@@ -1,0 +1,190 @@
+Categoria,Item,Horario,Valor Original,Valor Fijo,Valor por persona,Detalle de servicios.
+"Arriendo de salones, audios y comedores","Salon Chinook uso diurno, hasta 320 personas ",8:30-19:30,$385.000,"385.000,00","0,00","Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. Incluye arranque trifasico para productoras (Definir montaje)"
+"Arriendo de salones, audios y comedores","Salon Coho uso diurno, hasta 120 personas ",8:30-19:30,$330.000,"330.000,00","0,00","Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)"
+"Arriendo de salones, audios y comedores","Salon Fario uso diurno, hasta 70 personas ",8:30-19:30,$242.000,"242.000,00","0,00","Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)"
+"Arriendo de salones, audios y comedores","Salón Arcoiris uso diurno, hasta 70 personas ",8:30-19:30,$209.000,"209.000,00","0,00","Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)"
+"Arriendo de salones, audios y comedores","Directorio uso diurno para 16 personas, mesa imperial",8:30-19:30,$319.000,"319.000,00","0,00","Equipado con TV, papelógrafo, aire acondicionado y calefacción, 8 h Día."
+"Arriendo de salones, audios y comedores",Domo para 240 personas ,8:30-19:30,$550.000,"550.000,00","0,00",Domo rústico incluye arranque trifasico para productoras.
+"Arriendo de salones, audios y comedores",Cambios de montaje  Chinook durante el arriendo de salon.,,$150.000,"150.000,00","0,00",Cambio de montaje durante la jornada de trabajo
+"Arriendo de salones, audios y comedores",Cambios de montaje Coho durante el arriendo de salon.,,$100.000,"100.000,00","0,00",Cambio de montaje durante la jornada de trabajo
+"Arriendo de salones, audios y comedores",Cambios de montaje  Farios y Arcoiris durante el arriendo de salon.,,$80.000,"80.000,00","0,00",Cambio de montaje durante la jornada de trabajo
+"Arriendo de salones, audios y comedores",Comedor VIP y terraza (2do piso) para 80 personas 8 horas uso diurno,,$365.000,"365.000,00","0,00",Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.
+"Arriendo de salones, audios y comedores","Comedor truchita o ex pool y terraza para 35 personas, 8 horas uso diurno",,$250.000,"250.000,00","0,00",Comedor exclusivo para maximo  35 personas
+"Arriendo de salones, audios y comedores","Arriendo pergola con parrilla para 16 personas, 8 horas uso diurno",,$250.000,"250.000,00","0,00",Pergola exclusiva con parrilla
+"Arriendo de salones, audios y comedores","Comedor VIP y terraza (2do piso) para 70 personas 1,5 hrs / AM O PM (ALMUERZO O CENA)",,$265.000,"265.000,00","0,00",Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.
+"Arriendo de salones, audios y comedores","Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)",,$150.000,"150.000,00","0,00",Comedor exclusivo para maximo  35 personas
+"Arriendo de salones, audios y comedores","Arriendo pergola con parrilla para 16 personas, 4 horas",,$150.000,"150.000,00","0,00",Pergola exclusiva con parrilla
+"Arriendo de salones, audios y comedores","Arriendo pergola picadero solo con autorizacion, 2 dias antes.",,$100.000,"100.000,00","0,00",Arriendo por una pergola techada en el sector del picadero.
+"Arriendo de salones, audios y comedores",Tecnica para salones uso diurno., ,$165.000,"165.000,00","0,00","Data, amplificacion, 2 microfonos para uso en el dia."
+"Arriendo de salones, audios y comedores",Audio 4 horas en la noche,,$300.000,"300.000,00","0,00","Data, amplificacion, 2 microfonos para uso noche."
+"Arriendo de salones, audios y comedores",Amplificacion exterior,,$200.000,"200.000,00","0,00",2 parlantes con microfono ubicado en exteriores cercanos a algun punto electrico.
+"Arriendo de salones, audios y comedores",Microfono inalambrico adicional,,$50.000,"50.000,00","0,00",
+"Arriendo de salones, audios y comedores",Microfono solapa adicional,,$50.000,"50.000,00","0,00",
+"Arriendo de salones, audios y comedores",Operador para audio 8 hrs,8:30-18:30,$140.000,"140.000,00","0,00",Operador de audio para salon diurno. Se debe agregar tecnica que desee operar.
+"Arriendo de salones, audios y comedores",Papelografo adicional para el salon,,$30.000,"30.000,00","0,00",Total en el hotel 8
+Coffes y servicios relacionado a salones,Coffee Básico,,$6.380,"6.380,00","0,00","Café, té, agua, jugo de pulpa, 1 tapadito, 1 top de masa de hoja+ 1 mini muffin o 1 galleta"
+Coffes y servicios relacionado a salones,Coffee Intermedio  ,,$10.395,"10.395,00","0,00","Café, té, agua, jugo de pulpa, 1 tapadito, 1 mini muffin, 1 facturita, 1 galleta y  una fruta."
+Coffes y servicios relacionado a salones,Coffe Full,,$16.500,"16.500,00","0,00","Café de grano, té, jugo de pulpa, 2 tapaditos, 2 mini muffin , 2 galletas, 1 facturita y una brocheta de fruta."
+Coffes y servicios relacionado a salones,Coffe Light,,$10.395,"10.395,00","0,00","Café, té, agua, jugo de pulpa, yogurt natural con granola y fruta, 1 tapadito integral, una brocheta de fruta"
+Coffes y servicios relacionado a salones,Adicionar coffe dentro del Salon,,$3.500,"3.500,00","0,00",Servicios de coffe ubicados dentro del salon.
+Coffes y servicios relacionado a salones,Maquina Cafe Milano con carga para 120 cafes app. ( autoservicio),,$200.000,"200.000,00","0,00","Maquina auto servicio que entrega app. 120 unidades entre Cafe, capuchinos, mocachino, late, expresos, americano, agua caliente chocolate."
+Coffes y servicios relacionado a salones,1 tapadito ,,$2.500,"2.500,00","0,00",
+Coffes y servicios relacionado a salones,1 medialuna,,$1.800,"1.800,00","0,00",
+Coffes y servicios relacionado a salones,Galletas de mantequilla  3 por persona,,$1.500,"1.500,00","0,00",
+Coffes y servicios relacionado a salones,Cafe de grano o te en salon 8 hrs,,$7.500,"7.500,00","0,00",valor por persona
+Coffes y servicios relacionado a salones,Dispensador de agua 20 Lts en salon,,$60.000,"60.000,00","0,00",Dispensador de agua  20 lts con vasos en salón
+Coffes y servicios relacionado a salones,Recarga de bidon de 20 Lts para dispensador de agua,,$40.000,"40.000,00","0,00",Recarga de bidon de agua de 20 litros y vasos.
+Coffes y servicios relacionado a salones,"Cafe de grano, te y agua fria /caliente en salon  por 8 horas.",,$10.000,"10.000,00","0,00",valor por persona 
+Servicios para fiestas,Luces perimetrales salon chinook o vip,,$160.000,"160.000,00","0,00",12 Luces decorativas perimetrales para una fiesta o karaoke.
+Servicios para fiestas,DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,21:00- 1:00,$850.000,"850.000,00","0,00","Dj y karaoke por 4 horas,( agregar salon)"
+Servicios para fiestas,Hora extra DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,,$276.250,"276.250,00","0,00",hora extra 
+Servicios para fiestas,DJ y/o Karaoke para grupos mayores a 50 Pax,21:00- 1:00,$1.200.000,"1.200.000,00","0,00","Dj y karaoke por 4 horas,( agregar salon)"
+Servicios para fiestas,Hora extra DJ y/o Karaoke para grupos mayores a 50 Pax,,$390.000,"390.000,00","0,00",hora extra 
+Servicios para fiestas,"Salon chinook con fogata, hasta 300 personas, 4 horas noche",21:00- 1:00,$500.000,"500.000,00","0,00",Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras
+Servicios para fiestas,"Salon chinook con fogata, hasta 300 personas",19:00.1:00,$750.000,"750.000,00","0,00",Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras. 
+Servicios para fiestas,"Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",21:00- 1:00,$360.000,"360.000,00","0,00","Comedor en 2do piso con terraza para fiestas o Karaokes exclusivos, incluye fogata en terraza"
+Servicios para fiestas,"Comedor VIP con fogata, 2 piso hasta 70 personas",19:00.1:00,$540.000,"540.000,00","0,00",Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.
+Servicios para fiestas,"Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",21:00- 1:00,$300.000,"300.000,00","0,00",Espacio del bar principal del hotel para la realizacion de karaokes
+Servicios para fiestas,"Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",21:00- 1:00,$600.000,"600.000,00","0,00",Domo para fiestas y karaokes con amplios jardines.Incluye fogata y tiene arranque trifasico para productoras.
+Servicios para fiestas,"Lounge en terrazas (sillones, mesas y fogones), hasta 50 pax. Valor  persona",,$8.000,"0,00","8.000,00","Lugares: Terraza chinook, terraza comedor  chico( ex pool), terraza comedor 2do piso y Domo. Valor por persona"
+Bebidas  y Bar,Ticket de trago,,$4.850,"4.850,00","0,00","1 trago pp a escoger entre: Piscola ( Mistral 35), Roncola (Havanna),  vodka (wyborowa), Whisky( Ballantines finest 3 años), Gin beefeter, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada con y sin alcohol, Copa de vino castillo molina( blanco y tinto) , copa de espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken con y sin alcohol,  Austral y Kunstmann. Las bebidas son de marcas CCU."
+Bebidas  y Bar,Ticket de cerveza,,$3.529,"3.529,00","0,00","Ticket de cerveza en botella tales como: Sol, Heineken, Austral o Kunstmann."
+Bebidas  y Bar,Ticket de trago Vip,,$6.800,"6.800,00","0,00","Piscola ( Mistral Nobel o 3R doble destilado), Roncola (Havanna reserva), Vodka( Absolut), Whisky (ballantines 7 años),Gin Kantal, Tequila Olmeca, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada, Vino  Gran Tarapacá( blanco y tinto) , Espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken,  Austral, Kunstmann botella y Barril Schop Kunstmann. Las bebidas son de marcas CCU."
+Bebidas  y Bar,"Bar abierto 4 horas, valor por persona",,$30.800,"30.800,00","0,00","Piscola ( Mistra 35), Roncola (Havanna),  vodka (wyborowa), Whisky( Ballantines finest 3 años), Gin beefeter, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada( con y sin alcohol), Copa de vino castillo molina( blanco y tinto) , copa de espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken con y sin alcohol,  Austral y Kunstmann. Las bebidas son de marcas CCU. "
+Bebidas  y Bar,Hora extra Bar abierto por persona,,$10.010,"10.010,00","0,00",extensión de 1 hora para el bar abierto
+Bebidas  y Bar,"Bar abierto sin alcohol 4 horas, valor por persona",,$32.000,"32.000,00","0,00","Mocktails tales como Piña colada, Chardonnay sour , San Francisco (Mocktail en base a jugo de naranja), Paloma (Mocktail en base a pomelo), Cerveza sin alcohol (Heineken 0.0), Limonada, Jugos naturales, Vino blanco sin alcohol, Sangria sin alcohol. Las bebidas son de marcas CCU."
+Bebidas  y Bar,Hora extra Bar abierto sin alcohol por persona,,$10.400,"10.400,00","0,00",extensión de 1 hora para el bar abierto
+Bebidas  y Bar,"Bar abierto VIP  4 horas, valor por persona",,$38.000,"38.000,00","0,00","Piscola ( Mistral Nobel o 3R doble destilado), Roncola (Havanna reserva), Vodka( Absolut), Whisky (ballantines 7 años),Gin Kantal, Tequila Olmeca, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada, Vino  Gran Tarapacá( blanco y tinto) , Espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken,  Austral, Kunstmann botella y Barril Schop Kunstmann. Las bebidas son de marcas CCU."
+Bebidas  y Bar,Hora extra Bar abierto Vip por persona,,$12.350,"12.350,00","0,00",extensión de 1 hora para el bar abierto
+Bebidas  y Bar,"Bar Abierto de bebidas en vaso por 4 horas, por persona",,$12.000,"12.000,00","0,00",Botellas de 3 litros CCU servido en vaso desechable (ver tamaño)
+Bebidas  y Bar,"Bar Abierto de bebidas en vaso por 8 horas, por persona",,$20.000,"20.000,00","0,00",Botellas de 3 litros CCU servido en vaso desechable (ver tamaño)
+Bebidas  y Bar,Bebidas ,,$1.933,"1.933,00","0,00",Lata de bebida o agua  ccu
+Bebidas  y Bar,Ticket de bebida o agua,,$1.933,"1.933,00","0,00",Lata de bebida o agua ccu
+Bebidas  y Bar,Barril de cerveza kuntsman torobayo 30L,,$220.000,"220.000,00","0,00",Barril de cerveza torobayo exclusivo
+Bebidas  y Bar,"Bebestibles adicionales en Salón (Bebidas, Jugos Naturales, Agua Mineral)",,ver listado de bar,"0,00","0,00",Visitar QR para mayor detalles ( https://gour.media/san-francisco-lodge/ )
+Bebidas  y Bar,Vino Castillo Molina,,$13.025,"13.025,00","0,00",Se recomienda 1 botella para 5 personas
+Bebidas  y Bar,Vino Casillero del diablo Reserva Especial,,$13.445,"13.445,00","0,00",Se recomienda 1 botella para 5 personas
+Bebidas  y Bar,Vino Marques Casa Concha,,$20.168,"20.168,00","0,00",Se recomienda 1 botella para 5 personas
+Cambios de horas y lugar en servicios de alimentacion,"Cambio de horario del desayuno 1 hora, minimo 30 personas",7:30- 8:30 o 10:00- 11:00,$6.500,"6.500,00","0,00","valor por persona, se adelanta o se extiende el desayuno por una hora"
+Cambios de horas y lugar en servicios de alimentacion,"Cambio de horario del desayuno por media hora , minimo 30 personas",8:00-8:30 o 10:00- 10:30,$4.000,"4.000,00","0,00","valor por persona, se adelanta o se extiende el desayuno por media hora"
+Cambios de horas y lugar en servicios de alimentacion,"Cambio de horario de almuerzo por media hora, minimo 30 personas",13:00-13:30 o 15:00-15:30,$6.500,"6.500,00","0,00","valor por persona, se adelanta o se extiende el almuerzo por media hora."
+Cambios de horas y lugar en servicios de alimentacion,Extension media hora horario de cena ,21:00-21:30,$8.000,"8.000,00","0,00",valor por persona para extension de servicios de cena por media hora hasta las 21:30
+Cambios de horas y lugar en servicios de alimentacion,Cambio de lugar de servicio de alimentacion,,$10.000,"10.000,00","0,00","Valor por persona, se debe reservar adicionalmente el salon ( chinook, salon truchita o comedor vip)"
+Alimentacion y banqueteria,Desayuno,8:30-10:00,$12.500,"12.500,00","0,00","Tipos de Café, Chocolate, té, leche, jugo, yogurt, cereales, Fruta, jamón, quesos, huevos, tocino, chorizo, verduras asadas, mermeladas, mantequilla, distintos tipos de panes, minipastelitos, queques, croissant."
+Alimentacion y banqueteria,Desayuno incluido por alojamiento,8:30-10:00,$0,"0,00","0,00","Tipos de Café, Chocolate, té, leche, jugo, yogurt, cereales, Fruta, jamón, quesos, huevos, tocino, chorizo, verduras asadas, mermeladas, mantequilla, distintos tipos de panes, minipastelitos, queques, croissant."
+Alimentacion y banqueteria,"Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",13:30- 15:00,$27.311,"27.311,00","0,00","Buffet tenedor libre con variedad de ensaladas, guarniciones y acompañamientos calientes. No incluye bebidas ni aperitivos. Si en el hotel hay menos de 30 personas el servicio a la carta, si contamos con mas de 30 personas será buffet.  Horario almuerzo desde 13:30 hasta 15:00 hrs"
+Alimentacion y banqueteria,"Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",19:30- 21:00,$27.311,"27.311,00","0,00","Buffet tenedor libre con opciones de Pizzas, fondos con carnes, acompañamientos, Salad bar, salsas, dressing, postres, sopas, inc café. . Horario cena desde 19:30 hasta 21:00.. Si en el hotel hay menos de 30 personas el servicio a la carta, si es mas de 30 personas será buffet."
+Alimentacion y banqueteria,Almuerzo o cena a la carta,13:30- 15:00,$35.000,"35.000,00","0,00","Servicio de alimentacion a la carta, servido a la mesa. Es un menú único que debe elergirse con una semana de anticipación. Se sugiere agregar vinos para acompañar la comida"
+Alimentacion y banqueteria,Almuerzo o cena a la carta VIP,13:30- 15:00,$45.000,"45.000,00","0,00","Servicio de alimentacion a la carta, servido a la mesa. Es un menú único que debe elergirse con una semana de anticipación. Se sugiere agregar vinos para acompañar la comida"
+Alimentacion y banqueteria,"Cena o Almuerzo parrilla, 30 o mas  pax",19:30-21:00,$35.000,"35.000,00","0,00","Preparacion de carnes de vacuno, cerdo, chorizos y prietas la parrilla,  mas acompañamientos, ensaladas y postre y café.No incluye bebidas ni aperitivos"
+Alimentacion y banqueteria,"Cena o Almuerzo parrilla, menos de 30 pax",19:30-21:00,$45.000,"45.000,00","0,00","Preparacion de carnes, verduras y frutas a la parrilla,  mas acompañamientos, ensaladas y postre y café.No incluye bebidas ni aperitivos"
+Alimentacion y banqueteria,Once ,17:00 - 18:00,$9.800,"9.800,00","0,00",Bebida o agua con Hamburguesa lechuga tomate y helado.
+Alimentacion y banqueteria,Box lunch (Como una Once en cajitas individuales para que se la puedan llevar) ,,$12.000,"12.000,00","0,00","Muffin o dos facturas, hamburguesa, una fruta, 1 bebida"
+Alimentacion y banqueteria,"Cata de vinos con somelier, minimo 10 personas y hasta 40.  Duración 1 hora",,$300.000 fijo mas $24.000 por persona,"300.000,00","24.000,00","Cata de 4 vinos  reserva boutique, de la zona, con maridaje de quesos y encurtidos."
+Alimentacion y banqueteria,,,,"0,00","0,00",
+Alimentacion y banqueteria,Picoteo parrillando con amigos: minimo 20 personas,,400.000 fijo mas 20.000 por persona,"400.000,00","20.000,00","Este apertivo consiste en hacer  su propia parrilla modo picoteo.  Podran escoger 2 unidades dentro de las siguientes alternativas: pisco sour, vino, espumpante o cerveza. Duracion 1 hora. No reemplaza  comida"
+Alimentacion y banqueteria,"Aperitivo tematico: Jugando en la barra, minimo 20 personas. Maximo 1,5 horas",,400.000 fijo mas 20.000 por persona,"400.000,00","20.000,00","Bar abierto entretenido, donde ellos prepararan sus propios tragos con la ayuda de un bartender profesional. Acompañados con quesos y frutos secos. Duracion 1,5 horas"
+Alimentacion y banqueteria,Tabla de Queso 6 Pax,,$30.000,"30.000,00","0,00","Queso mantecoso, queso azul, queso cabra, camembert, esferas queso crema con ciboulette y mix frutos secos."
+Alimentacion y banqueteria,Tabla Fiambres 6 Pax,,$30.000,"30.000,00","0,00","Jamon pierna, jamon serrano, salame, mix frutos secos"
+Alimentacion y banqueteria,Tabla Mixta Quesos y Fiambres 6 pax,,$30.000,"30.000,00","0,00","Jamon pierna, jamon serrano, salame, queso mantecoso, queso cabra, camembert, esferas queso crema y mix frutos secos."
+Alimentacion y banqueteria,"Tabla Mix Tapaditos, Quiches y Mini Empanadas 6 pax ",,$60.000,"60.000,00","0,00","6 tapaditos salmon queso crema, 6 tapaditos Jamon serrano pesto aceituna, 6 mini quiches, 6 empanadas mini pino y empanadas napolitana."
+Alimentacion y banqueteria,Tabla vegana 6 pax,,$60.000,"60.000,00","0,00","1 champiñon relleno, hummus, queso vegano especiado, crudites( bastones de verduras), grissinis de ajo, focaccia palmito, vegetales tempura, 1 brusqueta de rucula con tomate confit."
+Alimentacion y banqueteria,"Coctail basico, minimo 15 pasajeros.",,$13.200,"13.200,00","0,00","1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza, 1 empanadita, 1 bruscheta queso crema tomate confit y reduccion de aceto, mix de quesos, brusqueta pesto con jamón serrano, queso azul frito con mermelada de frambuesa, y brocheta de fruta ."
+Alimentacion y banqueteria,"Coctail chileno, minimo 15 pasajeros.",,$15.000,"15.000,00","0,00","1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza. 1 empanadita de pino y 1 de queso, 1 bruscheta de prieta nogada, 1 mini anticucho, chorizo envuelto en masa de  hoja, chupe de camarón, mix de quesos y frutos secos."
+Alimentacion y banqueteria,Cordero a la espada (Cordero con pan amasado y salsas para 20 pax),,$380.000,"380.000,00","0,00","Cordero a la espada para picoteo, acompañado de panes amasados con distintas salsas tales como pebre, lactonesa ajo merkén y criolla."
+Alimentacion y banqueteria,"Pierna de cerdo 16 hrs al horno, con amasado y 3 salsas para picoteo",,$380.000,"380.000,00","0,00",Recomendado para  maximo 50 personas 
+Alimentacion y banqueteria,"Empanadas coctel( pino, queso y napolitana)",,$1.000,"1.000,00","0,00","Empanada pino, queso, napolitana, valor unitario"
+Alimentacion y banqueteria,Servicio de trasnoche Consome 250cc con 2 tapaditos,,Fijo 50.000 mas 10.000 por persona,"50.000,00","10.000,00",
+Alimentacion y banqueteria,Punto de hidratación ,,$6.000,"6.000,00","0,00","1 barra de ceral, 1 agua mineral y 1 fruta de estación"
+Alimentacion y banqueteria,1 fruta de estación,,$1.500,"1.500,00","0,00",
+Alimentacion y banqueteria,1 barra de cereal ,,$1.500,"1.500,00","0,00",
+Alimentacion y banqueteria,Torta Chocolate 16 pax,,$53.000,"53.000,00","0,00",Torta de chocolate envuelta en chips de chocolate.
+Alimentacion y banqueteria,Torta Carrotcake 14 pax,,$53.000,"53.000,00","0,00","Esponjoso de zanahoria nuez, rellena frosting de queso crema"
+Alimentacion y banqueteria,Cheesecake de Oreo 14 pax,,$53.000,"53.000,00","0,00",Imperdible cheesecake Oreo
+Alimentacion y banqueteria,Torta San Francisco manjar nuez 15 pax,,$53.000,"53.000,00","0,00",Esponjoso de chocolate rellena de dulce de leche y crema chantilly
+Alimentacion y banqueteria,Trozo de torta de Chocolate + estacion cafe o té en comedor,,$7.983,"7.983,00","0,00",Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.
+Alimentacion y banqueteria,Trozo de torta Carrot Cake + estacion cafe o té en comedor,,$7.983,"7.983,00","0,00",Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.
+Alimentacion y banqueteria,Trozo de Cheese Cake Oreo + estacion cafe o té en comedor,,$7.983,"7.983,00","0,00",Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.
+Spa,"Masajista exclusiva, para masajes relax 30 minutos",,$300.000,"300.000,00","0,00","Horario de 10:30 a 20:00, puede hacer maximo 10 masajes de relajación por dia."
+Spa,Masajes de relajacion de media hora, ,$25.210,"25.210,00","0,00",Horario de los masajes debe coordinarse previamente al evento. Minimo 3 dias de anticipacion
+Spa,Gorros de piscinas  lycra,,$3.782,"3.782,00","0,00",Gorro lycra 
+Spa,Gorros de piscinas  latex,,$2.101,"2.101,00","0,00",Gorro Latex 
+Spa,Piscina temperada nocturna exclusiva hasta 2 horas,20:00- 21:00,$150.000,"250.000,00","0,00",Piscina temperada nocturna exclusiva por 1 hora de 20:00 a 21:00
+Alojamiento,Habitación single hotel B&B,,$120.630,"120.630,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,Habitación Doble hotel B&B,,$189.219,"189.219,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,Habitación Triple hotel B&B,,$239.712,"239.712,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,Habitación Cuadruple hotel  B&B,,$290.206,"290.206,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,Habitación Quintuple hotel B&B,,$342.097,"342.097,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,"Valor 6 pasajeros, en cabaña B&B",,$393.987,"393.987,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,"Valor 7 pasajeros, en cabaña B&B",,$445.870,"445.870,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,"Valor 8 pasajeros, en cabaña B&B",,$497.769,"497.769,00","0,00","Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada"
+Alojamiento,Valor Pax adicional en la misma habitacion,,$43.908,"43.908,00","0,00","Check in de habitaciones desde las 4 PM.Incluye: desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, minigolf, baby, pesca con mosca y piscina temperada"
+Alojamiento,"Early check in, por habitacion de hotel",,$29.412,"29.412,00","0,00","Check in anticipado desde las 12:00, segun disponibilidad."
+Alojamiento,"Late check out, por habitacion de hotel",,$29.412,"29.412,00","0,00","Check out hasta las 16:00, segun disponibilidad"
+Alojamiento,"Early check in, por cabaña",,$46.218,"46.218,00","0,00","Check in anticipado desde las 12:00, segun disponibilidad."
+Alojamiento,"Late check out, por cabaña",,$46.218,"46.218,00","0,00","Check out hasta las 16:00, segun disponibilidad"
+Alojamiento,"Traslado de maletas, entrega y retiro fuera de las habitaciones, valor por persona",,$5.000,"5.000,00","0,00",
+Alojamiento,"Productos o regalos en las habitaciones, valor por persona",,$2.000,"2.000,00","0,00","Regalos, aguas o algun detalle en las habitaciones, precio por persona"
+Otros articulos ,"1 Ramo de flores, 6 rosas, rojas, blancas, rosadas, amarilla",,$50.000,"50.000,00","0,00",encargar hasta 72 horas antes
+Otros articulos ,1 Chocolate Sahne Nuss 250g + espumante o botella de vino ,,$25.000,"25.000,00","0,00",
+Otros articulos ,,,,"0,00","0,00",
+Otros articulos ,Resma de Hojas ,,$12.000,"12.000,00","0,00",
+Otros articulos ,Lapices azul Pasta ,,$1.000,"1.000,00","0,00",
+Otros articulos ,Corrector lapiz ,,$3.500,"3.500,00","0,00",
+Otros articulos ,Plumones permanente ,,$1.000,"1.000,00","0,00",
+Otros articulos ,Plumones de pizarra ,,$800,"800,00","0,00",
+Otros articulos ,Fotocopias o impresion color ,,$600,"600,00","0,00",hoja de color tamaño carta 
+Otros articulos ,Fotocopias o impresion negro,,$300,"300,00","0,00",hoja en blanco y negro tamaño carta 
+Otros articulos ,Almuerzos productoras o choferes en buffet,,$16.387,"16.387,00","0,00",Exclusivo solo a los que traen a las empresas 
+Actividades ,Guias exclusivos para caminatas,,$80.000,"80.000,00","0,00",1 guia cada 20 o 25 personas.( Ideal minimo dos para abrir y cerrar el grupo para caminatas)
+Actividades ,"Caminata ""la tenca"" de forma exclusiva, 1,5 horas",,300.000+ 10.000 por persona,"300.000,00","10.000,00","Caminata por circuito la tenca, entremedio de bosques y arroyos del lugar. Es un recorrido por los alrededores del hotel. Tiene una dificultad baja, duracion 1,5 horas y una distancia de 2,3 kilometros. Incluye un agua por persona"
+Actividades ,"Caminata al mirador exclusiva.  Dificultad media, duracion: 1 hora",,300.000+ 10.000 por persona,"300.000,00","10.000,00","Caminata a un mirador donde se puede observar el valle del aconcagua. Circuito ubicado al frente del hotel y es de dificultad media, dura 1 hora y tiene una distancia de 2 kilometros. Caminata incluyeun agua por persona"
+Actividades ,Fogon pequeño (Fogata pequeña),,$100.000,"100.000,00","0,00",Fogata chica en calderos o pergola. Duración 2.5 horas.
+Actividades ,Fogata grande,,$250.000,"250.000,00","0,00",Fogata grande en actividad de luz. Duración 2.5 horas.
+Actividades ,Clase de pesca con mosca 3 horas(9 am a 12pm),,$63.025,"63.025,00","0,00",
+Actividades ,Arriendo de Caña ,,$12.605,"12.605,00","0,00","Solo caña  todo el dia, las moscas tienen un valor adicional."
+Actividades ,"Paseos a Caballo exclusivos, minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",,$42.017,"42.017,00","0,00","Paseo comienza con una clinica intruductoria y luego practica, donde conoceran el cajón de san francisco y sus bondades. Paseo incluye un agua por persona"
+Actividades ,Paseo a caballo Vertiente del toro,,$109.000,"109.000,00","0,00",4 horas + induccion Almuerzo+cena+ activiades
+Actividades ,Paseo a caballo Altos del Guindo,,$119.000,"119.000,00","0,00",5 horas + induccion Almuerzo+cena+ activiades
+Actividades ,Uso de actividades,Ver horarios publicados en recepción ,"$21,008","21,00","0,00","Cabalgatas, canopy, kayak, botes, stand up paddle, cancha de tenis, minigolf, piscina temperada, piscina exterior, camillas de cuarzo, circuitos de trekking etc.."
+Actividades ,Uso de actividades por cortesía,Ver horarios publicados en recepción ,$0,"0,00","0,00","Cabalgatas, canopy, kayak, botes, stand up paddle, cancha de tenis, minigolf, piscina temperada, piscina exterior, camillas de cuarzo, circuitos de trekking etc.."
+Actividades ,Yoga,,300.000 + 10.000 pesos por persona,"300.000,00","10.000,00","Yoga, actividades de respiracion y relajacion por 1 hora, incluye un agua mineral por persona"
+Teambuilding,Paintball,,1.000.000+ 35.000 por persona,"1.000.000,00","35.000,00","Juego de paintball, incluye un agua por persona. Duracion aproximada 2 horas. Inlcuye primera carga de pelotas, con posibilidad de recarga por 15.000+ iva por persona"
+Teambuilding,Busqueda de tesoro,,500.000+ 15.000 por persona,"500.000,00","15.000,00","duracion actividad 2,5 horas"
+Teambuilding,Actividad de la luz,21:30- 23:00,500.000+ 15.000 por persona,"500.000,00","15.000,00","duracion actividad 1,5 horas aprox"
+Teambuilding,Alianzas,,500.000+ 15.000 por persona,"500.000,00","15.000,00",Duracion 2 horas aprox
+Teambuilding,El herido,,500.000+ 15.000 por persona,"500.000,00","15.000,00","Duracion 2,5 horas aprox"
+Teambuilding,El Naufrago,,1.000.000 + 20.000 por persona,"1.000.000,00","20.000,00",duracion 2 horas aprox
+Teambuilding,El Naufrago Full,,1.000.000+ 35.000 por persona,"1.000.000,00","35.000,00","Duracion 2,5 horas aprox"
+Teambuilding,Conquistando la Cumbre,,500.000+ 15.000 por persona,"500.000,00","15.000,00",
+Actividades ,Tiro con Arco,,660.000+ 10.000 por persona,"660.000,00","10.000,00",
+Teambuilding,Mision y Vision,,500.000+ 15.000 por persona,"500.000,00","15.000,00",
+Teambuilding,Fabrica de sal,,500.000+ 15.000 por persona,"500.000,00","15.000,00",duracion 1 hora aprox
+Teambuilding,La Pizza Nostra Per Tutti,,575.000+55.000 por persona,"575.000,00","55.000,00",
+Teambuilding,La Pizza Nostra,,575.000+30.000 por persona,"575.000,00","30.000,00",
+Teambuilding,The Boss Grill,,400.000 + 55.000 por persona,"400.000,00","55.000,00",
+Teambuilding,Cocinando Equipos,,750.000 + 55.000 por persona,"750.000,00","55.000,00",
+Teambuilding,Formando un Jinete,,,,,
+Teambuilding,Master Chef Corporativo,,750.000+30.000 por persona,"750.000,00","30.000,00",Cada grupo debe preparar los mejores platos
+Teambuilding,De La Masa Al Plato,,500.000+ 55.000 por persona,"500.000,00","55.000,00",
+Teambuilding,Parrillada en Equipo,,500.000+ 65.000 por persona,"500.000,00","65.000,00",
+Teambuilding,Taller de Pizza y Birra,,,,,
+Teambuilding,Karaoke con copas y tapas,,650.000+ 46.800 por persona,"650.000,00","46.800,00",
+Teambuilding,Taller de Brasas y Tinto: Sabores al Fuego!,,,,,
+Teambuilding,Corderos & Vinos,,500.000+ 50.000 por persona,"500.000,00","50.000,00",
+Actividades ,Safari Ecuestre,,,,,
+Actividades ,Trekking al mirador,,,,,
+Actividades ,Cata de Vinos,,300.000+ 24.000 por persona,"300.000,00","24.000,00",
+"Teambuilding, actividades de pausa",Los Neumaticos,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Totem,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",La estrella,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Tirar la cuerda,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",El equilibrio,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",El Enredo,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Baile Entretenido,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Gimnasia de Pausa ,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Yoga,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",La Bolita,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Ula Ula,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Carrera de Sacos ,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
+"Teambuilding, actividades de pausa",Bob Esponja,,150.000 + 3.000 por persona,"150.000,00","3.000,00",actividades de pausa de 15- 30 minutos aprox. cada una
