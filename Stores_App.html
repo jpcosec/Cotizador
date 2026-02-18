@@ -22,11 +22,82 @@ function cotizadorApp() {
         paxGlobal: 10,
         filtrarDia: null,
         generandoPDF: false,
+        bridge: null,
+        useStateMachine: false,
+        machineState: null,
+        totalsSnapshot: { subtotal: 0, taxes: [], total: 0 },
+        errors: [],
+        messages: [],
+        databaseOpen: false,
+        selectedRowData: null,
         
         // --- INIT ---
         init() {
             this.generarDias();
             this.cargarCatalogo();
+            this.initXStateBridge();
+        },
+
+        initXStateBridge(attempt) {
+            var currentAttempt = attempt || 0;
+            if (typeof window === 'undefined' || typeof window.AlpineXStateBridge !== 'function') {
+                return;
+            }
+
+            var actorFactory = null;
+            if (typeof window.createCotizadorActor === 'function') {
+                actorFactory = window.createCotizadorActor;
+            } else if (window.QuotationXState && typeof window.QuotationXState.createActor === 'function') {
+                actorFactory = window.QuotationXState.createActor;
+            }
+
+            if (!actorFactory) {
+                if (currentAttempt < 10) {
+                    var self = this;
+                    setTimeout(function() {
+                        self.initXStateBridge(currentAttempt + 1);
+                    }, 200);
+                }
+                return;
+            }
+
+            try {
+                var actor = actorFactory();
+                if (!actor || typeof actor.getSnapshot !== 'function') return;
+
+                this.bridge = new window.AlpineXStateBridge(actor, this, {
+                    autoStart: true,
+                    syncLineasAsCarrito: true
+                }).start();
+                this.useStateMachine = true;
+            } catch (e) {
+                console.warn('No se pudo inicializar AlpineXStateBridge. Se mantiene modo local.', e);
+                this.useStateMachine = false;
+            }
+        },
+
+        isMachineInBasket() {
+            return this.useStateMachine
+                && typeof this.machineState === 'string'
+                && this.machineState.indexOf('quotation_workflow.quotation.basket') !== -1;
+        },
+
+        syncClientToMachine(cli) {
+            if (!this.useStateMachine || !this.bridge || !cli) return false;
+            if (this.isMachineInBasket()) return true;
+
+            var started = this.bridge.send('START_NEW_QUOTATION');
+            if (!started) return false;
+
+            this.bridge.send('CREATE_NEW');
+            this.bridge.send('QUOTATION_INITIALIZED', {
+                clienteId: cli.ID_Cliente || 'CLI_CORP',
+                paxGlobal: this.paxGlobal || 10,
+                fechaEvento: this.fechaInicio,
+                duracionDias: this.duracionDias || 1,
+                cotizacionId: 'COT_UI_' + Date.now()
+            });
+            return true;
         },
         
         // --- LÓGICA DE NEGOCIO ---
@@ -70,6 +141,7 @@ function cotizadorApp() {
         
         seleccionarCliente(cli) {
             this.cliente = cli;
+            this.syncClientToMachine(cli);
             this.cerrarModalCliente();
         },
         
@@ -92,12 +164,30 @@ function cotizadorApp() {
         },
         
         cambiarCliente() {
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('RETURN_TO_BROWSE');
+            }
             this.cliente = null;
             this.modalCliente = true;
         },
         
         // --- CARRITO ---
         agregarItem(item) {
+            if (this.useStateMachine && this.bridge) {
+                var stateItemId = item.ID_Item || item.itemId || item.id || item.nombre;
+                if (stateItemId) {
+                    var sent = this.bridge.send('ADD_ITEM', {
+                        itemId: stateItemId,
+                        overrides: {
+                            Override_Pax: this.paxGlobal,
+                            dia: this.diaSeleccionado,
+                            hora: this.horaInicio
+                        }
+                    });
+                    if (sent) return;
+                }
+            }
+
             this.carrito.push({
                 nombre: item.nombre,
                 categoria: item.categoria,
@@ -117,38 +207,41 @@ function cotizadorApp() {
         
         actualizarCantidad(idx, val) {
             var cant = parseInt(val) || 1;
+
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('UPDATE_ITEM', {
+                        lineId: lineId,
+                        overrides: { Override_Pax: cant }
+                    });
+                    if (sent) return;
+                }
+            }
+
             this.carrito[idx].cantidad = cant;
             this.carrito[idx].total = this.carrito[idx].precio * cant;
         },
         
         eliminarItem(idx) {
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('REMOVE_ITEM', { lineId: lineId });
+                    if (sent) return;
+                }
+            }
+
             this.carrito.splice(idx, 1);
         },
         
         formatearBadge(item) {
             try {
                var fechaStr = item.fecha.split('-').reverse().join('/');
-               return "Día " + item.dia + " • " + fechaStr + " • " + item.hora; 
+               return "Día " + item.dia + " • " + fechaStr + " • " + item.hora;
             } catch(e) {
                return "Día " + item.dia + " • " + item.hora;
             }
-        },
-        
-        generarPDF() {
-            if (this.carrito.length === 0) return;
-            if (!this.cliente) {
-                this.modalCliente = true;
-                return;
-            }
-            this.generandoPDF = true;
-            var self = this;
-            google.script.run.withSuccessHandler(function(url) {
-                window.open(url);
-                self.generandoPDF = false;
-            }).withFailureHandler(function(e) {
-                alert(e.message);
-                self.generandoPDF = false;
-            }).generarPDF(this.cliente, this.carrito);
         },
         
         // --- COMPUTED PROPERTIES (FILTROS PODEROSOS) ---
@@ -186,11 +279,17 @@ function cotizadorApp() {
         },
         
         get totalNeto() {
+            if (this.useStateMachine && this.totalsSnapshot && this.totalsSnapshot.subtotal) {
+                return this.totalsSnapshot.subtotal;
+            }
             if (!this.carrito) return 0;
             return this.carrito.reduce((sum, i) => sum + (i.total || 0), 0);
         },
-        
+
         get totalFinal() {
+            if (this.useStateMachine && this.totalsSnapshot && this.totalsSnapshot.total) {
+                return this.totalsSnapshot.total;
+            }
             return Math.round(this.totalNeto * 1.19);
         },
 
@@ -200,13 +299,31 @@ function cotizadorApp() {
             if (this.carrito.length === 0) return alert('Carrito vacío');
             if (!this.cliente) { this.modalCliente = true; return; }
 
+            if (this.useStateMachine && this.bridge) {
+                this.syncClientToMachine(this.cliente);
+
+                var self = this;
+                var unwatch = this.$watch('machineState', function(newState) {
+                    unwatch();
+                    if (self.errors && self.errors.length > 0) {
+                        alert('Error: ' + (self.errors[0].message || 'Revisa los datos'));
+                    } else if (newState.indexOf('completed') !== -1) {
+                        alert('✅ Cotización guardada correctamente');
+                    }
+                });
+
+                this.bridge.send('ADVANCE_TO_VALIDATION');
+                this.bridge.send('VALIDATE_AND_SAVE');
+                return;
+            }
+
             // Llamada al Backend
             google.script.run
                 .withSuccessHandler((res) => {
                     if(res.success) {
                         alert('✅ ' + res.mensaje + '\nID: ' + res.id);
                         // Opcional: Guardar el ID en el estado local si quieres editar luego
-                        // this.cotizacionActualID = res.id; 
+                        // this.cotizacionActualID = res.id;
                     }
                 })
                 .withFailureHandler((e) => alert('Error: ' + e.message))
