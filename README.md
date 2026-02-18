@@ -1,12 +1,12 @@
-# SF Lodge Cotizador
+# SF Lodge Quotation System — Database Layer
 
-Quotation system for SF Lodge (events and catering venue). Built on Google Apps Script with Google Sheets as the data layer.
+**Purpose:** Persistence layer with pluggable adapters for the quotation system.
 
-**Status:** v2 Architectural Design Complete - Ready for Phase 1 Implementation
+**Status:** ✅ Phase 1 Complete — 3 tests passing (103ms)
 
 ---
 
-## Quick Start: Understanding the System
+## Quick Start
 
 Start here to understand how everything works:
 
