@@ -29,7 +29,7 @@ Start here to understand how everything works:
    - Dependency injection pattern
 
 4. **[DATABASE_SCHEMA_DRIVEN_MODELS.md](DATABASE_SCHEMA_DRIVEN_MODELS.md)** - Model generation
-   - ModelFactory approach (auto-generate all 10 models)
+   - ModelFactory approach (auto-generate all 11 models)
    - Schema as single source of truth
    - Runtime introspection strategy
 
@@ -82,7 +82,7 @@ Start here to understand how everything works:
 │
 ├── src/
 │   └── Config/
-│       └── Config_Schema.js               # Single source of truth for schema
+│       └── Config_Schema.js               # Single source of truth for 11 tables
 │
 ├── docs/
 │   └── legacy/                            # Old v1 design documents (reference)
@@ -109,7 +109,7 @@ Create `@claps/database` with:
 - IStore interface
 - 3 store adapters (GAS, InMemory, File)
 - ModelFactory (auto-generate from CONFIG_SCHEMA.js)
-- All 10 models working with any store
+- All 11 models working with any store
 - Comprehensive tests using InMemoryStore mock
 
 ### Phase 2: Create AlpineXStateBridge (2-3 hours)

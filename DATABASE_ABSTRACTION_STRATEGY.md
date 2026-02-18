@@ -394,7 +394,7 @@ export function initializeStores(storeType = config.storeType) {
 
 **See: DATABASE_SCHEMA_DRIVEN_MODELS.md**
 
-The CONFIG_SCHEMA.js defines 10 tables, but old Models.js only has 4:
+The CONFIG_SCHEMA.js defines 11 tables, but old Models.js only has 4:
 
 | Table | Schema | Old Models | Gap |
 |-------|--------|------------|-----|

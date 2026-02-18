@@ -8,7 +8,7 @@
 
 ## Problem: Manual Models vs Schema Drift
 
-The CONFIG_SCHEMA.js defines 10 tables, but the old Models.js only has 4 custom models:
+The CONFIG_SCHEMA.js defines 11 tables, but the old Models.js only has 4 custom models:
 
 | Table | In Schema | In Old Models | Status |
 |-------|-----------|---------------|--------|
@@ -54,7 +54,7 @@ export const DATA_SCHEMA = {
     ]
   },
 
-  // ... 10 tables total
+  // ... 11 tables total
 };
 ```
 
@@ -268,7 +268,7 @@ claps_codelab_database/
 
 ### Phase 2: Generate Core Models (1 hour)
 
-1. Use ModelFactory to generate all 10 models
+1. Use ModelFactory to generate all 11 models
 2. Test that all models respond to `all()`, `find()`, `where()`, etc.
 3. Verify schema columns match store expectations
 
@@ -342,7 +342,7 @@ const lineas = await LineaDetalle.where(l => l.ID_Cotizacion === 'COT-0001');
 
 1. Decide: Runtime (Option B - simpler) vs Build-time (Option A - cleaner CI/CD)
 2. Create database worktree with ModelFactory
-3. Generate all 10 models programmatically
+3. Generate all 11 models programmatically
 4. Test with all store adapters
 5. Document model usage patterns
 

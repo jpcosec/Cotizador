@@ -1160,8 +1160,8 @@ describe('Store Interface Contract', () => {
 ## Worktree 2: `claps_codelab_pricing` (feature/pricing-logic)
 
 ### Purpose
-**Pure calculation engine** - all business logic for pricing decisions, rule evaluation, and tax calculation.
-Completely decoupled from UI and persistence.
+**Business logic engine** - all calculation logic for pricing decisions, rule evaluation, and tax calculation.
+Decoupled from UI via dependency injection. Store adapter is injected; the library itself has no external dependencies.
 
 ### Role in Quotation Flow
 - **Step 5:** Calculate prices for all stages
@@ -1170,17 +1170,23 @@ Completely decoupled from UI and persistence.
 
 ### Philosophy
 
-**Pure Functions + Dependency Injection = Testable Business Logic**
+**Pure Calculation Logic + Store Abstraction = Testable Business Logic**
 
 ```
-Input: Quotation header + line items + catalog + rules
+Input: Quotation header + line items + catalog + rules (via injected store)
   ↓
-[CALCULATION PIPELINE]
+[CALCULATION PIPELINE - Pure Functions]
+  ├─ Stage 1-6: Pure calculations (math only)
+  └─ No side effects: No external API calls, no mutations
   ↓
 Output: Calculated lines + totals + applied rules
   ↓
-NO SIDE EFFECTS: No DB writes, no file I/O, no API calls
+Store Access: Injected via constructor (dependency injection)
+  └─ XState provides store instance
+  └─ Tests provide mock store
 ```
+
+**Key distinction:** The pricing library has zero external npm dependencies and is pure within itself (all stages are pure functions). However, the `QuotationPipeline` class is abstracted over a store dependency via constructor injection - this allows testing with `InMemoryStore` and production use with `GasSheetStore` without any code changes.
 
 ### Architecture
 
