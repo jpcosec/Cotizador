@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandCompositions } from '../../../src/Pricing/expand.js';
+import { expandCompositions } from '../../../src/Pricing/calculations/expand.js';
 import { createSeededStore } from '../../helpers/store_factory.js';
 
 describe('Pricing/expand', () => {

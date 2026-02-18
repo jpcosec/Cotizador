@@ -4,10 +4,10 @@
 // LEVEL 1: Item-level functions (for basket mutations)
 // LEVEL 2: Full basket function (for validation/resume)
 
-import { expandCompositions } from './expand.js';
-import { resolveDefaults } from './defaults.js';
-import { calculateLinePrice } from './pricing.js';
-import { applyLineAdjustments, applyGlobalAdjustments } from './adjustments.js';
+import { expandCompositions } from './calculations/expand.js';
+import { resolveDefaults } from './calculations/defaults.js';
+import { calculateLinePrice } from './calculations/pricing.js';
+import { applyLineAdjustments, applyGlobalAdjustments } from './calculations/rules.js';
 import { applyManualAdjustments, getGlobalManualAdjustments } from './manual.js';
 import { calculateTaxes } from './taxes.js';
 import { getRulesForStageAndHook, evaluateCondition } from '../RulesEngine/RulesEngine.js';
@@ -200,3 +200,12 @@ export function fullRecalculateBasket(lineas, quotation, store) {
     errors,
   };
 }
+
+// ========== OPERATIONS: Public API for Orchestration ==========
+
+// Export operations for state machine adapters
+export { addItem } from './operations/addItem.js';
+export { updateItem } from './operations/updateItem.js';
+export { removeItem } from './operations/removeItem.js';
+export { validate } from './operations/validate.js';
+export { resume } from './operations/resume.js';

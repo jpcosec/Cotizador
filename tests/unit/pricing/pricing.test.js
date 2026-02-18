@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePerfil, calculateLinePrice } from '../../../src/Pricing/pricing.js';
+import { resolvePerfil, calculateLinePrice } from '../../../src/Pricing/calculations/pricing.js';
 import { createSeededStore } from '../../helpers/store_factory.js';
 
 describe('Pricing/pricing', () => {

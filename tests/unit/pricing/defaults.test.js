@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveDefaults } from '../../../src/Pricing/defaults.js';
+import { resolveDefaults } from '../../../src/Pricing/calculations/defaults.js';
 import { createSeededStore } from '../../helpers/store_factory.js';
 
 describe('Pricing/defaults', () => {

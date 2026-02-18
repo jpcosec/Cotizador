@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyLineAdjustments, applyGlobalAdjustments } from '../../../src/Pricing/adjustments.js';
+import { applyLineAdjustments, applyGlobalAdjustments } from '../../../src/Pricing/calculations/rules.js';
 import { createSeededStore } from '../../helpers/store_factory.js';
 
 describe('Pricing/adjustments', () => {
