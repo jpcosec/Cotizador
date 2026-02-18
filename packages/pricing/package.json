@@ -1,0 +1,24 @@
+{
+  "name": "@claps/pricing",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Pure pricing engine with 6-stage pipeline and rule engine",
+  "main": "src/Pricing/pipeline.js",
+  "scripts": {
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui",
+    "interactive": "node --input-type=module -e \"import('./src/Pricing/pipeline.js').then(m => console.log(m))\" && node",
+    "demo": "node --input-type=module tests/integration/event_driven.test.js"
+  },
+  "keywords": [
+    "pricing",
+    "quotation",
+    "rules-engine",
+    "pure-functions"
+  ],
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}
