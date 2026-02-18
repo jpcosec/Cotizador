@@ -1,0 +1,217 @@
+{
+  "main": {
+    "id": "d09561d7eea3d5c5",
+    "type": "split",
+    "children": [
+      {
+        "id": "6084419e467f89d0",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6c0ca7950b9804dc",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "Nueva pestaña"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "d9c414fecad594c0",
+    "type": "split",
+    "children": [
+      {
+        "id": "a0aa018cd791c3ae",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e572b46d60b68667",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de archivos"
+            }
+          },
+          {
+            "id": "25549847b60d1642",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Buscar"
+            }
+          },
+          {
+            "id": "179449efbb129ac4",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "95b5c7eb78573d21",
+    "type": "split",
+    "children": [
+      {
+        "id": "8dd3007fd270fc9b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "baf8d9e830f6d019",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Enlaces entrantes"
+            }
+          },
+          {
+            "id": "0cdfd0f7e7bb9c0e",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Enlaces salientes"
+            }
+          },
+          {
+            "id": "45ef4e22ac8215a7",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "94d18520b702abf1",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas las propiedades"
+            }
+          },
+          {
+            "id": "88ca22e311e537f5",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Esquema"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir selector rápido": false,
+      "graph:Abrir vista gráfica": false,
+      "canvas:Crear nuevo lienzo": false,
+      "daily-notes:Abrir la nota de hoy": false,
+      "templates:Insertar plantilla": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Crear nueva base": false
+    }
+  },
+  "active": "6c0ca7950b9804dc",
+  "lastOpenFiles": [
+    "Sin título.md",
+    "docs/TODO.md",
+    "schema_viewer.html.tmp.278004.1771282619987",
+    "schema_viewer.html.tmp.278004.1771282616433",
+    "schema_viewer.html.tmp.278004.1771282612630",
+    "docs/quotation-pipeline-flow-v3.md.tmp.278004.1771281579526",
+    "docs/db_docs_v3_1.md.tmp.278004.1771281556935",
+    "src/Config/Config_Schema.js.tmp.278004.1771281534682",
+    "docs/quotation-pipeline-flow-v3.md",
+    "docs/db_docs_v3_1.md",
+    "docs/db_docs_v3.md",
+    "docs/quotation-pipeline-flow-v3.md.tmp.278004.1771271457697",
+    "docs/db_docs_v3_1.md.tmp.278004.1771271435242",
+    "src/Config/Config_Schema.js.tmp.278004.1771271413822",
+    "docs/README.md",
+    "docs/legacy/README.md",
+    "docs/legacy/composition_logic.md",
+    "docs/legacy/discount-bundles-engine-design-v2-1.md",
+    "docs/legacy/IMPLEMENTATION_ROADMAP.md",
+    "docs/legacy/technical-design-v2-modular-architecture.md",
+    "docs/legacy/quotation-pipeline-flow.md",
+    "docs/legacy/PRICING_AND_CONSTRAINTS_v2.md",
+    "docs/legacy/db_docs_v2.md",
+    "docs/legacy/db_docs.md",
+    "docs/legacy",
+    "docs/db_docs_v2.md",
+    "docs/technical-design-v2-modular-architecture.md",
+    "docs/quotation-pipeline-flow.md",
+    "docs/composition_logic.md",
+    "docs/CURRENT_STATE_&_NEXT_TASKS.md",
+    "README.md",
+    "docs/db_docs.md",
+    "PRICING_AND_CONSTRAINTS_v2.md",
+    "changelog.md",
+    "docs/PRICING_AND_CONSTRAINTS_v2.md"
+  ]
+}
