@@ -2,100 +2,219 @@
 
 Quotation system for SF Lodge (events and catering venue). Built on Google Apps Script with Google Sheets as the data layer.
 
-## Project Status
+**Status:** v2 Architectural Design Complete - Ready for Phase 1 Implementation
 
-**Branch `v2`** - Complete architectural redesign in progress. The v1 implementation lives in `old/` for reference. No v2 code has been written yet; the `docs/` folder contains the full design specification.
+---
 
-### What v1 Has (old/)
-- 4 tables: CLIENTES, COTIZACIONES, DETALLE_COTIZACION, ITEMS
-- Basic CRUD via SheetDB micro-ORM
-- Simple price lookup (hardcoded price columns)
-- PDF generation via Google Docs API
-- AlpineJS frontend with sidebar UI
+## Quick Start: Understanding the System
 
-### What v2 Adds (designed, not yet implemented)
-- Rule-based pricing engine (universal formula)
-- Recursive item composition (bundles, kits, menus)
-- Business constraint validation (min/max pax, dependencies, exclusions)
-- Automatic discount engine (pattern-based, negative lines)
-- 4-phase processing pipeline: Expansion > Valuation > Adjustment > Audit
-- Repository pattern with in-memory caching
-- Multi-day event support
-- Audit trail (history tracking)
+Start here to understand how everything works:
 
-## Documentation Guide
+1. **[worktrees.md](worktrees.md)** - Complete architecture (START HERE!)
+   - 5-worktree ecosystem overview
+   - 8 Mermaid diagrams showing data flow and module interactions
+   - Quotation flow narrative (8 steps from user click to PDF)
+   - Technical patterns used throughout
 
-Read in this order to understand the full system:
+2. **[TECHNICAL_DEPENDENCIES_AND_MOCKING.md](TECHNICAL_DEPENDENCIES_AND_MOCKING.md)** - Production specs
+   - External libraries: ONLY xstate@4.38 + alpinejs@3.12
+   - Rollup IIFE bundling for GAS
+   - Message contracts between modules
+   - Mock implementations for testing
+   - Bundle size (~55KB gzipped)
 
-### 1. Current State Assessment
-| Document | Purpose |
-|----------|---------|
-| [Current State & Next Tasks](docs/CURRENT_STATE_&_NEXT_TASKS.md) | Gap analysis between v1 and v2, proposed execution phases |
+3. **[DATABASE_ABSTRACTION_STRATEGY.md](DATABASE_ABSTRACTION_STRATEGY.md)** - Data layer design
+   - IStore interface (pluggable stores)
+   - 3 adapters: GasSheetStore, InMemoryStore, FileStore
+   - Dependency injection pattern
 
-### 2. Architecture & Data Model
-| Document | Purpose |
-|----------|---------|
-| [Technical Design: Modular Architecture](docs/technical-design-v2-modular-architecture.md) | Repository pattern, caching strategy, file structure |
-| [Data Dictionary](docs/db_docs.md) | All v2 entities: master data and transactional tables |
+4. **[DATABASE_SCHEMA_DRIVEN_MODELS.md](DATABASE_SCHEMA_DRIVEN_MODELS.md)** - Model generation
+   - ModelFactory approach (auto-generate all 10 models)
+   - Schema as single source of truth
+   - Runtime introspection strategy
 
-### 3. Business Logic (by pipeline phase)
-| Document | Pipeline Phase | Purpose |
-|----------|----------------|---------|
-| [Composition Logic](docs/composition_logic.md) | Phase 1: Expansion | Recursive kit/bundle/menu decomposition |
-| [Pricing & Constraints](docs/PRICING_AND_CONSTRAINTS_v2.md) | Phase 2: Valuation + Phase 4: Audit | Universal pricing formula + constraint validator |
-| [Discount & Bundles Engine](docs/discount-bundles-engine-design-v2-1.md) | Phase 3: Adjustment | Rule-based discount system with negative lines |
+---
 
-### 4. Process Flow
-| Document | Purpose |
-|----------|---------|
-| [Quotation Pipeline Flow](docs/quotation-pipeline-flow.md) | Complete 4-phase assembly line with worked examples |
+## Architecture Overview
 
-### 5. Implementation Planning
-| Document | Purpose |
-|----------|---------|
-| [Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md) | 4-phase execution plan with tasks and deliverables |
-| [TODO](docs/TODO.md) | Granular feature checklist with open questions |
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Final: GAS App (IIFE Bundle)                    │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↑ (Rollup)
 
-## Known Documentation Gaps
+┌──────────────────┬───────────────────────┬──────────────────────┐
+│ @claps/database  │  @claps/xstate        │  @claps/frontend     │
+│ (Stores+Models)  │  (Orchestration)      │  (Alpine.js)         │
+└──────────────────┴───────────────────────┴──────────────────────┘
+                              ↑
+                  (Depends on all 3 ↓)
 
-These topics are mentioned across docs but lack dedicated specification:
+           ┌────────────────────────────┐
+           │    @claps/pricing          │
+           │ (Pure calculation engine)  │
+           └────────────────────────────┘
+```
 
-1. **Tax/IVA Calculation** - v1 hardcodes 19% IVA. v2 schema has `Total_IVA` and `Total_Final` fields but no algorithm spec. Need to decide: always 19%? Configurable? Exempt items?
+**Key characteristics:**
+- ✅ **Zero external dependencies** except xstate + alpinejs
+- ✅ **Pure functions** for pricing (no side effects)
+- ✅ **Pluggable stores** (test with InMemory, deploy with GasSheetStore)
+- ✅ **Event-driven** (UI dispatches events, XState updates state)
+- ✅ **Fully testable** in isolation (no GAS API needed for tests)
+- ✅ **Single bundle** for GAS deployment (~55KB gzipped)
 
-2. **API Contract** - No request/response schemas defined for the Controller functions. The Frontend-to-Controller interface is undocumented.
-
-3. **Migration Strategy** - IMPLEMENTATION_ROADMAP mentions a migration script (Task 1.5) but doesn't specify: how to map old ITEMS to new ITEM_CATALOGO, how to create REGLA_PRECIO from old pricing columns, or data validation during migration.
-
-4. **Frontend/UI Specification** - No mockups or component specs for the v2 UI. The v1 UI (AlpineJS + sidebar) is in `old/` but v2 UI requirements are scattered across multiple docs.
-
-5. **PDF Generation (v2)** - v1 generates PDFs via Google Docs API. v2 docs mention "professional output" but don't specify the new format, template structure, or how discount/composition lines render.
-
-6. **Open Business Questions** - Listed in [CURRENT_STATE_&_NEXT_TASKS.md](docs/CURRENT_STATE_&_NEXT_TASKS.md) Section 5: pax logic (per-day vs fixed), item category defaults, multi-day cost distribution, and feature priority.
+---
 
 ## Directory Structure
 
 ```
 /
-├── README.md              # This file
-├── changelog.md           # Version history
-├── .clasp.json            # Google Apps Script project config
-├── docs/                  # All v2 design documentation
-│   ├── CURRENT_STATE_&_NEXT_TASKS.md
-│   ├── technical-design-v2-modular-architecture.md
-│   ├── db_docs.md
-│   ├── composition_logic.md
-│   ├── PRICING_AND_CONSTRAINTS_v2.md
-│   ├── discount-bundles-engine-design-v2-1.md
-│   ├── quotation-pipeline-flow.md
-│   ├── IMPLEMENTATION_ROADMAP.md
-│   └── TODO.md
-└── old/                   # v1 implementation (reference only)
-    ├── SheetDB.js         # Micro-ORM for Google Sheets
-    ├── Models.js          # Cliente, Cotizacion, DetalleCotizacion, Item
-    ├── Controller_Cotizacion.js  # Save, Load, PDF generation
-    ├── Config.js          # DB configuration
-    ├── Codigo.js          # Entry points
-    ├── Tests.js           # Test suite
-    ├── *.html             # Frontend components (AlpineJS)
-    └── appsscript.json    # GAS manifest
+├── README.md                              # This file
+├── changelog.md                           # Version history
+├── .clasp.json                            # Google Apps Script config
+│
+├── [ARCHITECTURE DOCS - READ THESE]
+├── worktrees.md                           # ⭐ START HERE
+├── TECHNICAL_DEPENDENCIES_AND_MOCKING.md
+├── DATABASE_ABSTRACTION_STRATEGY.md
+├── DATABASE_SCHEMA_DRIVEN_MODELS.md
+│
+├── src/
+│   └── Config/
+│       └── Config_Schema.js               # Single source of truth for schema
+│
+├── docs/
+│   └── legacy/                            # Old v1 design documents (reference)
+│       ├── technical-design-v2-modular-architecture.md
+│       ├── PRICING_AND_CONSTRAINTS_v2.md
+│       ├── composition_logic.md
+│       └── ... (other legacy v1/v2 planning)
+│
+└── old/                                   # v1 Implementation (reference)
+    ├── SheetDB.js                         # Micro-ORM (to refactor)
+    ├── Models.js                          # Domain models (to refactor)
+    ├── Controller_Cotizacion.js           # Business logic (to refactor)
+    ├── Config.js                          # Configuration
+    ├── *.html                             # Frontend components (v1)
+    └── appsscript.json                    # GAS manifest
 ```
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Create Database Worktree (2-3 hours)
+Create `@claps/database` with:
+- IStore interface
+- 3 store adapters (GAS, InMemory, File)
+- ModelFactory (auto-generate from CONFIG_SCHEMA.js)
+- All 10 models working with any store
+- Comprehensive tests using InMemoryStore mock
+
+### Phase 2: Create AlpineXStateBridge (2-3 hours)
+Bridge Alpine.js reactivity with XState state machine:
+- Sync snapshots → reactive properties
+- Dispatch events from UI
+- Computed properties for view logic
+
+### Phase 3: Integration Tests (2-3 hours)
+End-to-end testing across all worktrees:
+- Full quotation flow (add items, validate, save)
+- State transitions
+- Pricing calculations
+- Database persistence
+
+### Phase 4: Bundling & GAS Deployment (2 hours)
+Create IIFE bundle for Google Sheets:
+- Rollup configuration
+- Environment detection
+- Bundle size verification
+- GAS wrapper functions
+
+**Total Estimate:** 10-12 hours focused work
+
+---
+
+## Reference: v1 Implementation
+
+The `old/` directory contains the v1 implementation (reference only):
+
+- **SheetDB.js** - Micro-ORM for Google Sheets (to be abstracted → IStore interface)
+- **Models.js** - Domain models for v1 (to be refactored into @claps/database)
+- **Controller_Cotizacion.js** - Service layer (to be moved to @claps/xstate actions)
+- **HTML components** - v1 UI (to be adapted for Alpine.js)
+
+Legacy v1 features:
+- Simple price lookup (no rule engine)
+- 4 tables only (no composition, no rules, no caching)
+- Manual PDF generation
+
+---
+
+## Project Dependencies
+
+**Production Code:**
+- `xstate@4.38.0` - State machine for orchestration
+- `alpinejs@3.12.0` - Reactive UI framework
+
+**Development Only:**
+- `vitest@1.0.0` - Test runner
+- `rollup@4.0.0` - Module bundler
+- `@rollup/plugin-node-resolve` - Module resolution
+- `@rollup/plugin-commonjs` - CommonJS support
+
+**Zero runtime dependencies** for:
+- Database layer (@claps/database)
+- Pricing engine (@claps/pricing)
+
+---
+
+## Testing
+
+All modules can be tested in isolation without touching Google Sheets:
+
+```bash
+# Test everything with mocks
+npm run test
+
+# Test individual worktrees
+npm run test:database    # InMemoryStore mock
+npm run test:pricing     # Pure functions
+npm run test:xstate      # MockActor mock
+npm run test:frontend    # MockBridge mock
+
+# Test bundling
+npm run build            # Verify Rollup works
+npm run test:bundle      # Verify bundle integrity
+```
+
+---
+
+## Development Environment
+
+Local development uses mocks:
+- **Database:** InMemoryStore (no GAS API calls)
+- **Storage:** RAM only (no I/O)
+- **Time:** Unit tests complete in ~1 second
+
+Production uses real stores:
+- **Database:** GasSheetStore (Google Sheets API)
+- **Storage:** Persistent sheets
+- **Quota:** 6-minute execution limit (optimized)
+
+---
+
+## Changelog
+
+See [changelog.md](changelog.md) for version history and major changes.
+
+---
+
+## Legacy Documentation
+
+The `docs/legacy/` folder contains v1 and early v2 planning documents for historical reference. For current architecture, see the documents listed in "Quick Start" above.
+
+---
+
+**Ready to start Phase 1? Read [worktrees.md](worktrees.md) first!**
