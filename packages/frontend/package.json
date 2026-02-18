@@ -5,9 +5,9 @@
   "description": "Frontend bridge for Alpine.js + XState integration",
   "main": "src/Bridge/AlpineXStateBridge.js",
   "scripts": {
-    "test": "vitest --run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "test:coverage": "node --test --coverage",
     "test:ui": "vitest --ui"
   },
   "keywords": [
