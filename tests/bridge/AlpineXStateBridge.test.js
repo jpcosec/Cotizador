@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AlpineXStateBridge } from '../../src/bridge/AlpineXStateBridge.js';
+import { AlpineXStateBridge } from '../../src/Bridge/AlpineXStateBridge.js';
 
 function createMockActor(initialSnapshot) {
   let snapshot = initialSnapshot;

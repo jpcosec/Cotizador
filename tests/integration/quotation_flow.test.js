@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCotizadorActor } from '../../src/local/createCotizadorActor.local.js';
-import { AlpineXStateBridge } from '../../src/bridge/AlpineXStateBridge.js';
+import { createCotizadorActor } from '../../src/Local/createCotizadorActor.local.js';
+import { AlpineXStateBridge } from '../../src/Bridge/AlpineXStateBridge.js';
 
 function createMockAlpineApp() {
   return {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCotizadorActor } from '../../src/local/createCotizadorActor.local.js';
+import { createCotizadorActor } from '../../src/Local/createCotizadorActor.local.js';
 
 function currentStatePath(actor) {
   const value = actor.getSnapshot().value;
