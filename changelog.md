@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.2.0] - 2026-02-17 — Event-Driven Architecture Rewrite
+
+### Changed
+- **Full rewrite** from linear pipeline to event-driven architecture
+- **Pricing modules** (`src/Pricing/`) — independent pure functions ported from pipeline stages
+- **Rules engine** (`src/RulesEngine/`) — pluggable action registry replacing monolithic switch
+- **Config_Schema** — added `Hook` column and `SET_DEFAULT` action type to REGLAS_NEGOCIO
+
+### Added
+- `src/Pricing/` — expand, defaults, pricing, adjustments, manual, taxes (pure, no framework dependency)
+- `src/RulesEngine/` — registry pattern with self-registering action handlers (9 actions)
+- `src/Core/` — AbstractEvent (lifecycle hooks), EventBus, AbstractScenario, QuotationState
+- `src/Events/quotation/` — 12 event orchestrators (init, basket, finalization steps)
+- `src/Scenarios/Quotation.js` — 3-step scenario (init → basket → finalization)
+- 117 tests across 20 files (unit + integration), all passing
+- Numerical parity verified against v0.1.0 (same dollar amounts)
+- Event history / audit log via EventBus
+- Step gating — events validated against current scenario step
+
+### Removed
+- `src/Pipeline/` — replaced by `src/Pricing/` + event orchestrators
+- Old pipeline tests (replaced by new unit/pricing/ and unit/events/ tests)
+
+### Architecture note
+State management (events, scenarios, bus) will migrate to `claps_codelab_xstate`. The event layer here serves as a reference/mock implementation.
+
+---
+
+## [0.1.0] - 2026-02-17 — Pricing Engine Core
+
+### Added
+- **Project setup:** Node.js + Vitest (ES modules, `test` and `test:watch` scripts)
+- **InMemoryStore** (`src/DataStore/InMemoryStore.js`): table-based in-memory store with `seed`, `insert`, `findById`, `findAll`, `findByFK`, `all`
+- **Test fixtures** from real SF Lodge Excel catalog (20+ items, 7 categories, 21 pricing profiles)
+- **Pipeline stages:**
+  - `01_context.js` — create quotation context, update pax
+  - `02_expand.js` — recursive composition/pack expansion
+  - `03_defaults.js` — Q/T/P dimension resolution with inheritance chain
+  - `04_pricing.js` — universal formula `Neto = Base + P×Cp + T×Ct + Q×Cq`
+  - `05_adjustments.js` — automatic line/global adjustments (overtime surcharge)
+  - `06_manual_adjustments.js` — user overrides (price override, line discount)
+  - `07_taxes.js` — tax calculation (IVA 19%)
+  - `rules_engine.js` — shared condition evaluator + action executor
+  - `pipeline.js` — full recalculation orchestrator
+  - `add_item.js` — user-facing add-to-cart with expand→defaults→price flow
+- **71 tests** across 13 files (unit + integration), all passing
+- **Plan docs** (`docs/plan/step_01.md` through `step_14.md`)
+
+---
+
 ## [Unreleased] - v2 Design Phase
 
 ### 2026-02-18
