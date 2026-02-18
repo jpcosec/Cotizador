@@ -1,0 +1,16 @@
+{
+  "name": "claps-codelab-bundler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs && node tools/generate_gas_runtime_bundle.mjs",
+    "build:watch": "rollup -c rollup.config.mjs -w",
+    "serve:dist": "python3 -m http.server 8082",
+    "test:integration": "node --test bundling/tests"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "rollup": "^4.34.0"
+  }
+}
