@@ -8,6 +8,9 @@
 2. `docs/quotation-pipeline-flow-v3.md`  
    Pipeline por etapas y contrato de salida para UI.
 
+3. `docs/xstate-machine-design.md`  
+   Diseño de orquestación por estados/eventos para cotización.
+
 ## Documentos de transición
 
 - `docs/db_docs_v3.md`  

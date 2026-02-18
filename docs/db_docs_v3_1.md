@@ -12,6 +12,32 @@
 3. **Impuestos al total:** no por línea. Se aplican al neto consolidado.
 4. **Herencia por dimensiones:** la categoría define qué dimensiones de pricing aplican (Pax, Cantidad, Tiempo). El ítem puede override el perfil de precio y el calculador de unidades.
 5. **Intervenciones trazables:** todo ajuste manual del usuario queda en `AJUSTES_COTIZACION` con valor original vs nuevo.
+6. **Cotización reproducible por eventos:** la fuente de verdad operacional es una secuencia ordenada de eventos de cotización; los totales se obtienen por replay desde cero.
+
+### 1.1 Invariante de Persistencia (Event Log)
+
+Para reconstruir cualquier cotización se debe persistir, en orden, al menos:
+
+1. Inicialización de canasta (`INIT_BASKET`): `time`, `duration`, `pax`.
+2. Mutaciones de ítems (`ADD_ITEM`, `REMOVE_ITEM`).
+3. Instanciación de defaults (`INSTANTIATE_DEFAULTS`) tras agregar ítems.
+4. Modificaciones de usuario (`UPDATE_ITEM`, `UPDATE_BASKET`, `OVERRIDE_PRICE`, `APPLY_DISCOUNT`, `ADD_SURCHARGE`).
+
+Reglas:
+- Todo evento que impacta pricing debe persistirse con secuencia y timestamp.
+- `CACHE_COTIZACION` es derivado regenerable; no reemplaza la fuente de verdad.
+- Recalcular = replay determinista del stream de eventos.
+- Cambios de canasta son last-write-wins (para reconstrucción importa el último valor efectivo).
+- Remociones de ítems deben persistirse explícitamente (no borrar historial).
+
+### 1.2 Orden Canónico de Cálculo
+
+1. Aplicar primero estado de canasta (`time`, `duration`, `pax`).
+2. Resolver cada ítem en orden estable:
+   `ADD_ITEM` -> auto-add (composición/regla) -> `INSTANTIATE_DEFAULTS` -> overrides de usuario.
+3. Si un override impacta una composición, recalcular solo el subárbol de ese ítem.
+4. Ejecutar validación final de canasta completa.
+5. Aplicar descuentos/globales al final.
 
 ---
 

@@ -1,0 +1,24 @@
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+*.tmp
+
+# Generated quotations
+data/quotations/
+data/
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local

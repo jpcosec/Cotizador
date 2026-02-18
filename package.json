@@ -1,0 +1,21 @@
+{
+  "name": "claps-xstate-machine",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "XState machine for quotation workflow",
+  "scripts": {
+    "inspect": "node scripts/inspect.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "example": "node examples/create-quotation.js"
+  },
+  "dependencies": {
+    "xstate": "^5.28.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "fast-check": "^3.0.0",
+    "@vitest/coverage-v8": "^3.0.0"
+  }
+}
