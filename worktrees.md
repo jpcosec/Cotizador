@@ -27,21 +27,21 @@ The Cotizador Lodge system is built as a **coordinated multi-worktree monorepo**
 │  ✅ Config           │  ✅ Service Layer     │  ✅ Bridge           │
 └──────────────────────┴───────────────────────┴──────────────────────┘
                                     ↑
-                      (Dependency injection)
+                      (Parameter-based input from XState)
                                     ↓
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    @claps/pricing                                    │
-│              (Business Logic: Quotation Calculation)                │
+│              (Business Logic: 100% Pure Calculations)               │
 │                                                                      │
 │  ✅ expand() - Pack/bundle expansion                                │
 │  ✅ defaults() - Q/T/P resolution                                   │
 │  ✅ pricing() - Base price formula                                  │
 │  ✅ adjustments() - Rule-driven discounts                           │
 │  ✅ taxes() - IVA calculation                                       │
-│  ✅ pipeline() - Orchestration                                      │
+│  ✅ pipeline() - Orchestration (all data as params)                 │
 └──────────────────────────────────────────────────────────────────────┘
                                     ↑
-                      (Standalone, no dependencies)
+                      (Standalone, zero dependencies, zero I/O)
                                     ↓
 ┌──────────────────────────────────────────────────────────────────────┐
 │                     claps_codelab (v2 branch)                        │
@@ -88,10 +88,10 @@ graph TB
     A -->|"dispatch event"| C
     C -->|"actor.send(event)"| D
     D -->|"entry/on actions"| E
-    E -->|"Model.all()<br/>Model.insert()"| G
+    E -->|"Load + persist:<br/>Model.all()<br/>Model.insert()"| G
     G -->|"query()"| H
     H -->|"CRUD operations"| I
-    E -->|"calculateFull()<br/>(pure function)"| J
+    E -->|"calculateFull(header,<br/>lineas, catalog, rules)<br/>(pure, no I/O)"| J
     J -->|"evaluateRule()"| K
     D -->|"update context"| C
     C -->|"subscribe to snapshot<br/>sync reactive props"| B
@@ -140,8 +140,8 @@ graph LR
     ISTORE -->|"abstract base"| STORES
     PIPELINE -->|"pure functions<br/>no I/O"| RULES
 
-    ACTIONS -->|"calls models:<br/>Cliente.find()<br/>Cotizacion.insert()"| MODELS
-    ACTIONS -->|"pure calculation:<br/>calculateFull()"| PIPELINE
+    ACTIONS -->|"loads data + persists:<br/>Cliente.find()<br/>Cotizacion.insert()"| MODELS
+    ACTIONS -->|"pure calculation:<br/>calculateFull(header,<br/>lineas, catalog, rules)"| PIPELINE
     MACHINE -->|"guards determine<br/>transitions"| GUARDS
     MACHINE -->|"entry/on actions"| ACTIONS
 
@@ -151,7 +151,7 @@ graph LR
 
     %% Boundaries (thick borders)
     DB -.->|"BOUNDARY:<br/>All DB calls<br/>through models only"| ORCH
-    PRICING -.->|"BOUNDARY:<br/>No side effects<br/>No DB access"| ORCH
+    PRICING -.->|"BOUNDARY:<br/>No side effects<br/>No DB access<br/>Data via params"| ORCH
     ORCH -.->|"BOUNDARY:<br/>One-way events<br/>No two-way binding"| FE
 
     style CONFIG fill:#fff9c4
@@ -172,10 +172,12 @@ graph LR
 sequenceDiagram
     participant UI as Alpine UI
     participant Bridge as AlpineXStateBridge
-    participant Machine as XState Machine
+    participant Machine as XState Machine<br/>[dataCache in context]
     participant DB as Database Models
-    participant Pricing as Pricing Pipeline
+    participant Pricing as Pricing Pipeline<br/>(Pure Functions)
     participant Store as GasSheetStore
+
+    Note over Machine: At init: loads catalog, rules,<br/>profiles into context.dataCache
 
     UI->>Bridge: Click "Add Item"
     Bridge->>Machine: send({type:'ADD_ITEM'})
@@ -184,19 +186,19 @@ sequenceDiagram
     DB->>Store: insert new row
     Store-->>DB: return with _id
 
-    Machine->>Pricing: calculateFull(cotizacionId)
+    Machine->>Pricing: calculateFull(header, lineas,<br/>context.dataCache.catalog,<br/>context.dataCache.rules)
     activate Pricing
-        Note over Pricing: Stage 1: Qty defaults
-        Note over Pricing: Stage 2: Restrictions
-        Note over Pricing: Stage 3: Base price
-        Note over Pricing: Stage 4: Line adj
-        Note over Pricing: Stage 5: Global adj
-        Note over Pricing: Stage 6: Taxes
+        Note over Pricing: Stage 1: Qty defaults (from params)
+        Note over Pricing: Stage 2: Restrictions (from params)
+        Note over Pricing: Stage 3: Base price (from params)
+        Note over Pricing: Stage 4: Line adj (from params)
+        Note over Pricing: Stage 5: Global adj (from params)
+        Note over Pricing: Stage 6: Taxes (from params)
+        Note over Pricing: NO database access
     deactivate Pricing
     Pricing-->>Machine: {lineas, totals, rules}
 
-    Machine->>DB: CacheCotizacion.insert({snapshot})
-    DB->>Store: insert cache row
+    Machine->>Machine: Cache result in context.calculatedResults
 
     Machine->>Bridge: snapshot updated
     Bridge->>UI: sync reactive props
@@ -535,13 +537,13 @@ For EACH item selection:
 This is where `@claps/pricing` comes in:
 
 ```
-XState calls: calculatePrices(cotizacionId)
+XState calls: pipeline.calculateFull(header, lineas, catalog, rules)
    ↓
-Pricing pipeline loads:
-  1. Cotizacion header: Pax_Global=50, Duracion_Dias=3
-  2. All LINEA_DETALLE records for this quotation
-  3. Item catalog data (ITEM_CATALOGO, CATEGORIAS, PERFILES_PRECIO)
-  4. All business rules (REGLAS_NEGOCIO) for each stage
+All data passed as parameters from XState context (no database access by pricing):
+  1. header: { Pax_Global=50, Duracion_Dias=3 }      (from context.quotation)
+  2. lineas: All line items                            (from context.lineas)
+  3. catalog: { items, categories, profiles }          (from context.dataCache, loaded at init)
+  4. rules: All business rules                         (from context.dataCache, loaded at init)
 
    ↓
 STAGE 1: CANTIDAD_DEFAULT
@@ -1161,7 +1163,7 @@ describe('Store Interface Contract', () => {
 
 ### Purpose
 **Business logic engine** - all calculation logic for pricing decisions, rule evaluation, and tax calculation.
-Decoupled from UI via dependency injection. Store adapter is injected; the library itself has no external dependencies.
+100% pure: receives all data as parameters from the XState orchestrator. The library has zero external dependencies and zero store dependencies.
 
 ### Role in Quotation Flow
 - **Step 5:** Calculate prices for all stages
@@ -1170,23 +1172,25 @@ Decoupled from UI via dependency injection. Store adapter is injected; the libra
 
 ### Philosophy
 
-**Pure Calculation Logic + Store Abstraction = Testable Business Logic**
+**Pure Functions + Parameter-Based Input = Truly Testable Business Logic**
 
 ```
-Input: Quotation header + line items + catalog + rules (via injected store)
+Input: All data passed as parameters by XState orchestrator
+  ├─ lineas: Array<LineItem>           (from XState context)
+  ├─ catalog: { items, categories }    (from XState context.dataCache)
+  ├─ rules: Array<Rule>               (from XState context.dataCache)
+  └─ profiles: Array<Profile>         (from XState context.dataCache)
   ↓
-[CALCULATION PIPELINE - Pure Functions]
+[CALCULATION PIPELINE - 100% Pure Functions]
   ├─ Stage 1-6: Pure calculations (math only)
-  └─ No side effects: No external API calls, no mutations
+  └─ No side effects: No I/O, no store access, no mutations
   ↓
 Output: Calculated lines + totals + applied rules
-  ↓
-Store Access: Injected via constructor (dependency injection)
-  └─ XState provides store instance
-  └─ Tests provide mock store
 ```
 
-**Key distinction:** The pricing library has zero external npm dependencies and is pure within itself (all stages are pure functions). However, the `QuotationPipeline` class is abstracted over a store dependency via constructor injection - this allows testing with `InMemoryStore` and production use with `GasSheetStore` without any code changes.
+**Key distinction:** The pricing library has zero external npm dependencies AND zero store dependencies. The `QuotationPipeline` takes all required data as function parameters -- it never loads data itself. The XState orchestrator is responsible for loading reference data from the database (once, at initialization) and passing cached data into each pricing call. This makes pricing tests trivially simple: just pass mock data as arguments, no store mocking needed.
+
+**See also:** [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md) for the full orchestrator-driven data flow.
 
 ### Architecture
 
@@ -1488,43 +1492,42 @@ export function calculateTaxes(subtotal, rules) {
 // src/Pricing/pipeline.js
 
 export class QuotationPipeline {
-  constructor(store, rulesEngine) {
-    this.store = store;
-    this.rulesEngine = rulesEngine;
-  }
+  // No constructor parameters -- all data passed to calculateFull()
 
   /**
-   * Calculate entire quotation from scratch
+   * Calculate entire quotation from scratch.
+   * ALL data is received as parameters (passed by XState orchestrator).
+   * No store access, no I/O -- 100% pure.
+   *
+   * @param {Object} header - Quotation header (Pax_Global, Fecha_Evento, etc.)
+   * @param {Array}  lineas - Line items from context
+   * @param {Object} catalog - { items, categories, profiles, compositions } from context.dataCache
+   * @param {Array}  rules - Business rules from context.dataCache
+   * @returns {Object} Calculated result with lineas, totals, warnings, errors
    */
-  async calculateFull(cotizacionId) {
-    // 1. Load all data
-    const cot = await this.store.getCotizacion(cotizacionId);
-    const lineas = await this.store.getLineas(cotizacionId);
-    const catalog = await this.loadCatalog();
-    const rules = await this.store.getRules();
+  calculateFull(header, lineas, catalog, rules) {
+    const quotation = new Quotation(header, lineas, catalog, rules);
 
-    const quotation = new Quotation(cot.header, lineas, catalog, rules);
-
-    // 2. STAGE 1: Quantity defaults
+    // STAGE 1: Quantity defaults (uses passed catalog + rules)
     for (const linea of quotation.lineas) {
       const item = catalog.items[linea.ID_Item];
       linea.calculatedQuantity = resolveQuantity(linea, item, rules);
     }
 
-    // 3. STAGE 2: Restrictions
+    // STAGE 2: Restrictions (uses passed rules)
     const errors = validateRestrictions(quotation, rules);
     if (errors.filter(e => e.severity === 'ERROR').length > 0) {
       return {
         success: false,
         errors: errors,
-        lineas: []  // Don't return partial data
+        lineas: []
       };
     }
 
-    // 4. STAGE 3: Base prices
+    // STAGE 3: Base prices (uses passed catalog.profiles)
     for (const linea of quotation.lineas) {
       const item = catalog.items[linea.ID_Item];
-      const profile = catalog.perfiles[item.ID_Perfil_Precio];
+      const profile = catalog.profiles[item.ID_Perfil_Precio];
       linea.precioBase = calculateBasePrice(
         linea,
         item,
@@ -1533,19 +1536,19 @@ export class QuotationPipeline {
       );
     }
 
-    // 5. STAGE 4: Line adjustments
+    // STAGE 4: Line adjustments (uses passed rules)
     for (const linea of quotation.lineas) {
       linea.ajustes = applyLineAdjustments(linea, linea.precioBase, rules);
     }
 
-    // 6. STAGE 5: Global adjustments
+    // STAGE 5: Global adjustments (uses passed rules)
     const globalAjustes = applyGlobalAdjustments(quotation, rules);
 
-    // 7. STAGE 6: Taxes
+    // STAGE 6: Taxes (uses passed rules)
     const subtotal = globalAjustes.subtotal;
     const impuestos = calculateTaxes(subtotal, rules);
 
-    // 8. Return complete snapshot
+    // Return complete snapshot (no side effects, no persistence)
     return {
       success: true,
       lineas: quotation.lineas.map(l => ({
@@ -1616,38 +1619,44 @@ claps_codelab_pricing/
 
 describe('Full Quotation Calculation', () => {
   let pipeline;
+  let mockHeader, mockLineas, mockCatalog, mockRules;
 
   beforeEach(() => {
-    const store = new InMemoryStore();  // No GAS needed!
-    const rulesEngine = new RulesEngine();
-    pipeline = new QuotationPipeline(store, rulesEngine);
+    // No store needed! All data passed as parameters.
+    pipeline = new QuotationPipeline();
+
+    mockHeader = { Pax_Global: 50, Fecha_Evento: '2026-06-15', Duracion_Dias: 3 };
+    mockLineas = [
+      { ID_Item: 'CHINOOK', Dia_Numero: 1 },
+      { ID_Item: 'DINNER', Dia_Numero: 1 },
+      { ID_Item: 'HORSEBACK', Dia_Numero: 2 },
+      { ID_Item: 'TEAMBUILDING', Dia_Numero: 3 }
+    ];
+    mockCatalog = { items: { /* ... */ }, categories: [ /* ... */ ], profiles: { /* ... */ } };
+    mockRules = [ /* mock rules */ ];
   });
 
-  it('calculates quotation with 3-day retreat', async () => {
-    // Setup: Client books 4 services
-    const result = await pipeline.calculateFull('COT-TEST-001');
+  it('calculates quotation with 3-day retreat', () => {
+    const result = pipeline.calculateFull(mockHeader, mockLineas, mockCatalog, mockRules);
 
-    // Verify: Prices calculated correctly
     expect(result.lineas).toHaveLength(4);
-    expect(result.totals.total).toBe(133875);  // With 19% IVA
+    expect(result.totals.total).toBe(133875);
 
-    // Verify: Applied rules tracked
     const chinookLine = result.lineas.find(l => l.ID_Item === 'CHINOOK');
     expect(chinookLine.Reglas_Aplicadas).toContain('REGLA-EARLY-BIRD');
   });
 
-  it('rejects quotation with invalid restriction', async () => {
-    // Setup: Try to book 60 people in 30-person room
-    const result = await pipeline.calculateFull('COT-INVALID');
+  it('rejects quotation with invalid restriction', () => {
+    const invalidLineas = [{ ID_Item: 'CHINOOK', Override_Pax: 60 }]; // 60 > max 30
+    const result = pipeline.calculateFull(mockHeader, invalidLineas, mockCatalog, mockRules);
 
-    // Verify: Rejected with error
     expect(result.success).toBe(false);
     expect(result.errors[0].type).toBe('RESTRICTION_VIOLATION');
   });
 
-  it('is deterministic (same input = same output)', async () => {
-    const result1 = await pipeline.calculateFull('COT-001');
-    const result2 = await pipeline.calculateFull('COT-001');
+  it('is deterministic (same input = same output)', () => {
+    const result1 = pipeline.calculateFull(mockHeader, mockLineas, mockCatalog, mockRules);
+    const result2 = pipeline.calculateFull(mockHeader, mockLineas, mockCatalog, mockRules);
     expect(result1).toEqual(result2);
   });
 });
@@ -1657,11 +1666,11 @@ describe('Full Quotation Calculation', () => {
 
 ```json
 {
-  "dependencies": {}  // No external dependencies!
+  "dependencies": {}  // Zero npm dependencies, zero store dependencies!
 }
 ```
 
-**Philosophy:** Pure functions + minimal dependencies = Portable, testable, trustworthy.
+**Philosophy:** Pure functions + parameter-based input = Portable, testable, trustworthy. See [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md) for how the orchestrator provides data to pricing.
 
 ---
 
@@ -1674,13 +1683,57 @@ describe('Full Quotation Calculation', () => {
 The "conductor" of the entire app.
 
 ### Role in Quotation Flow
+- **Step 0:** Loads all reference data at initialization and caches in context
 - **Step 1-8:** Drives entire user flow via state machine
 - **Step 2:** Loads client data (calls database models)
-- **Step 3:** Initializes quotation
-- **Step 4:** Manages per-item selection and recalculation
-- **Step 5:** Calls pricing pipeline
+- **Step 3:** Initializes quotation + caches catalog/rules
+- **Step 4:** Manages per-item selection and recalculation (using cached data)
+- **Step 5:** Calls pricing pipeline with cached data as parameters
 - **Step 7:** Saves to database
 - **Step 8:** Triggers PDF generation
+
+### Data Loading & Caching
+
+The XState orchestrator is the **sole owner of database access** for reference data. Pricing never touches the database directly. See [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md) for the full strategy.
+
+**Initialization:** At app startup (or when a new quotation begins), XState loads all reference data from the database once and caches it in `context.dataCache`:
+
+```javascript
+context.dataCache = {
+  catalog: {
+    items: await database.ITEM_CATALOGO.all(),
+    categories: await database.CATEGORIAS.all(),
+    profiles: await database.PERFILES_PRECIO.all(),
+    compositions: await database.COMPOSICION_KIT.all()
+  },
+  rules: await database.REGLAS_NEGOCIO.all(),
+  loadedAt: Date.now(),
+  version: 1
+};
+```
+
+**Subsequent calculations** reuse `context.dataCache` without additional database reads:
+
+```javascript
+// In fullRecalculate action -- zero database calls for reference data
+const result = pipeline.calculateFull(
+  context.quotation,        // header
+  context.lineas,           // line items
+  context.dataCache.catalog, // cached at init
+  context.dataCache.rules    // cached at init
+);
+```
+
+**Cache invalidation** occurs only when the user edits reference data (via the database admin panel):
+
+```javascript
+// On CLOSE_DB_PANEL event:
+context.dataCache.version += 1;
+context.dataCache.rules = await database.REGLAS_NEGOCIO.all();  // Selective reload
+context.calculatedResults = null;  // Force recalculation
+```
+
+**Performance impact:** For a scenario with 5 item additions, database calls drop from 22 (old: reload catalog/rules per calculation) to 9 (new: load once at init, 1 persist per item). See DATAFLOW_AND_CACHING_STRATEGY.md for detailed analysis.
 
 ### Architecture
 
@@ -1688,14 +1741,16 @@ The "conductor" of the entire app.
 
 ```javascript
 // src/Orchestration/quotationMachineBlueprint.js
+// Using XState v5 API: createMachine() with type: 'parallel'
 
 export const quotationMachine = createMachine({
   id: 'quotationApp',
-  type: 'parallel',  // Root has 2 independent regions
+  type: 'parallel',  // Root has 2 independent parallel regions
 
-  regions: [
-    {
-      id: 'quotation_workflow',
+  // XState v5: parallel regions are defined as named keys under 'states'
+  // (the old 'regions' array syntax was non-standard -- this is correct v5 syntax)
+  states: {
+    quotation_workflow: {
       initial: 'browse',
 
       states: {
@@ -1781,8 +1836,7 @@ export const quotationMachine = createMachine({
       }
     },
 
-    {
-      id: 'database_management',
+    database_management: {
       initial: 'closed',
 
       states: {
@@ -1813,12 +1867,12 @@ export const quotationMachine = createMachine({
         }
       }
     }
-  ]
+  }
 });
 ```
 
 **Concepts:**
-- **Parallel regions:** Two independent workflows (quotation editing + database admin)
+- **Parallel regions:** Two independent workflows defined as named keys under `states` with `type: 'parallel'` (XState v5 syntax)
 - **Hierarchical states:** `quotation.basket`, `quotation.validation`, etc.
 - **Guards:** Conditions that allow/prevent transitions
 - **Actions:** Side effects (API calls, recalculations, etc.)
@@ -1844,11 +1898,27 @@ export const quotationActions = {
     context.selectedClient = client;
   },
 
-  // ====== INITIALIZATION ======
+  // ====== INITIALIZATION (loads + caches all reference data) ======
   async initializeEmptyBasket(context, event) {
-    const { Cotizacion } = await import('@claps/database');
-    const { QuotationPipeline } = await import('@claps/pricing');
+    const {
+      Cotizacion, ItemCatalogo, Categorias,
+      PerfilesPrecio, ComposicionKit, ReglasNegocio
+    } = await import('@claps/database');
 
+    // 1. Load ALL reference data ONCE and cache in context
+    context.dataCache = {
+      catalog: {
+        items: await ItemCatalogo.all(),
+        categories: await Categorias.all(),
+        profiles: await PerfilesPrecio.all(),
+        compositions: await ComposicionKit.all()
+      },
+      rules: await ReglasNegocio.all(),
+      loadedAt: Date.now(),
+      version: 1
+    };
+
+    // 2. Create the quotation record
     const newCot = await Cotizacion.insert({
       ID_Cliente: context.selectedClient.ID_Cliente,
       Pax_Global: event.paxGlobal,
@@ -1860,6 +1930,7 @@ export const quotationActions = {
     context.quotation = newCot;
     context.lineas = [];
     context.totals = { subtotal: 0, iva: 0, total: 0 };
+    context.calculatedResults = null;
   },
 
   // ====== BASKET MUTATIONS ======
@@ -1897,28 +1968,33 @@ export const quotationActions = {
     context.lineas = context.lineas.filter(l => l.ID_Linea !== event.lineaId);
   },
 
-  // ====== RECALCULATION ======
-  async fullRecalculate(context) {
-    const { QuotationPipeline } = await import('@claps/pricing');
-    const { InMemoryStore } = await import('@claps/database');
+  // ====== RECALCULATION (uses cached data, no database reads) ======
+  fullRecalculate(context) {
+    const { QuotationPipeline } = require('@claps/pricing');
 
-    // Create isolated calculation context
-    const store = new InMemoryStore();
-    const pipeline = new QuotationPipeline(store);
+    // Pipeline takes no constructor args -- 100% pure
+    const pipeline = new QuotationPipeline();
 
-    // Calculate with current state
-    const result = await pipeline.calculateFull(
-      context.quotation.ID_Cotizacion,
-      context.lineas
+    // Calculate using cached reference data (loaded at init)
+    const result = pipeline.calculateFull(
+      context.quotation,              // header
+      context.lineas,                 // line items
+      context.dataCache.catalog,      // cached catalog (items, categories, profiles)
+      context.dataCache.rules         // cached rules
     );
 
     if (!result.success) {
       context.errors = result.errors;
-      // Don't update totals if there are blocking errors
       return;
     }
 
-    // Update context with calculated values
+    // Cache the calculated result in context
+    context.calculatedResults = {
+      lineas: result.lineas,
+      totals: result.totals,
+      calculatedAt: Date.now(),
+      validFor: result.lineas.map(l => l.ID_Item)
+    };
     context.calculatedLineas = result.lineas;
     context.totals = result.totals;
     context.warnings = result.warnings;
@@ -1993,6 +2069,23 @@ export const quotationActions = {
 
       context.pdfUrl = pdfUrl;
     }
+  },
+
+  // ====== CACHE INVALIDATION (on database admin panel close) ======
+  async fullRecalculateOnDatabaseClose(context) {
+    const { ReglasNegocio, Categorias, ItemCatalogo, PerfilesPrecio } = await import('@claps/database');
+
+    // Selectively reload reference data that may have changed
+    context.dataCache.rules = await ReglasNegocio.all();
+    context.dataCache.catalog.items = await ItemCatalogo.all();
+    context.dataCache.catalog.categories = await Categorias.all();
+    context.dataCache.catalog.profiles = await PerfilesPrecio.all();
+    context.dataCache.version += 1;
+    context.dataCache.loadedAt = Date.now();
+
+    // Invalidate calculated results and force recalculation
+    context.calculatedResults = null;
+    quotationActions.fullRecalculate(context);
   },
 
   // ====== ERROR HANDLING ======
@@ -2144,7 +2237,7 @@ claps_codelab_xstate/
   "dependencies": {
     "@claps/database": "workspace:*",
     "@claps/pricing": "workspace:*",
-    "xstate": "^4.38.0"
+    "xstate": "^5.0.0"
   }
 }
 ```
@@ -2638,26 +2731,29 @@ Loads in Google Sheets as:
 
 ### Dependency Resolution
 
-**Clear, one-way dependencies:**
+**Clear, one-way dependencies with orchestrator-driven data flow:**
 
 ```
 Frontend → (depends on)
   ↓
-XState → (depends on)
-  ├─ Database
-  └─ Pricing
+XState [Data Cache Owner] → (depends on)
+  ├─ Database  (loads data at init, persists mutations)
+  └─ Pricing   (passes cached data as parameters)
 
-Database → (standalone)
+Database → (standalone, used by XState only)
 
-Pricing → (standalone)
+Pricing → (standalone, zero I/O, all data via params)
 ```
 
 **Benefits:**
-- ✅ Can test Database independently
-- ✅ Can test Pricing independently
-- ✅ XState orchestrates their interaction
-- ✅ Frontend just renders/dispatches events
-- ✅ No circular dependencies
+- Can test Database independently
+- Can test Pricing independently (no store mocking needed -- just pass test data)
+- XState orchestrates data loading, caching, and pricing calls
+- Frontend just renders/dispatches events
+- No circular dependencies
+- Pricing is 100% pure: deterministic, fast, trivially testable
+
+See [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md) for the full data flow and caching strategy.
 
 ---
 
@@ -2691,17 +2787,20 @@ Each worktree **adapts to its environment**:
 
 ## Technical Patterns Used Across Worktrees
 
-### 1. **Dependency Injection**
+### 1. **Dependency Injection & Parameter-Based Input**
 
-All worktrees accept dependencies rather than creating them:
+Worktrees accept dependencies rather than creating them. Pricing goes further: it receives all data as parameters.
 
 ```javascript
-// Good: Dependency injection
-const pipeline = new QuotationPipeline(store, rulesEngine);
+// Good: Parameter-based input (pricing)
+const pipeline = new QuotationPipeline();
+const result = pipeline.calculateFull(header, lineas, catalog, rules);
+
+// Good: Dependency injection (bridge)
 const bridge = new AlpineXStateBridge(actor, alpineStore);
 
 // Bad: Hard-coded dependencies (we avoid this)
-const pipeline = new QuotationPipeline();  // Creates its own store
+const pipeline = new QuotationPipeline(store);  // Pipeline should not access store
 ```
 
 ### 2. **Pure Functions**

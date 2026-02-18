@@ -2,6 +2,15 @@
 
 ## [Unreleased] - v2 Design Phase
 
+### 2026-02-18
+- **XState upgraded from v4.38 to v5.x** across all documentation:
+  - Updated version references in README.md, TECHNICAL_DEPENDENCIES_AND_MOCKING.md, worktrees.md
+  - Fixed state machine definition in worktrees.md: replaced non-standard `regions: [...]` array with correct v5 `type: 'parallel', states: {...}` syntax
+  - Updated bundle size estimates (v5 is smaller: ~14-15KB gzipped vs v4's ~16.4KB)
+  - Updated all package.json templates from `"xstate": "^4.38.0"` to `"xstate": "^5.0.0"`
+  - Added "Why XState v5?" section to README.md
+  - Verified all code examples already use v5 API (`createActor()`, `createMachine()`)
+
 ### 2026-02-16
 - **db_docs.md updated to v2.3**: Flexible tax system
   - New table 1.7 REGLAS_IMPUESTO (IVA, ILA, Exento, etc.)

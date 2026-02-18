@@ -454,7 +454,25 @@ claps_codelab_database/
 └── vitest.config.js
 ```
 
-### 6.2 Key Differences from Old Code
+### 7.2 Role in New Architecture
+
+With the orchestrator-driven data flow (see [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md)), the database layer's role is clarified:
+
+**Who uses the database layer:**
+- **XState orchestrator (only consumer for reference data):** Loads catalog, rules, profiles, and compositions at initialization and caches them in `context.dataCache`. Subsequent pricing calculations use cached data, not fresh database queries.
+- **XState actions (for mutations):** Persists line items, quotation state changes, cache snapshots, and audit logs.
+
+**Who does NOT use the database layer:**
+- **Pricing engine:** Never accesses the database. All reference data is received as function parameters from XState context. This makes pricing 100% pure and trivially testable.
+
+**When database queries happen:**
+1. **Initialization phase:** All reference data loaded once (CATEGORIAS, ITEM_CATALOGO, PERFILES_PRECIO, COMPOSICION_KIT, REGLAS_NEGOCIO).
+2. **Per-action mutations:** Line item insert/update/delete, quotation state updates.
+3. **Cache invalidation:** When user edits reference data via the admin panel (CLOSE_DB_PANEL event triggers selective reload).
+
+**Store adapter abstraction is preserved:** The IStore interface and adapter pattern remain unchanged. The difference is that queries happen early (at init) and results are cached in XState context, rather than being loaded on every calculation.
+
+### 7.3 Key Differences from Old Code
 
 | Aspect | Old (SheetDB) | New (IStore) |
 |--------|---------------|--------------|
@@ -469,7 +487,7 @@ claps_codelab_database/
 
 ## 7. Integration with Main Architecture
 
-### 7.1 Dependency Graph (Final)
+### 8.1 Dependency Graph (Final -- Orchestrator-Driven)
 
 ```
 ┌──────────────────────────────────┐
@@ -479,27 +497,27 @@ claps_codelab_database/
 └────────────┬─────────────────────┘
              │ events
 
-┌──────────────────────────────────┐
-│ XState Orchestration             │
-│ ├─ State machine                 │
-│ └─ Adapters (actions/guards)     │
-└────────────┬─────────────────────┘
-             │ calls
+┌──────────────────────────────────────────────┐
+│ XState Orchestrator (Data Cache Owner)        │
+│ ├─ State machine                              │
+│ ├─ context.dataCache (catalog, rules, etc.)   │
+│ └─ Adapters (actions/guards)                  │
+└────────┬──────────────────┬──────────────────┘
+         │ loads at init +  │ passes cached data
+         │ persists         │ as parameters
+         ↓                  ↓
 
-┌──────────────────────────────────┐
-│ Pricing Engine                   │
-│ ├─ expand()                      │
-│ ├─ pricing()                     │
-│ └─ taxes()                       │
-└────────────┬─────────────────────┘
-             │ persists via
+┌────────────────────┐  ┌──────────────────────────┐
+│ Database Layer     │  │ Pricing Engine (PURE)     │
+│ ├─ Models          │  │ ├─ calculateFull(         │
+│ ├─ IStore          │  │ │    header, lineas,      │
+│ └─ Adapters        │  │ │    catalog, rules)      │
+│   (GAS, InMemory,  │  │ ├─ No store access       │
+│    File)           │  │ └─ No I/O                │
+└────────────────────┘  └──────────────────────────┘
 
-┌──────────────────────────────────┐
-│ **Database Layer** (NEW)          │
-│ ├─ Models (Cliente, Cotizacion)  │
-│ ├─ IStore interface              │
-│ └─ Adapters (GAS, InMemory, File)│
-└──────────────────────────────────┘
+NOTE: Pricing does NOT access the Database Layer directly.
+      XState is the intermediary that loads data and passes it.
 ```
 
 ### 7.2 Monorepo Workspaces (Updated)
@@ -517,10 +535,10 @@ claps_codelab_database/
 ```
 
 Dependencies:
-- `pricing`: standalone
-- `xstate`: depends on `@claps/database`
+- `pricing`: standalone (zero dependencies, receives all data as parameters)
+- `xstate`: depends on `@claps/database` (loads + caches data, passes to pricing)
 - `frontend`: depends on `@claps/xstate`
-- `database`: standalone
+- `database`: standalone (used by XState only, not by pricing)
 
 ---
 

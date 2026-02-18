@@ -17,11 +17,11 @@ Start here to understand how everything works:
    - Technical patterns used throughout
 
 2. **[TECHNICAL_DEPENDENCIES_AND_MOCKING.md](TECHNICAL_DEPENDENCIES_AND_MOCKING.md)** - Production specs
-   - External libraries: ONLY xstate@4.38 + alpinejs@3.12
+   - External libraries: ONLY xstate@5.x + alpinejs@3.12
    - Rollup IIFE bundling for GAS
    - Message contracts between modules
    - Mock implementations for testing
-   - Bundle size (~55KB gzipped)
+   - Bundle size (~50KB gzipped)
 
 3. **[DATABASE_ABSTRACTION_STRATEGY.md](DATABASE_ABSTRACTION_STRATEGY.md)** - Data layer design
    - IStore interface (pluggable stores)
@@ -32,6 +32,12 @@ Start here to understand how everything works:
    - ModelFactory approach (auto-generate all 11 models)
    - Schema as single source of truth
    - Runtime introspection strategy
+
+5. **[DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md)** - Data flow & caching
+   - Orchestrator-driven data loading (XState owns all DB access for reference data)
+   - Cache strategy: load once at init, pass as params to pricing
+   - Cache invalidation on schema changes
+   - Performance analysis (59% reduction in DB calls)
 
 ---
 
@@ -45,24 +51,28 @@ Start here to understand how everything works:
 
 ┌──────────────────┬───────────────────────┬──────────────────────┐
 │ @claps/database  │  @claps/xstate        │  @claps/frontend     │
-│ (Stores+Models)  │  (Orchestration)      │  (Alpine.js)         │
+│ (Stores+Models)  │  (Orchestration +     │  (Alpine.js)         │
+│                  │   Data Cache)         │                      │
 └──────────────────┴───────────────────────┴──────────────────────┘
-                              ↑
-                  (Depends on all 3 ↓)
+         ↑                    ↑
+   (XState loads     (Passes cached data
+    data at init)     as parameters ↓)
 
            ┌────────────────────────────┐
            │    @claps/pricing          │
-           │ (Pure calculation engine)  │
+           │ (100% Pure - zero I/O)    │
+           │ (All data via params)      │
            └────────────────────────────┘
 ```
 
 **Key characteristics:**
-- ✅ **Zero external dependencies** except xstate + alpinejs
-- ✅ **Pure functions** for pricing (no side effects)
-- ✅ **Pluggable stores** (test with InMemory, deploy with GasSheetStore)
-- ✅ **Event-driven** (UI dispatches events, XState updates state)
-- ✅ **Fully testable** in isolation (no GAS API needed for tests)
-- ✅ **Single bundle** for GAS deployment (~55KB gzipped)
+- **Orchestrator-driven data flow:** XState loads reference data once at init, caches in context, passes to pricing as parameters ([details](DATAFLOW_AND_CACHING_STRATEGY.md))
+- **Zero external dependencies** except xstate (v5) + alpinejs
+- **100% pure pricing:** No store access, no I/O -- all data received as function parameters
+- **Pluggable stores** (test with InMemory, deploy with GasSheetStore)
+- **Event-driven** (UI dispatches events, XState updates state)
+- **Fully testable** in isolation (no GAS API needed for tests)
+- **Single bundle** for GAS deployment (~50KB gzipped)
 
 ---
 
@@ -155,7 +165,7 @@ Legacy v1 features:
 ## Project Dependencies
 
 **Production Code:**
-- `xstate@4.38.0` - State machine for orchestration
+- `xstate@5.x` - State machine for orchestration (v5: smaller bundle, better tree-shaking)
 - `alpinejs@3.12.0` - Reactive UI framework
 
 **Development Only:**
@@ -167,6 +177,12 @@ Legacy v1 features:
 **Zero runtime dependencies** for:
 - Database layer (@claps/database)
 - Pricing engine (@claps/pricing)
+
+**Why XState v5?**
+- Smaller bundle: ~14-15 KB gzipped (vs v4's ~16.4 KB)
+- Better tree-shaking with modular imports (`xstate/actions`, `xstate/guards`)
+- Actively maintained with ongoing improvements
+- Cleaner API: `createActor()` replaces `interpret()`, unified machine definition syntax
 
 ---
 

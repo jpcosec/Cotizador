@@ -10,7 +10,7 @@
 
 ```
 External Libraries Used:
-├── xstate@4.38+       (only in @claps/xstate)
+├── xstate@5.x         (only in @claps/xstate)
 ├── alpinejs@3.x       (only in @claps/frontend)
 └── Everything else is standard JS (ES2020+)
 
@@ -166,7 +166,7 @@ export function calculateBasePrice(linea, item, pax, perfil) {
     ".": "./src/index.js"
   },
   "dependencies": {
-    "xstate": "^4.38.0"
+    "xstate": "^5.0.0"
   },
   "devDependencies": {
     "vitest": "^1.0.0"
@@ -175,14 +175,15 @@ export function calculateBasePrice(linea, item, pax, perfil) {
 ```
 
 **External Libraries:**
-- ✅ **xstate@4.38.0** (ONLY external production dependency!)
+- ✅ **xstate@5.x** (ONLY external production dependency!)
 - ✅ Vitest for testing (dev-only)
 
-**Why xstate:**
+**Why xstate v5:**
 - Industry standard for state machines
-- Provides `createMachine()`, `createActor()`, `interpret()`
+- Provides `createMachine()`, `createActor()` (v5 API)
 - Mature, well-tested, widely used
-- Reasonable bundle size (~30KB gzipped)
+- Smaller bundle size (~14-15KB gzipped, down from v4's ~16.4KB)
+- Better tree-shaking with modular imports
 
 **Imports:**
 
@@ -296,7 +297,7 @@ export default {
   ]
 };
 ```
-Result: `quotation-engine.iife.js` = ~100KB (xstate + Alpine + all code)
+Result: `quotation-engine.iife.js` = ~85KB (xstate v5 + Alpine + all code)
 
 Option B: **Load Alpine from CDN (lighter, requires network)**
 ```html
@@ -304,7 +305,7 @@ Option B: **Load Alpine from CDN (lighter, requires network)**
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script defer src="quotation-engine.iife.js"></script>
 ```
-Result: `quotation-engine.iife.js` = ~70KB (just xstate + code)
+Result: `quotation-engine.iife.js` = ~55KB (just xstate v5 + code)
 
 **Recommendation:** Option A (bundle everything) for reliability in GAS
 - Avoid CDN dependency in Google Sheets
@@ -458,12 +459,12 @@ Output: quotation-engine.iife.js
 ```
 dist/
 ├── quotation-engine.iife.js      (Main bundle)
-│   ├── xstate library code (30KB)
+│   ├── xstate v5 library code (55KB)
 │   ├── @claps/database code (15KB)
 │   ├── @claps/pricing code (20KB)
 │   ├── @claps/xstate code (10KB)
 │   ├── @claps/frontend code (8KB)
-│   └── (total ~83KB uncompressed, ~25KB gzipped)
+│   └── (total ~108KB uncompressed, ~40KB gzipped)
 │
 └── quotation-engine.iife.js.map  (Source map for debugging)
 ```
@@ -590,10 +591,33 @@ machine.on[event.type] → action handler
 
 ---
 
-### Channel 2: XState → Database (Model Calls)
+### Channel 2: XState Orchestrator → Database (Data Loading + Persistence)
+
+The XState orchestrator is the **sole owner of database access**. It loads reference data at initialization (caching it in `context.dataCache`) and persists mutations (line items, quotation state). Pricing never directly accesses the database.
+
+See [DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md) for the full caching strategy.
 
 ```javascript
-// XState action
+// XState action: Data loading at initialization
+async initializeEmptyBasket(context, event) {
+  const { ItemCatalogo, Categorias, PerfilesPrecio, ReglasNegocio } = await import('@claps/database');
+
+  // Load all reference data ONCE and cache in context
+  context.dataCache = {
+    catalog: {
+      items: await ItemCatalogo.all(),
+      categories: await Categorias.all(),
+      profiles: await PerfilesPrecio.all(),
+    },
+    rules: await ReglasNegocio.all(),
+    loadedAt: Date.now(),
+    version: 1
+  };
+
+  // ... create quotation record
+}
+
+// XState action: Persist mutations (line items)
 async addItemToBasket(context, event) {
   const { LineaDetalle } = await import('@claps/database');
 
@@ -608,7 +632,7 @@ async addItemToBasket(context, event) {
   context.lineas.push(linea);
 }
 
-// Database call contract
+// Database call contract (unchanged)
 Model.insert({
   ID_Cotizacion: string (PK)
   ID_Item: string (FK)
@@ -633,27 +657,44 @@ Model.insert({
 
 ---
 
-### Channel 3: XState → Pricing (Calculation)
+### Channel 3: XState Orchestrator → Pricing (Parameter-Based Calculation)
+
+The orchestrator passes **all data as parameters** to the pricing pipeline. Pricing has zero store dependencies and performs zero I/O. All reference data comes from `context.dataCache` (loaded once at initialization).
 
 ```javascript
-// XState action
-async fullRecalculate(context) {
-  const { QuotationPipeline } = await import('@claps/pricing');
-  const pipeline = new QuotationPipeline(store, rulesEngine);
+// XState action: fullRecalculate uses cached data
+fullRecalculate(context) {
+  const { QuotationPipeline } = require('@claps/pricing');
 
-  const result = await pipeline.calculateFull(
-    context.quotation.ID_Cotizacion,
-    context.lineas
+  // Pipeline takes NO constructor args -- 100% pure
+  const pipeline = new QuotationPipeline();
+
+  // ALL data passed as parameters from XState context
+  const result = pipeline.calculateFull(
+    context.quotation,              // header
+    context.lineas,                 // line items (from context)
+    context.dataCache.catalog,      // cached at init (no DB read)
+    context.dataCache.rules         // cached at init (no DB read)
   );
 
   context.calculatedLineas = result.lineas;
   context.totals = result.totals;
+  context.calculatedResults = {
+    lineas: result.lineas,
+    totals: result.totals,
+    calculatedAt: Date.now()
+  };
 }
 
-// Pricing call contract
-pipeline.calculateFull(cotizacionId: string)
+// Pricing call contract (UPDATED -- parameter-based)
+pipeline.calculateFull(
+  header: { Pax_Global: number, Fecha_Evento: string, Duracion_Dias: number },
+  lineas: Array<LineItem>,
+  catalog: { items: Array, categories: Array, profiles: Array },
+  rules: Array<Rule>
+)
 
-// Returns
+// Returns (unchanged)
 {
   success: boolean
   lineas: [
@@ -795,11 +836,16 @@ class GasSheetStore extends IStore {
              │   └─→ Store.insert()
              │       └─→ GasSheetApp or Mock
              │
-             ├─→ QuotationPipeline.calculateFull()
-             │   ├─→ Stage1, Stage2, ... Stage6 (pure functions)
+             ├─→ QuotationPipeline.calculateFull(
+             │     header,                    ← from context
+             │     lineas,                    ← from context
+             │     context.dataCache.catalog, ← cached at init
+             │     context.dataCache.rules    ← cached at init
+             │   )
+             │   ├─→ Stage1-6 (pure functions, NO DB access)
              │   └─→ returns {lineas, totals}
              │
-             └─→ Update context with results
+             └─→ Cache results in context
                  └─→ New snapshot emitted
                      │
                      ↓
@@ -1030,7 +1076,7 @@ export class MockQuotationPipeline {
     this.callCount = 0;
   }
 
-  async calculateFull(cotizacionId, lineas) {
+  calculateFull(header, lineas, catalog, rules) {
     this.callCount++;
 
     // Return deterministic mock result
@@ -1259,8 +1305,8 @@ jobs:
 | Worktree | External Deps | Communication | Testing Mocks |
 |----------|---------------|---------------|---------------|
 | **database** | None (GAS API implicit) | Models → Store (CRUD) | InMemoryStore |
-| **pricing** | None | Pipeline ← context, → totals | Test data fixtures |
-| **xstate** | xstate@4.38 | Machine ← events, → snapshots | MockActor |
+| **pricing** | None | Pipeline ← params (header, lineas, catalog, rules), → totals | Test data fixtures (no store mock needed) |
+| **xstate** | xstate@5.x | Machine ← events, → snapshots | MockActor |
 | **frontend** | alpinejs@3.12 | Alpine ← store, → bridge.send() | MockBridge |
 | **root** | rollup, vitest | (workspace management) | (test runners) |
 
@@ -1270,29 +1316,33 @@ jobs:
 
 ```
 Uncompressed:
-├── xstate library:         ~80KB
+├── xstate v5 library:      ~55KB  (v5 is ~30% smaller than v4's ~80KB)
 ├── @claps/database code:   ~15KB
 ├── @claps/pricing code:    ~20KB
 ├── @claps/xstate code:     ~10KB
 ├── @claps/frontend code:   ~8KB
-└── TOTAL:                  ~133KB
+└── TOTAL:                  ~108KB
 
 Gzipped (production):
-├── xstate library:         ~30KB
+├── xstate v5 library:      ~15KB  (v5: ~14-15KB vs v4's ~16.4KB gzipped)
 ├── All code combined:      ~25KB
-└── TOTAL:                  ~55KB
+└── TOTAL:                  ~40KB
 
 GAS Deployment:
-├── quotation-engine.iife.js: ~55KB gzipped
+├── quotation-engine.iife.js: ~50KB gzipped
 ├── Index.html:              ~2KB
 ├── Styles_Global.html:      ~5KB
-└── TOTAL:                   ~62KB
+└── TOTAL:                   ~57KB
 ```
+
+**Note:** XState v5 provides significant size savings over v4 through better
+tree-shaking and a leaner core. Modular imports (`xstate/actions`, `xstate/guards`)
+allow bundlers to include only what is used.
 
 **GAS Quota Impact:**
 - HTML content size: ~100KB max (includes external resources)
 - Script execution time: < 6 minutes per run (GAS quota)
-- Current bundle: ~62KB → Well within limits ✅
+- Current bundle: ~57KB → Well within limits ✅
 
 ---
 
