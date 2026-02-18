@@ -1,4 +1,4 @@
-import { InMemoryStore } from '../../../claps_codelab_pricing/src/DataStore/InMemoryStore.js';
+import { InMemoryStore } from '../../../pricing/src/DataStore/InMemoryStore.js';
 
 /**
  * Creates a seeded InMemoryStore with minimal test data.

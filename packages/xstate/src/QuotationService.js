@@ -298,7 +298,7 @@ export class QuotationService {
    *
    * @example
    *   console.log(service.getDataDirectory());
-   *   // /home/jp/claps_codelab_xstate/data/quotations
+   *   // /home/jp/CotizadorLodge/packages/xstate/data/quotations
    */
   getDataDirectory() {
     const store = new FileStore();

@@ -13,7 +13,7 @@ import {
   applyItemRules,
   aggregateBasketTotals,
   fullRecalculateBasket,
-} from '../../../../claps_codelab_pricing/src/Pricing/pipeline.js';
+} from '../../../../pricing/src/Pricing/pipeline.js';
 
 // --- Helpers ---
 

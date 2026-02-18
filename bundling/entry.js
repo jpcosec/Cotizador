@@ -1,4 +1,4 @@
-import { AlpineXStateBridge } from '../../claps_codelab_frontend/src/bridge/AlpineXStateBridge.js';
+import { AlpineXStateBridge } from '../packages/frontend/src/Bridge/AlpineXStateBridge.js';
 import { createCotizadorActor } from './createCotizadorActor.js';
 
 export { AlpineXStateBridge, createCotizadorActor };

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCotizadorActor } from '../createCotizadorActor.js';
-import { AlpineXStateBridge } from '../../../claps_codelab_frontend/src/bridge/AlpineXStateBridge.js';
+import { AlpineXStateBridge } from '../../packages/frontend/src/Bridge/AlpineXStateBridge.js';
 
 test('merged actor runs quotation workflow end-to-end locally', () => {
   const actor = createCotizadorActor({

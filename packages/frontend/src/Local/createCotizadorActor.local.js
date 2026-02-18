@@ -1,7 +1,7 @@
-import { createActor } from '../../../claps_codelab_xstate/node_modules/xstate/dist/xstate.cjs.mjs';
-import { createQuotationXStateMachine } from '../../../claps_codelab_xstate/src/Orchestration/quotationMachine.xstate.js';
-import { quotationAdapters } from '../../../claps_codelab_xstate/src/Orchestration/adapters/index.js';
-import { createSeededStore } from '../../../claps_codelab_xstate/tests/helpers/store_factory.js';
+import { createActor } from '../../../xstate/node_modules/xstate/dist/xstate.cjs.mjs';
+import { createQuotationXStateMachine } from '../../../xstate/src/Orchestration/quotationMachine.xstate.js';
+import { quotationAdapters } from '../../../xstate/src/Orchestration/adapters/index.js';
+import { createSeededStore } from '../../../xstate/tests/helpers/store_factory.js';
 
 export function createCotizadorActor(opts = {}) {
   const machine = createQuotationXStateMachine(quotationAdapters);

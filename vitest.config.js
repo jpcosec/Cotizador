@@ -22,11 +22,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@pricing': path.resolve(__dirname, '../claps_codelab_pricing/src'),
+      '@pricing': path.resolve(__dirname, 'packages/pricing/src'),
       '@tests': path.resolve(__dirname, 'tests'),
-      '../../Pricing/': path.resolve(__dirname, '../claps_codelab_pricing/src/Pricing/'),
-      '../../RulesEngine/': path.resolve(__dirname, '../claps_codelab_pricing/src/RulesEngine/'),
-      '../../DataStore/': path.resolve(__dirname, '../claps_codelab_pricing/src/DataStore/'),
+      '../../Pricing/': path.resolve(__dirname, 'packages/pricing/src/Pricing/'),
+      '../../RulesEngine/': path.resolve(__dirname, 'packages/pricing/src/RulesEngine/'),
+      '../../DataStore/': path.resolve(__dirname, 'packages/pricing/src/DataStore/'),
     },
   },
 });
