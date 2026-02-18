@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DATA_SCHEMA } from '../src/schema.js';
@@ -55,4 +58,52 @@ test('assigns IDs using each table primary key', () => {
     const created = model.create({});
     assert.ok(created[primaryKey], `missing generated primary key for ${tableName}`);
   }
+});
+
+test('initializes from generic csv seed config', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-seed-'));
+  const clientesCsvPath = path.join(tmpDir, 'clientes.csv');
+  fs.writeFileSync(
+    clientesCsvPath,
+    'ID_Cliente,Nombre_Empresa,Email\nCLI-0001,Empresa Uno,uno@test.cl\nCLI-0002,Empresa Dos,dos@test.cl\n',
+    'utf8'
+  );
+
+  const db = createDatabase({
+    adapter: 'memory',
+    seed: {
+      type: 'csv',
+      imports: [
+        {
+          tableName: 'CLIENTES',
+          filePath: clientesCsvPath,
+          truncate: true
+        }
+      ]
+    }
+  });
+
+  assert.equal(db.models.CLIENTES.all().length, 2);
+  assert.equal(db.models.CLIENTES.findById('CLI-0001').Nombre_Empresa, 'Empresa Uno');
+  assert.equal(db.seedSummary.type, 'csv');
+});
+
+test('initializes from v1 CSV preset in data directory', () => {
+  const dataDir = path.resolve(process.cwd(), '../../data');
+  assert.equal(fs.existsSync(path.join(dataDir, 'Cotizador - CLIENTES.csv')), true);
+  assert.equal(fs.existsSync(path.join(dataDir, 'Cotizador - Items.csv')), true);
+
+  const db = createDatabase({
+    adapter: 'memory',
+    seed: {
+      type: 'v1',
+      dataDir,
+      truncate: true
+    }
+  });
+
+  assert.ok(db.models.CLIENTES.all().length > 0);
+  assert.ok(db.models.CATEGORIAS.all().length > 0);
+  assert.ok(db.models.ITEM_CATALOGO.all().length > 0);
+  assert.equal(db.seedSummary.type, 'v1');
 });
