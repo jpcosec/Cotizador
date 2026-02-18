@@ -1,0 +1,112 @@
+
+> test
+> node --test tests/**/*.test.js
+
+TAP version 13
+# Subtest: syncs XState context to Alpine-compatible state
+ok 1 - syncs XState context to Alpine-compatible state
+  ---
+  duration_ms: 5.993307
+  ...
+# Subtest: starts actor when configured and reacts to updates
+ok 2 - starts actor when configured and reacts to updates
+  ---
+  duration_ms: 0.663762
+  ...
+# Subtest: respects snapshot.can() when dispatching
+ok 3 - respects snapshot.can() when dispatching
+  ---
+  duration_ms: 1.495813
+  ...
+# Subtest: Bridge syncs initial machine state to Alpine store
+ok 4 - Bridge syncs initial machine state to Alpine store
+  ---
+  duration_ms: 17.617549
+  ...
+# Subtest: ADD_ITEM sends event to machine and carrito updates
+not ok 5 - ADD_ITEM sends event to machine and carrito updates
+  ---
+  duration_ms: 13.372489
+  location: 'file:///home/jp/CotizadorLodge/claps_codelab_frontend/tests/integration/quotation_flow.test.js:45:1'
+  failureType: 'uncaughtException'
+  error: "Cannot read properties of null (reading 'ID_Categoria')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    resolveDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/calculations/defaults.js:3:65)
+    resolveItemDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/pipeline.js:37:3)
+    file:///home/jp/CotizadorLodge/claps_codelab_xstate/src/Orchestration/adapters/actions.js:117:7
+    Function.resolveAssign [as resolve] (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/assign-6b5249c3.cjs.js:70:21)
+    resolveAndExecuteActionsWithContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2400:56)
+    resolveActionsAndContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2423:21)
+    microstep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2153:17)
+    Object.macrostep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2479:18)
+    StateMachine.transition (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/StateMachine-a2656b8a.cjs.js:391:37)
+    Actor._process (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:908:30)
+  ...
+# Subtest: totalsSnapshot reflects pricing calculations
+not ok 6 - totalsSnapshot reflects pricing calculations
+  ---
+  duration_ms: 13.728805
+  location: 'file:///home/jp/CotizadorLodge/claps_codelab_frontend/tests/integration/quotation_flow.test.js:82:1'
+  failureType: 'uncaughtException'
+  error: "Cannot read properties of null (reading 'ID_Categoria')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    resolveDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/calculations/defaults.js:3:65)
+    resolveItemDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/pipeline.js:37:3)
+    file:///home/jp/CotizadorLodge/claps_codelab_xstate/src/Orchestration/adapters/actions.js:117:7
+    Function.resolveAssign [as resolve] (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/assign-6b5249c3.cjs.js:70:21)
+    resolveAndExecuteActionsWithContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2400:56)
+    resolveActionsAndContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2423:21)
+    microstep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2153:17)
+    Object.macrostep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2479:18)
+    StateMachine.transition (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/StateMachine-a2656b8a.cjs.js:391:37)
+    Actor._process (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:908:30)
+  ...
+# Subtest: REMOVE_ITEM removes item from carrito
+not ok 7 - REMOVE_ITEM removes item from carrito
+  ---
+  duration_ms: 12.808819
+  location: 'file:///home/jp/CotizadorLodge/claps_codelab_frontend/tests/integration/quotation_flow.test.js:125:1'
+  failureType: 'uncaughtException'
+  error: "Cannot read properties of null (reading 'ID_Categoria')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    resolveDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/calculations/defaults.js:3:65)
+    resolveItemDefaults (file:///home/jp/CotizadorLodge/claps_codelab_pricing/src/Pricing/pipeline.js:37:3)
+    file:///home/jp/CotizadorLodge/claps_codelab_xstate/src/Orchestration/adapters/actions.js:117:7
+    Function.resolveAssign [as resolve] (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/assign-6b5249c3.cjs.js:70:21)
+    resolveAndExecuteActionsWithContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2400:56)
+    resolveActionsAndContext (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2423:21)
+    microstep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2153:17)
+    Object.macrostep (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:2479:18)
+    StateMachine.transition (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/StateMachine-a2656b8a.cjs.js:391:37)
+    Actor._process (/home/jp/CotizadorLodge/claps_codelab_xstate/node_modules/xstate/dist/raise-f23ccfcb.cjs.js:908:30)
+  ...
+# Subtest: canSend checks if event is allowed by machine
+ok 8 - canSend checks if event is allowed by machine
+  ---
+  duration_ms: 11.446122
+  ...
+# Subtest: createCotizadorActor boots directly into basket flow
+ok 9 - createCotizadorActor boots directly into basket flow
+  ---
+  duration_ms: 7.835935
+  ...
+# Subtest: local actor supports add/update/remove with pricing totals
+ok 10 - local actor supports add/update/remove with pricing totals
+  ---
+  duration_ms: 3.302211
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 7
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 246.94272
