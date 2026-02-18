@@ -1,55 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotizador SF Lodge v2</title>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 24px; }
-    button { padding: 8px 12px; font-size: 14px; }
-    pre { background: #f6f8fa; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador SF Lodge</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <?!= include('Styles_Global'); ?>
 </head>
 <body>
-  <h2>Cotizador v2 Bundle Smoke (GAS)</h2>
-  <p>Build source: merged from frontend + xstate + pricing through claps_codelab bundler.</p>
-  <button onclick="addItem()">ADD_ITEM ITEM_CHINOOK</button>
-  <pre id="out">loading...</pre>
+    <div x-data="cotizadorApp()" x-cloak class="container">
 
-  <?!= include('Bundle_Runtime'); ?>
-  <script>
-    var actor = null;
+        <?!= include('Components_Sidebar'); ?>
 
-    function render() {
-      if (!actor) return;
-      var snap = actor.getSnapshot();
-      document.getElementById('out').textContent = JSON.stringify({
-        state: snap.value,
-        lineCount: snap.context.lineas.length,
-        totals: snap.context.totals,
-        errorCount: (snap.context.errors || []).length
-      }, null, 2);
-    }
+        <?!= include('Components_Timeline'); ?>
 
-    function addItem() {
-      if (!actor) return;
-      actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_CHINOOK' });
-      render();
-    }
+        <?!= include('Components_ModalCliente'); ?>
 
-    (function init() {
-      if (!window.QuotationEngine || typeof window.QuotationEngine.createCotizadorActor !== 'function') {
-        document.getElementById('out').textContent = 'Bundle not loaded. Run npm run build in claps_codelab.';
-        return;
-      }
-      actor = window.QuotationEngine.createCotizadorActor({
-        clienteId: 'CLI_CORP',
-        paxGlobal: 25,
-        bootstrap: true
-      });
-      render();
-    })();
-  </script>
+    </div>
+
+    <?!= include('Bundle_Runtime'); ?>
+    <?!= include('Local_XState_ActorLoader'); ?>
+    <?!= include('Local_GAS_Shim'); ?>
+    <?!= include('Bridge_AlpineXState'); ?>
+    <?!= include('Stores_App'); ?>
 </body>
 </html>
