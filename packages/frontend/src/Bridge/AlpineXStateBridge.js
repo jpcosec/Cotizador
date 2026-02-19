@@ -96,6 +96,7 @@ export class AlpineXStateBridge {
     this.alpineStore.totalsSnapshot = cloneValue(context.totals || { subtotal: 0, taxes: [], total: 0 });
     this.alpineStore.messages = cloneValue(context.messages || []);
     this.alpineStore.errors = cloneValue(context.errors || []);
+    this.alpineStore.previousQuotations = cloneValue(context.previousQuotations || []);
     this.alpineStore.databaseOpen = Boolean(context.databaseOpen);
     this.alpineStore.selectedRowData = cloneValue(context.selectedRowData || null);
 
@@ -132,6 +133,8 @@ export class AlpineXStateBridge {
           dia: linea.Dia || linea._dia || 1,
           fecha: linea.Fecha || linea._fecha || fechaEvento || '',
           hora: linea.Hora || linea._hora || '09:00',
+          comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
+          Comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
           total,
           lineId: linea.ID_Linea || linea.id || null,
           _raw: linea,

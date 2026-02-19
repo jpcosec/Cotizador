@@ -1,52 +1,100 @@
 <template x-teleport="body">
-    <div class="modal-overlay" 
-         x-show="modalCliente" 
-         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; display: flex; justify-content: center; align-items: center;"
+    <div class="modal-overlay"
+         x-show="modalCliente"
          x-transition.opacity>
-        
-        <div class="modal" @click.away="cerrarModalCliente()" style="background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <h3>Seleccionar Cliente</h3>
-            
-            <div class="form-group">
-                <input type="text" x-model="busquedaCliente" @input.debounce.300ms="buscarClientes()" placeholder="Buscar por nombre o RUT...">
+
+        <div class="modal modal-lg" @click.away="cerrarModalCliente()">
+            <div class="modal-header-row">
+                <h3 style="margin: 0;">Seleccionar Cliente</h3>
+                <button class="btn-small btn-secondary" @click="cerrarModalCliente()">Cerrar</button>
             </div>
-            
-            <div style="margin: 10px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee;">
-                <template x-for="cli in (Array.isArray(clientesEncontrados) ? clientesEncontrados : [])" :key="cli.ID_Cliente || cli.RUT || cli.Nombre_Empresa">
-                    <div @click="seleccionarCliente(cli)" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; hover:background: #f9f9f9;">
-                        <strong x-text="cli.Nombre_Empresa || cli.nombre || 'Cliente' "></strong> - <small x-text="cli.RUT || cli.rut || '-' "></small>
+
+            <div class="form-group">
+                <label>Buscar por nombre, RUT o email</label>
+                <input
+                    type="text"
+                    x-model="busquedaCliente"
+                    @input.debounce.250ms="buscarClientes()"
+                    @keydown.arrow-down.prevent="moveClientSelection(1)"
+                    @keydown.arrow-up.prevent="moveClientSelection(-1)"
+                    @keydown.enter.prevent="selectHighlightedClient()"
+                    placeholder="Ej: Empresa SPA, 76.123.456-7 o contacto@empresa.cl"
+                >
+                <small style="color: var(--secondary);" x-show="busquedaCliente.length < 2">Escribe al menos 2 caracteres.</small>
+                <small style="color: var(--secondary);" x-show="busquedaCliente.length >= 2">
+                    <span x-text="filteredClientes.length"></span> resultados.
+                </small>
+            </div>
+
+            <div class="modal-two-col">
+                <div class="client-results-list">
+                    <template x-for="(cli, idx) in filteredClientes" :key="cli.ID_Cliente || cli.RUT || cli.Nombre_Empresa || idx">
+                        <button
+                            class="client-result-row"
+                            :class="{ 'active': idx === focusClientIndex }"
+                            @mouseenter="focusClientIndex = idx"
+                            @click="seleccionarCliente(cli)">
+                            <strong x-text="cli.Nombre_Empresa || cli.nombre || 'Cliente'"></strong>
+                            <small>
+                                <span x-text="cli.RUT || cli.rut || '-' "></span>
+                                ·
+                                <span x-text="cli.Email || cli.email || 'Sin email'"></span>
+                            </small>
+                        </button>
+                    </template>
+                    <div x-show="filteredClientes.length === 0 && busquedaCliente.length >= 2" style="padding: 12px; color: var(--secondary);">
+                        No se encontraron clientes.
                     </div>
-                </template>
-                <div x-show="clientesEncontrados.length === 0 && busquedaCliente.length > 2" style="padding:10px; color:gray;">No se encontraron clientes.</div>
+                </div>
+
+                <div class="client-preview-card">
+                    <h4 style="margin: 0 0 8px 0;">Vista previa</h4>
+                    <template x-if="highlightedClient">
+                        <div>
+                            <div><strong x-text="highlightedClient.Nombre_Empresa || highlightedClient.nombre || '-' "></strong></div>
+                            <div><strong>RUT:</strong> <span x-text="highlightedClient.RUT || highlightedClient.rut || '-' "></span></div>
+                            <div><strong>Email:</strong> <span x-text="highlightedClient.Email || highlightedClient.email || '-' "></span></div>
+                            <div><strong>Tel:</strong> <span x-text="highlightedClient.Telefono || highlightedClient.telefono || '-' "></span></div>
+                        </div>
+                    </template>
+                    <template x-if="!highlightedClient">
+                        <div style="color: var(--secondary);">Selecciona un cliente para revisar su detalle.</div>
+                    </template>
+                </div>
             </div>
-            
-            <hr>
-            <h4>O Nuevo Cliente:</h4>
-            
-            <div class="form-group">
-                <label>Nombre Empresa *</label>
-                <input type="text" x-model="nuevoCliente.nombre" placeholder="Ej: Empresa SPA">
-            </div>
-            <div class="form-group">
-                <label>RUT *</label>
-                <input type="text" x-model="nuevoCliente.rut" placeholder="76.123.456-7">
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" x-model="nuevoCliente.email" placeholder="contacto@empresa.cl">
-            </div>
-            <div class="form-group">
-                <label>Teléfono</label>
-                <input type="text" x-model="nuevoCliente.telefono" placeholder="+569...">
-            </div>
-            <div class="form-group">
-                <label>Nombre Contacto</label>
-                <input type="text" x-model="nuevoCliente.contacto" placeholder="Persona a cargo">
-            </div>
-            
-            <div style="margin-top: 15px; text-align: right;">
+
+            <details class="inline-toggle" style="margin-top: 16px;">
+                <summary>Crear cliente nuevo</summary>
+                <div style="margin-top: 10px;">
+                    <div class="form-group">
+                        <label>Nombre Empresa *</label>
+                        <input type="text" x-model="nuevoCliente.nombre" placeholder="Ej: Empresa SPA">
+                    </div>
+                    <div class="form-group">
+                        <label>RUT *</label>
+                        <input type="text" x-model="nuevoCliente.rut" placeholder="76.123.456-7">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" x-model="nuevoCliente.email" placeholder="contacto@empresa.cl">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" x-model="nuevoCliente.telefono" placeholder="+569...">
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre Contacto</label>
+                        <input type="text" x-model="nuevoCliente.contacto" placeholder="Persona a cargo">
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn-small btn-primary" @click="crearCliente()">Guardar y Usar</button>
+                    </div>
+                </div>
+            </details>
+
+            <div class="modal-footer-row">
                 <button class="btn-small btn-secondary" @click="cerrarModalCliente()">Cancelar</button>
-                <button class="btn-small btn-primary" @click="crearCliente()">Guardar y Usar</button>
+                <button class="btn-small btn-primary" @click="selectHighlightedClient()" :disabled="!highlightedClient">Usar Selección</button>
             </div>
         </div>
     </div>

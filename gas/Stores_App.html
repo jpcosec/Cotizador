@@ -4,9 +4,15 @@ function cotizadorApp() {
         // --- ESTADO ---
         cliente: null,
         modalCliente: false,
+        focusClientIndex: 0,
         busquedaCliente: '',
         clientesEncontrados: [],
         nuevoCliente: { nombre: '', rut: '', email: '', telefono: '', contacto: '' },
+        modalCotizaciones: false,
+        cotizacionesLoading: false,
+        previousQuotations: [],
+        selectedQuotationId: '',
+        filtroCotizaciones: { texto: '', desde: '', estado: '' },
         
         catalogo: [],
         busquedaCatalogo: '', // Variable para el filtro del sidebar
@@ -224,7 +230,7 @@ function cotizadorApp() {
             return rows.filter(function(row) {
                 if (!search) return true;
                 var categoryName = (categoryMap[row.ID_Categoria] && categoryMap[row.ID_Categoria].Nombre) || row.ID_Categoria || '';
-                var haystack = [row.ID_Item, row.Nombre, categoryName].join(' ').toLowerCase();
+                var haystack = [row.ID_Item, row.Nombre, categoryName, row.Default_Glosa].join(' ').toLowerCase();
                 return haystack.indexOf(search) !== -1;
             });
         },
@@ -287,6 +293,63 @@ function cotizadorApp() {
             return new Date().toLocaleDateString('es-CL');
         },
 
+        get filteredClientes() {
+            var rows = Array.isArray(this.clientesEncontrados) ? this.clientesEncontrados : [];
+            var query = (this.busquedaCliente || '').trim().toLowerCase();
+            if (!query) return rows;
+            return rows.filter(function(cli) {
+                var haystack = [
+                    cli.ID_Cliente,
+                    cli.Nombre_Empresa,
+                    cli.nombre,
+                    cli.RUT,
+                    cli.rut,
+                    cli.Email,
+                    cli.email
+                ].join(' ').toLowerCase();
+                return haystack.indexOf(query) !== -1;
+            });
+        },
+
+        get highlightedClient() {
+            var rows = this.filteredClientes;
+            if (!rows.length) return null;
+            var idx = Math.max(0, Math.min(this.focusClientIndex || 0, rows.length - 1));
+            return rows[idx] || null;
+        },
+
+        get filteredPreviousQuotations() {
+            var rows = Array.isArray(this.previousQuotations) ? this.previousQuotations.slice() : [];
+            var filter = this.filtroCotizaciones || {};
+            var text = (filter.texto || '').toLowerCase().trim();
+            var status = (filter.estado || '').trim();
+            var fromDate = (filter.desde || '').trim();
+
+            rows = rows.filter(function(row) {
+                if (status && String(row.estado || '') !== status) return false;
+                if (fromDate) {
+                    var rowDate = String(row.fechaEvento || '').slice(0, 10);
+                    if (!rowDate || rowDate < fromDate) return false;
+                }
+                if (!text) return true;
+                var haystack = [
+                    row.cotizacionId,
+                    row.clienteNombre,
+                    row.clienteId,
+                    row.estado,
+                    row.fechaEvento,
+                    row.updatedAt
+                ].join(' ').toLowerCase();
+                return haystack.indexOf(text) !== -1;
+            });
+
+            rows.sort(function(a, b) {
+                return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+            });
+
+            return rows;
+        },
+
         syncClientToMachine(cli) {
             if (!this.useStateMachine || !this.bridge || !cli) return false;
             if (this.isMachineInBasket()) return true;
@@ -338,18 +401,37 @@ function cotizadorApp() {
                 || (categoriaObj && categoriaObj.ID_Categoria)
                 || item.categoria
                 || null;
+            var detalle = item.Default_Glosa
+                || item.detalle
+                || item.Detalle
+                || item.Comentarios
+                || item.comentarios
+                || '';
 
             return {
                 ...item,
                 ID_Item: item.ID_Item || item.itemId || item.id || null,
                 Nombre: item.Nombre || item.nombre || item.ID_Item || item.itemId || 'Item',
                 Precio_Base: Number(item.Precio_Base ?? item.precio ?? 0) || 0,
+                detalle: detalle,
+                Default_Glosa: detalle,
                 ID_Categoria: categoriaId,
                 _categoria: categoriaObj || {
                     ID_Categoria: categoriaId,
                     Nombre: categoriaNombre
                 }
             };
+        },
+
+        resolveItemComment(item) {
+            if (!item) return '';
+            return String(
+                item.comentarios
+                || item.Comentarios
+                || item.detalle
+                || item.Default_Glosa
+                || ''
+            ).trim();
         },
 
         normalizeCatalogo(items) {
@@ -423,11 +505,28 @@ function cotizadorApp() {
         
         // --- CLIENTE ---
         buscarClientes() {
-            if (this.busquedaCliente.length < 2) return;
+            if (this.busquedaCliente.length < 2) {
+                this.clientesEncontrados = [];
+                this.focusClientIndex = 0;
+                return;
+            }
             var self = this;
             google.script.run.withSuccessHandler(function(res) {
                 self.clientesEncontrados = res || [];
+                self.focusClientIndex = 0;
             }).buscarCliente(this.busquedaCliente);
+        },
+
+        moveClientSelection(step) {
+            var rows = this.filteredClientes;
+            if (!rows.length) return;
+            var current = Number(this.focusClientIndex || 0);
+            this.focusClientIndex = Math.max(0, Math.min(current + step, rows.length - 1));
+        },
+
+        selectHighlightedClient() {
+            var cli = this.highlightedClient;
+            if (cli) this.seleccionarCliente(cli);
         },
         
         seleccionarCliente(cli) {
@@ -449,6 +548,7 @@ function cotizadorApp() {
         
         cerrarModalCliente() {
             this.modalCliente = false;
+            this.focusClientIndex = 0;
             this.busquedaCliente = '';
             this.clientesEncontrados = [];
             this.nuevoCliente = { nombre: '', rut: '', email: '', telefono: '', contacto: '' };
@@ -473,17 +573,21 @@ function cotizadorApp() {
             if (this.useStateMachine && this.bridge) {
                 var stateItemId = item.ID_Item || item.itemId || item.id || item.nombre;
                 if (stateItemId) {
+                    var comment = this.resolveItemComment(item);
                     var sent = this.bridge.send('ADD_ITEM', {
                         itemId: stateItemId,
                         overrides: {
                             Override_Pax: this.paxGlobal,
                             dia: this.diaSeleccionado,
-                            hora: this.horaInicio
+                            hora: this.horaInicio,
+                            Comentarios: comment
                         }
                     });
                     if (sent) return;
                 }
             }
+
+            var localComment = this.resolveItemComment(item);
 
             this.carrito.push({
                 nombre: item.Nombre || item.nombre,
@@ -493,6 +597,8 @@ function cotizadorApp() {
                 dia: this.diaSeleccionado,
                 fecha: this.obtenerFechaDia(this.diaSeleccionado),
                 hora: this.horaInicio,
+                comentarios: localComment,
+                Comentarios: localComment,
                 total: (item.Precio_Base || item.precio || 0) * this.paxGlobal
             });
             
@@ -518,6 +624,25 @@ function cotizadorApp() {
 
             this.carrito[idx].cantidad = cant;
             this.carrito[idx].total = this.carrito[idx].precio * cant;
+        },
+
+        actualizarComentario(idx, val) {
+            var comentario = String(val || '');
+
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('UPDATE_ITEM', {
+                        lineId: lineId,
+                        overrides: { Comentarios: comentario }
+                    });
+                    if (sent) return;
+                }
+            }
+
+            if (!this.carrito[idx]) return;
+            this.carrito[idx].comentarios = comentario;
+            this.carrito[idx].Comentarios = comentario;
         },
         
         eliminarItem(idx) {
@@ -643,18 +768,103 @@ function cotizadorApp() {
         },
 
         verCotizacionesAnteriores() {
-            if (this.useStateMachine && this.bridge) {
-                this.bridge.send('RETURN_TO_BROWSE');
-            }
+            this.abrirBrowserCotizaciones();
         },
 
-cargarCotizacion() {
-            var id = prompt("Ingrese el ID de la cotización (Ej: COT-0001):");
+        parseCachedQuotationRows(cacheRows, clientRows) {
+            var rows = Array.isArray(cacheRows) ? cacheRows : [];
+            var clients = Array.isArray(clientRows) ? clientRows : [];
+            var clientMap = {};
+            clients.forEach(function(cli) {
+                if (cli && cli.ID_Cliente) clientMap[cli.ID_Cliente] = cli;
+            });
+
+            return rows.map(function(row) {
+                var snapshotRaw = row && row.Snapshot_JSON;
+                var snapshot = null;
+                if (typeof snapshotRaw === 'string') {
+                    try {
+                        snapshot = JSON.parse(snapshotRaw);
+                    } catch (e) {
+                        snapshot = null;
+                    }
+                } else if (snapshotRaw && typeof snapshotRaw === 'object') {
+                    snapshot = snapshotRaw;
+                }
+
+                var cot = snapshot && snapshot.cotizacion ? snapshot.cotizacion : null;
+                if (!cot) return null;
+
+                var clienteId = cot.ID_Cliente || null;
+                var cliente = clientMap[clienteId] || null;
+                return {
+                    cotizacionId: row.ID_Cotizacion || cot.ID_Cotizacion,
+                    estado: cot.Estado || 'Borrador',
+                    clienteId: clienteId,
+                    clienteNombre: (cliente && cliente.Nombre_Empresa) || clienteId || '-',
+                    fechaEvento: cot.Fecha_Evento || null,
+                    total: snapshot && snapshot.totals ? Number(snapshot.totals.total || 0) : 0,
+                    updatedAt: row.Updated_At || null,
+                };
+            }).filter(Boolean);
+        },
+
+        loadPreviousQuotations() {
+            this.cotizacionesLoading = true;
+
+            if (this.useStateMachine && this.bridge && this.bridge.actor && typeof this.bridge.actor.getSnapshot === 'function') {
+                var snap = this.bridge.actor.getSnapshot();
+                var context = snap && snap.context ? snap.context : null;
+                var store = context && context.store ? context.store : null;
+
+                if (store && typeof store.findAll === 'function') {
+                    var cacheRows = store.findAll('CACHE_COTIZACION', {}) || [];
+                    var clientRows = store.findAll('CLIENTES', {}) || [];
+                    this.previousQuotations = this.parseCachedQuotationRows(cacheRows, clientRows);
+                    this.cotizacionesLoading = false;
+                    return;
+                }
+
+                if (context && Array.isArray(context.previousQuotations) && context.previousQuotations.length) {
+                    this.previousQuotations = context.previousQuotations;
+                    this.cotizacionesLoading = false;
+                    return;
+                }
+            }
+
+            this.previousQuotations = [];
+            this.cotizacionesLoading = false;
+        },
+
+        abrirBrowserCotizaciones() {
+            this.modalCotizaciones = true;
+            this.selectedQuotationId = '';
+            this.loadPreviousQuotations();
+        },
+
+        cerrarModalCotizaciones() {
+            this.modalCotizaciones = false;
+        },
+
+        recargarCotizaciones() {
+            this.loadPreviousQuotations();
+        },
+
+        cargarCotizacionDesdeLista(id) {
             if (!id) return;
+            this.selectedQuotationId = id;
+            this.cargarCotizacion(id);
+        },
+
+        cargarCotizacion(cotizacionId) {
+            var id = cotizacionId || '';
+            if (!id) {
+                this.abrirBrowserCotizaciones();
+                return;
+            }
 
             if (this.useStateMachine && this.bridge) {
                 this.cargando = true;
-                this.bridge.send('RETURN_TO_BROWSE');
                 var loaded = this.bridge.loadQuotation
                     ? this.bridge.loadQuotation(id)
                     : this.bridge.send('LOAD_QUOTATION', { cotizacionId: id });
@@ -684,6 +894,7 @@ cargarCotizacion() {
                     }) || null;
                 }
                 this.cliente = localCli || this.cliente || { ID_Cliente: cot.ID_Cliente, Nombre_Empresa: cot.ID_Cliente };
+                this.modalCotizaciones = false;
                 alert('✅ Cotización cargada desde XState.');
                 return;
             }
@@ -732,6 +943,7 @@ cargarCotizacion() {
                             self.diaSeleccionado = 1;
                         }
                         
+                        self.modalCotizaciones = false;
                         alert('✅ Cotización cargada correctamente.');
                     } else {
                         alert('Error: Respuesta inválida o vacía del servidor.');

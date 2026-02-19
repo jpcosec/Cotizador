@@ -34,6 +34,7 @@
                                 <th style="padding: 8px; border-bottom: 1px solid var(--border);">Nombre</th>
                                 <th style="padding: 8px; border-bottom: 1px solid var(--border);">Categoria</th>
                                 <th style="padding: 8px; border-bottom: 1px solid var(--border);">Precio Base</th>
+                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Comentario</th>
                                 <th style="padding: 8px; border-bottom: 1px solid var(--border);">Activo</th>
                             </tr>
                         </thead>
@@ -44,6 +45,7 @@
                                     <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Nombre"></td>
                                     <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="(categoryMap[item.ID_Categoria] && categoryMap[item.ID_Categoria].Nombre) || item.ID_Categoria || '-' "></td>
                                     <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(item.Precio_Base || 0)"></td>
+                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Default_Glosa || '-' "></td>
                                     <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Activo ? 'Si' : 'No'"></td>
                                 </tr>
                             </template>

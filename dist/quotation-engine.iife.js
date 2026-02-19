@@ -99,6 +99,7 @@ var QuotationEngine = (function (exports) {
       this.alpineStore.totalsSnapshot = cloneValue(context.totals || { subtotal: 0, taxes: [], total: 0 });
       this.alpineStore.messages = cloneValue(context.messages || []);
       this.alpineStore.errors = cloneValue(context.errors || []);
+      this.alpineStore.previousQuotations = cloneValue(context.previousQuotations || []);
       this.alpineStore.databaseOpen = Boolean(context.databaseOpen);
       this.alpineStore.selectedRowData = cloneValue(context.selectedRowData || null);
 
@@ -135,6 +136,8 @@ var QuotationEngine = (function (exports) {
             dia: linea.Dia || linea._dia || 1,
             fecha: linea.Fecha || linea._fecha || fechaEvento || '',
             hora: linea.Hora || linea._hora || '09:00',
+            comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
+            Comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
             total,
             lineId: linea.ID_Linea || linea.id || null,
             _raw: linea,
@@ -4895,6 +4898,7 @@ var QuotationEngine = (function (exports) {
         { name: "ID_Categoria", type: "FK", ref: "CATEGORIAS", desc: "Categoría base" },
         { name: "ID_Perfil_Precio_Override", type: "FK", ref: "PERFILES_PRECIO", desc: "Override de perfil de precio (si vacío, hereda de categoría)" },
         { name: "Def_Unidades_Por_Pax_Override", type: "DECIMAL", desc: "Override del calculador unidades/pax" },
+        { name: "Default_Glosa", type: "TEXT", desc: "Descripción/comentario por defecto del ítem" },
         { name: "Activo", type: "BOOLEAN", desc: "Borrado lógico" },
         { name: "Updated_At", type: "DATETIME", desc: "Última modificación" }
       ]
@@ -5318,6 +5322,11 @@ var QuotationEngine = (function (exports) {
       const { itemId, overrides = {} } = event;
       const { store } = context;
       const quotation = { ...context.quotation };
+      const selectedItem = store.findById('ITEM_CATALOGO', 'ID_Item', itemId);
+      const overrideComment = overrides.Comentarios;
+      const defaultComment = selectedItem && selectedItem.Default_Glosa
+        ? String(selectedItem.Default_Glosa)
+        : '';
 
       const baseLine = {
         ID_Linea: nextId(quotation),
@@ -5326,6 +5335,7 @@ var QuotationEngine = (function (exports) {
         Override_Pax: overrides.Override_Pax ?? null,
         Override_Cantidad: overrides.Override_Cantidad ?? null,
         Override_Duracion_Min: overrides.Override_Duracion_Min ?? null,
+        Comentarios: overrideComment !== undefined ? overrideComment : defaultComment,
       };
 
       // Step 1: Expand compositions
@@ -5334,6 +5344,12 @@ var QuotationEngine = (function (exports) {
       );
       const newErrors = [];
       for (const linea of expanded) {
+        if (linea.Comentarios === undefined || linea.Comentarios === null || linea.Comentarios === '') {
+          const item = store.findById('ITEM_CATALOGO', 'ID_Item', linea.ID_Item);
+          if (item && item.Default_Glosa) {
+            linea.Comentarios = String(item.Default_Glosa);
+          }
+        }
         resolveItemDefaults(linea, quotation.paxGlobal, store);
         recalculateItemPrice(linea, store);
         const ruleResult = applyItemRules(linea, store);
@@ -5375,6 +5391,8 @@ var QuotationEngine = (function (exports) {
           next.Override_Cantidad = overrides.Override_Cantidad;
         if (overrides.Override_Duracion_Min !== undefined)
           next.Override_Duracion_Min = overrides.Override_Duracion_Min;
+        if (overrides.Comentarios !== undefined)
+          next.Comentarios = overrides.Comentarios;
         return next;
       });
 

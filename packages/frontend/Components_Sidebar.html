@@ -55,7 +55,7 @@
                     </summary>
                     <div class="cat-items">
                         <template x-for="item in (Array.isArray(items) ? items : [])" :key="item.ID_Item || item.itemId || item.id || item.Nombre || item.nombre">
-                            <div class="mini-card" @click="agregarItem(item)" :title="item.detalle || item.Nombre || item.nombre || ''">
+                            <div class="mini-card" @click="agregarItem(item)" :title="item.detalle || item.Default_Glosa || item.Comentarios || item.Nombre || item.nombre || ''">
                                 <div>
                                     <h5 x-text="item.Nombre || item.nombre || 'Item'"></h5>
                                     <span x-text="'$' + Number(item.Precio_Base ?? item.precio ?? 0).toLocaleString('es-CL')"></span>

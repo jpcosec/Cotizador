@@ -39,6 +39,8 @@ export function createCotizadorActor(opts = {}) {
     nombre:    item.Nombre || item.ID_Item,
     categoria: item.ID_Categoria || 'Varios',
     precio:    item.Precio_Base || 0,
+    detalle:   item.Default_Glosa || '',
+    Default_Glosa: item.Default_Glosa || '',
   }));
   const clientes = store.tables?.CLIENTES || [];
   const pricingReferenceData = {

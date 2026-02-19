@@ -125,6 +125,61 @@ function createUniqueId(base, registry) {
   return candidate;
 }
 
+function extractPaxConstraints(text) {
+  const source = String(text || '').toLowerCase();
+  if (!source) return { minPax: null, maxPax: null };
+
+  const minMatch = source.match(/minimo\s*(\d{1,4})\s*(personas|pax|pasajeros)\b/i);
+  const maxHastaMatch = source.match(/hasta\s*(\d{1,4})\s*(personas|pax|pasajeros)\b/i);
+  const maximoMatch = source.match(/maximo\s*(\d{1,4})\s*(personas|pax|pasajeros)\b/i);
+  const oMasMatch = source.match(/(\d{1,4})\s*o\s*mas\s*(personas|pax|pasajeros)\b/i);
+  const masDeMatch = source.match(/mas\s*de\s*(\d{1,4})\s*(personas|pax|pasajeros)\b/i);
+  const menosMatch = source.match(/menos\s*de\s*(\d{1,4})\s*(personas|pax|pasajeros)\b/i);
+
+  const minPax = minMatch
+    ? Number.parseInt(minMatch[1], 10)
+    : oMasMatch
+      ? Number.parseInt(oMasMatch[1], 10)
+      : masDeMatch
+        ? Number.parseInt(masDeMatch[1], 10) + 1
+      : null;
+
+  let maxPax = null;
+  if (maxHastaMatch) {
+    maxPax = Number.parseInt(maxHastaMatch[1], 10);
+  } else if (maximoMatch) {
+    maxPax = Number.parseInt(maximoMatch[1], 10);
+  } else if (menosMatch) {
+    const value = Number.parseInt(menosMatch[1], 10);
+    maxPax = Number.isFinite(value) ? Math.max(value - 1, 1) : null;
+  }
+
+  const normalizedMin = Number.isFinite(minPax) ? minPax : null;
+  const normalizedMax = Number.isFinite(maxPax) ? maxPax : null;
+  if (normalizedMin && normalizedMax && normalizedMin > normalizedMax) {
+    return { minPax: null, maxPax: null };
+  }
+
+  return {
+    minPax: normalizedMin,
+    maxPax: normalizedMax,
+  };
+}
+
+function parseHybridPriceFromLegacy(value) {
+  const source = String(value || '').trim();
+  if (!source || !source.includes('+')) return null;
+
+  const match = source.match(/([\d\.,]+)\s*\+\s*([\d\.,]+)\s*(por\s*persona|pesos\s*por\s*persona|pp)?/i);
+  if (!match) return null;
+
+  const base = parseLegacyMoney(match[1]);
+  const perPax = parseLegacyMoney(match[2]);
+  if (!base || !perPax) return null;
+
+  return { base, perPax, source };
+}
+
 export function parseV1CsvToSchemaRows({ dataDir, schema = DATA_SCHEMA, now = toIsoNow() }) {
   const clientesPath = path.resolve(dataDir, 'Cotizador - CLIENTES.csv');
   const itemsPath = path.resolve(dataDir, 'Cotizador - Items.csv');
@@ -154,6 +209,28 @@ export function parseV1CsvToSchemaRows({ dataDir, schema = DATA_SCHEMA, now = to
   const itemIds = new Set();
 
   const categoryState = new Map();
+  const extractedRules = [];
+  let ruleSeq = 1;
+
+  function pushRule({ name, type, condition, payload, priority = 100, accumulable = false }) {
+    const ruleId = `R_AUT_${String(ruleSeq).padStart(4, '0')}`;
+    ruleSeq += 1;
+
+    extractedRules.push({
+      ID_Regla: ruleId,
+      Nombre: name,
+      Etapa: 'RESTRICCION_UI',
+      Scope: 'ITEM',
+      Tipo_Accion: type,
+      Hook: '',
+      Condicion_JSON: JSON.stringify(condition),
+      Payload_JSON: JSON.stringify(payload),
+      Prioridad: priority,
+      Acumulable: accumulable,
+      Activo: true,
+      Updated_At: now,
+    });
+  }
 
   for (const row of itemsRows) {
     const categoryName = String(row.Categoria || '').trim();
@@ -207,9 +284,62 @@ export function parseV1CsvToSchemaRows({ dataDir, schema = DATA_SCHEMA, now = to
       ID_Categoria: category.categoryId,
       ID_Perfil_Precio_Override: profileId,
       Def_Unidades_Por_Pax_Override: requiresPax ? 1 : '',
+      Default_Glosa: String(row['Detalle de servicios.'] || '').trim(),
       Activo: true,
       Updated_At: now
     });
+
+    const sourceText = `${itemName} ${String(row['Detalle de servicios.'] || '')}`;
+    const { minPax, maxPax } = extractPaxConstraints(sourceText);
+
+    if (Number.isFinite(minPax) && minPax > 0) {
+      pushRule({
+        name: `Minimo ${minPax} pax - ${itemName}`,
+        type: 'ERROR',
+        condition: {
+          and: [
+            { '===': [{ var: 'linea.ID_Item' }, itemId] },
+            { '<': [{ var: 'linea._pax' }, minPax] }
+          ]
+        },
+        payload: { message: `Este item requiere minimo ${minPax} pax.` },
+        priority: 20,
+        accumulable: false,
+      });
+    }
+
+    if (Number.isFinite(maxPax) && maxPax > 0) {
+      pushRule({
+        name: `Maximo ${maxPax} pax - ${itemName}`,
+        type: 'ERROR',
+        condition: {
+          and: [
+            { '===': [{ var: 'linea.ID_Item' }, itemId] },
+            { '>': [{ var: 'linea._pax' }, maxPax] }
+          ]
+        },
+        payload: { message: `Este item permite maximo ${maxPax} pax.` },
+        priority: 20,
+        accumulable: false,
+      });
+    }
+
+    const hybridPrice = parseHybridPriceFromLegacy(row['Valor Original']);
+    if (hybridPrice) {
+      pushRule({
+        name: `Precio hibrido detectado - ${itemName}`,
+        type: 'WARNING',
+        condition: { '===': [{ var: 'linea.ID_Item' }, itemId] },
+        payload: {
+          message: 'Precio base + pax detectado y migrado a perfil de precio',
+          base: hybridPrice.base,
+          perPax: hybridPrice.perPax,
+          source: hybridPrice.source,
+        },
+        priority: 200,
+        accumulable: true,
+      });
+    }
 
     if (!category.defaultProfileId) {
       category.defaultProfileId = profileId;
@@ -232,6 +362,8 @@ export function parseV1CsvToSchemaRows({ dataDir, schema = DATA_SCHEMA, now = to
       Updated_At: now
     });
   }
+
+  rowsByTable.REGLAS_NEGOCIO = extractedRules;
 
   return rowsByTable;
 }

@@ -307,6 +307,11 @@ export const basketActions = {
     const { itemId, overrides = {} } = event;
     const { store } = context;
     const quotation = { ...context.quotation };
+    const selectedItem = store.findById('ITEM_CATALOGO', 'ID_Item', itemId);
+    const overrideComment = overrides.Comentarios;
+    const defaultComment = selectedItem && selectedItem.Default_Glosa
+      ? String(selectedItem.Default_Glosa)
+      : '';
 
     const baseLine = {
       ID_Linea: nextId(quotation),
@@ -315,6 +320,7 @@ export const basketActions = {
       Override_Pax: overrides.Override_Pax ?? null,
       Override_Cantidad: overrides.Override_Cantidad ?? null,
       Override_Duracion_Min: overrides.Override_Duracion_Min ?? null,
+      Comentarios: overrideComment !== undefined ? overrideComment : defaultComment,
     };
 
     // Step 1: Expand compositions
@@ -326,6 +332,12 @@ export const basketActions = {
     const newMessages = [];
     const newErrors = [];
     for (const linea of expanded) {
+      if (linea.Comentarios === undefined || linea.Comentarios === null || linea.Comentarios === '') {
+        const item = store.findById('ITEM_CATALOGO', 'ID_Item', linea.ID_Item);
+        if (item && item.Default_Glosa) {
+          linea.Comentarios = String(item.Default_Glosa);
+        }
+      }
       resolveItemDefaults(linea, quotation.paxGlobal, store);
       recalculateItemPrice(linea, store);
       const ruleResult = applyItemRules(linea, store);
@@ -367,6 +379,8 @@ export const basketActions = {
         next.Override_Cantidad = overrides.Override_Cantidad;
       if (overrides.Override_Duracion_Min !== undefined)
         next.Override_Duracion_Min = overrides.Override_Duracion_Min;
+      if (overrides.Comentarios !== undefined)
+        next.Comentarios = overrides.Comentarios;
       return next;
     });
 

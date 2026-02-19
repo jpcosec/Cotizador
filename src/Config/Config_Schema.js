@@ -52,6 +52,7 @@ export const DATA_SCHEMA = {
       { name: "ID_Categoria", type: "FK", ref: "CATEGORIAS", desc: "Categoría base" },
       { name: "ID_Perfil_Precio_Override", type: "FK", ref: "PERFILES_PRECIO", desc: "Override de perfil de precio (si vacío, hereda de categoría)" },
       { name: "Def_Unidades_Por_Pax_Override", type: "DECIMAL", desc: "Override del calculador unidades/pax" },
+      { name: "Default_Glosa", type: "TEXT", desc: "Descripción/comentario por defecto del ítem" },
       { name: "Activo", type: "BOOLEAN", desc: "Borrado lógico" },
       { name: "Updated_At", type: "DATETIME", desc: "Última modificación" }
     ]

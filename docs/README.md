@@ -10,6 +10,8 @@ This folder contains active technical/business docs for the merged v2 repository
 ## Folder Guide
 
 - `ARCHITECTURE/`
+  - `database-logic.md`
+  - `legacy-items-rule-migration-matrix.md`
   - `state-machine.md`
 - `PACKAGES/`
   - `database.md`

@@ -16,7 +16,7 @@
             <p style="margin-top: 0; color: var(--secondary);">Inicia una cotizacion nueva o carga una existente.</p>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;">
                 <button class="btn-small btn-primary" @click="modalCliente = true">Seleccionar Cliente</button>
-                <button class="btn-small btn-secondary" @click="cargarCotizacion()">Cargar Anterior</button>
+                <button class="btn-small btn-secondary" @click="abrirBrowserCotizaciones()">Cargar Anterior</button>
                 <button class="btn-small" style="background: var(--secondary); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;" @click="openDatabaseViewer()">📊 Ver Base de Datos</button>
             </div>
         </section>
@@ -47,6 +47,7 @@
         </section>
 
         <?!= include('Components_ModalCliente'); ?>
+        <?!= include('Components_ModalCotizaciones'); ?>
         <?!= include('Components_DatabaseViewer'); ?>
     </div>
     

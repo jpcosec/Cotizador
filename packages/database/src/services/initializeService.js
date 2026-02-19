@@ -97,33 +97,43 @@ export class InitializeService {
   }
 
   /**
-   * Delete all sheets and recreate with headers (clean slate)
-   * Useful when you need to start fresh with new schema
+   * Delete only schema-managed sheets and recreate with headers.
+   * Preserves non-database tabs in the spreadsheet.
    */
   static cleanAllTables(schema) {
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       Logger.log('=== Cleaning Database Tables ===');
 
-      // Delete all sheets except the first one
+       const schemaTableNames = Object.keys(schema || {});
+       const schemaTableSet = new Set(schemaTableNames);
+
+      // Delete only sheets that belong to schema tables.
+      // Preserve non-schema tabs (dashboards, notes, manual tabs, etc).
       const allSheets = ss.getSheets();
       for (let i = allSheets.length - 1; i >= 0; i--) {
         const sheet = allSheets[i];
-        const isFirstSheet = (i === 0);
+        const sheetName = sheet.getName();
+        const isSchemaSheet = schemaTableSet.has(sheetName);
+        if (!isSchemaSheet) {
+          continue;
+        }
 
-        // Only keep first sheet if we need a default
-        if (isFirstSheet && allSheets.length === 1) {
+        const remainingSheets = ss.getSheets().length;
+        if (remainingSheets === 1) {
+          // Google Sheets requires at least one tab at all times.
+          // Clear if this is the only tab and it belongs to schema.
           sheet.clear();
           Logger.log('Cleared first sheet (keeping minimum 1 sheet)');
         } else {
           ss.deleteSheet(sheet);
-          Logger.log('Deleted sheet: ' + sheet.getName());
+          Logger.log('Deleted sheet: ' + sheetName);
         }
       }
 
       // Now recreate all sheets with headers
       Logger.log('Recreating all sheets...');
-      for (const [tableName, tableSchema] of Object.entries(schema)) {
+      for (const [tableName, tableSchema] of Object.entries(schema || {})) {
         const columns = tableSchema.columns;
         let sheet = ss.getSheetByName(tableName);
 

@@ -84,6 +84,7 @@
     this.alpineStore.totalsSnapshot = cloneValue(context.totals || { subtotal: 0, taxes: [], total: 0 });
     this.alpineStore.messages = cloneValue(context.messages || []);
     this.alpineStore.errors = cloneValue(context.errors || []);
+    this.alpineStore.previousQuotations = cloneValue(context.previousQuotations || []);
     this.alpineStore.databaseOpen = !!context.databaseOpen;
     this.alpineStore.selectedRowData = cloneValue(context.selectedRowData || null);
 
@@ -109,19 +110,21 @@
       var total = linea._netoAjustado || linea._netoBase || 0;
       var precio = cantidad > 0 ? Math.round(total / cantidad) : total;
 
-      return {
-        id: linea.ID_Linea || linea.id || ('LINA_' + (idx + 1)),
-        nombre: (linea._item && linea._item.Nombre_Item) || linea.Nombre_Item || linea.ID_Item || 'Item',
-        categoria: (linea._item && linea._item.Categoria) || linea.Categoria || 'General',
-        precio: precio,
-        cantidad: cantidad,
-        dia: linea.Dia || linea._dia || 1,
-        fecha: linea.Fecha || linea._fecha || fechaEvento || '',
-        hora: linea.Hora || linea._hora || '09:00',
-        total: total,
-        lineId: linea.ID_Linea || linea.id || null,
-        _raw: linea
-      };
+        return {
+          id: linea.ID_Linea || linea.id || ('LINA_' + (idx + 1)),
+          nombre: (linea._item && linea._item.Nombre_Item) || linea.Nombre_Item || linea.ID_Item || 'Item',
+          categoria: (linea._item && linea._item.Categoria) || linea.Categoria || 'General',
+          precio: precio,
+          cantidad: cantidad,
+          dia: linea.Dia || linea._dia || 1,
+          fecha: linea.Fecha || linea._fecha || fechaEvento || '',
+          hora: linea.Hora || linea._hora || '09:00',
+          comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
+          Comentarios: linea.Comentarios || (linea._item && linea._item.Default_Glosa) || '',
+          total: total,
+          lineId: linea.ID_Linea || linea.id || null,
+          _raw: linea
+        };
     });
   };
 
