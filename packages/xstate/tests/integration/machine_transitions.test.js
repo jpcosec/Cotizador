@@ -54,7 +54,7 @@ describe('State Machine Transitions', () => {
 
     it('LOAD_QUOTATION loads saved snapshot directly into basket', () => {
       navigateToBasket(actor, { paxGlobal: 25, clienteId: 'CLI_CORP' });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       actor.send({ type: 'ADVANCE_TO_VALIDATION' });
       actor.send({ type: 'VALIDATE_AND_SAVE' });
 
@@ -108,15 +108,15 @@ describe('State Machine Transitions', () => {
     });
 
     it('ADD_ITEM adds line to basket', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       const ctx = getContext(actor);
       expect(ctx.lineas.length).toBeGreaterThan(0);
-      expect(ctx.lineas[0].ID_Item).toBe('ITEM_CHINOOK');
+      expect(ctx.lineas[0].ID_Item).toBe('ITEM_SALON_FARIO');
     });
 
     it('ADD_ITEM updates totals', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       const ctx = getContext(actor);
       expect(ctx.totals.subtotal).toBeGreaterThan(0);
@@ -124,9 +124,9 @@ describe('State Machine Transitions', () => {
     });
 
     it('multiple ADD_ITEM calls accumulate', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
-      addItemToBasket(actor, 'ITEM_COFFEE_BASIC');
-      addItemToBasket(actor, 'ITEM_ALMUERZO');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
+      addItemToBasket(actor, 'ITEM_COFFEE_INT');
+      addItemToBasket(actor, 'ITEM_ALMUERZO_PARRILLA');
 
       const ctx = getContext(actor);
       expect(ctx.lineas.length).toBe(3);
@@ -134,14 +134,14 @@ describe('State Machine Transitions', () => {
     });
 
     it('ADD_ITEM in basket stays in basket', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       const state = getCurrentWorkflowState(actor);
       expect(state).toEqual({ quotation: 'basket' });
     });
 
     it('UPDATE_ITEM mutates existing line', () => {
-      addItemToBasket(actor, 'ITEM_COFFEE_BASIC'); // Pax-based pricing
+      addItemToBasket(actor, 'ITEM_COFFEE_INT'); // Pax-based pricing
       const ctx1 = getContext(actor);
       const lineId = ctx1.lineas[0].ID_Linea;
       const originalPrice = ctx1.totals.subtotal;
@@ -162,7 +162,7 @@ describe('State Machine Transitions', () => {
     });
 
     it('REMOVE_ITEM soft-deletes line', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       const ctx1 = getContext(actor);
       const lineId = ctx1.lineas[0].ID_Linea;
 
@@ -175,7 +175,7 @@ describe('State Machine Transitions', () => {
     });
 
     it('REMOVE_ITEM recalculates totals (excludes removed)', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       const ctx1 = getContext(actor);
       const lineId = ctx1.lineas[0].ID_Linea;
       const priceWithItem = ctx1.totals.subtotal;
@@ -201,7 +201,7 @@ describe('State Machine Transitions', () => {
     });
 
     it('ADVANCE_TO_VALIDATION allowed with items', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       actor.send({ type: 'ADVANCE_TO_VALIDATION' });
 
       const state = getCurrentWorkflowState(actor);
@@ -209,7 +209,7 @@ describe('State Machine Transitions', () => {
     });
 
     it('ADVANCE_TO_VALIDATION blocked with blocking errors', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       // Inject blocking error
       const ctx = actor.getSnapshot().context;
       ctx.errors = [{ blocking: true, message: 'test error' }];
@@ -221,7 +221,7 @@ describe('State Machine Transitions', () => {
     });
 
     it('ADVANCE_TO_VALIDATION allowed with non-blocking errors', () => {
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       // Inject non-blocking error
       const ctx = actor.getSnapshot().context;
       ctx.errors = [{ blocking: false, message: 'warning' }];
@@ -236,7 +236,7 @@ describe('State Machine Transitions', () => {
   describe('Validation → Completed Transitions', () => {
     beforeEach(() => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       actor.send({ type: 'ADVANCE_TO_VALIDATION' });
     });
 
@@ -265,7 +265,7 @@ describe('State Machine Transitions', () => {
   describe('Return to Browse', () => {
     it('RETURN_TO_BROWSE from basket clears context', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       const ctx1 = getContext(actor);
       expect(ctx1.quotation).not.toBeNull();
 
@@ -278,7 +278,7 @@ describe('State Machine Transitions', () => {
 
     it('RETURN_TO_BROWSE from completed returns to browse', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       actor.send({ type: 'ADVANCE_TO_VALIDATION' });
       actor.send({ type: 'VALIDATE_AND_SAVE' });
 
@@ -299,7 +299,7 @@ describe('State Machine Transitions', () => {
 
   describe('Guard Enforcement', () => {
     it('ADD_ITEM blocked in browse state', () => {
-      actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_CHINOOK' });
+      actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_SALON_FARIO' });
 
       const state = getCurrentWorkflowState(actor);
       expect(state).toBe('browse');

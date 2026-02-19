@@ -26,7 +26,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
   describe('Database → Quotation Independence', () => {
     it('OPEN_DATABASE does not affect quotation_workflow state', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       actor.send({ type: 'OPEN_DATABASE' });
 
@@ -39,7 +39,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('can modify database while in quotation basket', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       const ctx1 = getContext(actor);
       const itemCount1 = ctx1.lineas.length;
 
@@ -62,7 +62,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('can cancel database modifications and return to browse', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       actor.send({ type: 'OPEN_DATABASE' });
       actor.send({
@@ -84,7 +84,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
   describe('CLOSE_DATABASE Triggers Recalculation', () => {
     it('CLOSE_DATABASE stays in quotation basket', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       actor.send({ type: 'OPEN_DATABASE' });
       actor.send({ type: 'CLOSE_DATABASE' });
@@ -96,7 +96,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('CLOSE_DATABASE recalculates totals from current basket', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       const ctx1 = getContext(actor);
       const totals1 = { ...ctx1.totals };
 
@@ -113,8 +113,8 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('quotation items preserved after database open/close cycle', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
-      addItemToBasket(actor, 'ITEM_COFFEE_BASIC');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
+      addItemToBasket(actor, 'ITEM_COFFEE_INT');
       const ctx1 = getContext(actor);
       const itemIds1 = ctx1.lineas.map(l => l.ID_Item);
 
@@ -224,7 +224,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
       // Quotation: initialize and add items
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       expect(getCurrentWorkflowState(actor)).toEqual({ quotation: 'basket' });
 
       let ctx = getContext(actor);
@@ -265,7 +265,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('can open database from validation state', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
       actor.send({ type: 'ADVANCE_TO_VALIDATION' });
 
       // Database independent of workflow state
@@ -280,7 +280,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
     it('database operations do not interfere with RETURN_TO_BROWSE', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       actor.send({ type: 'OPEN_DATABASE' });
       actor.send({
@@ -306,7 +306,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
   describe('Edge Cases', () => {
     it('cannot modify quotation while database operation is in progress (contextually)', () => {
       navigateToBasket(actor, { paxGlobal: 25 });
-      addItemToBasket(actor, 'ITEM_CHINOOK');
+      addItemToBasket(actor, 'ITEM_SALON_FARIO');
 
       actor.send({ type: 'OPEN_DATABASE' });
       actor.send({
@@ -317,7 +317,7 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
       // UI should prevent adding items while in modify_row state
       // But state machine allows it (business rule, not technical)
-      actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_ALMUERZO' });
+      actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_ALMUERZO_PARRILLA' });
 
       const state = actor.getSnapshot().value;
       // Item was added (state machine allows it)

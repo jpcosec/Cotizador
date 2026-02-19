@@ -21,7 +21,7 @@ describe('services adapters', () => {
 
     const result = await saveQuotationService({
       quotation,
-      lineas: [{ ID_Linea: 'LIN_1', ID_Item: 'ITEM_CHINOOK' }],
+      lineas: [{ ID_Linea: 'LIN_1', ID_Item: 'ITEM_SALON_FARIO' }],
       totals: { subtotal: 100, taxes: [], total: 119 },
       store,
     });

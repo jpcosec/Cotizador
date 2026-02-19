@@ -4,21 +4,24 @@ export function resolveDefaults(linea, paxGlobal, store) {
 
   linea._categoriaId = cat.ID_Categoria;
 
-  linea._pax = cat.Def_Requiere_Pax
-    ? (linea.Override_Pax ?? paxGlobal)
-    : 0;
+  // Overrides bypass category requirements
+  if (linea.Override_Pax != null) {
+    linea._pax = linea.Override_Pax;
+  } else {
+    linea._pax = cat.Def_Requiere_Pax ? paxGlobal : 0;
+  }
 
-  linea._duracionMin = cat.Def_Requiere_Tiempo
-    ? (linea.Override_Duracion_Min ?? cat.Def_Duracion_Min ?? 0)
-    : 0;
+  if (linea.Override_Duracion_Min != null) {
+    linea._duracionMin = linea.Override_Duracion_Min;
+  } else {
+    linea._duracionMin = cat.Def_Requiere_Tiempo ? (cat.Def_Duracion_Min ?? 0) : 0;
+  }
 
-  if (cat.Def_Requiere_Cant) {
-    if (linea.Override_Cantidad != null) {
-      linea._cantidad = linea.Override_Cantidad;
-    } else {
-      const unitsPerPax = item.Def_Unidades_Por_Pax_Override ?? cat.Def_Unidades_Por_Pax ?? 0;
-      linea._cantidad = Math.round(unitsPerPax * linea._pax);
-    }
+  if (linea.Override_Cantidad != null) {
+    linea._cantidad = linea.Override_Cantidad;
+  } else if (cat.Def_Requiere_Cant) {
+    const unitsPerPax = item.Def_Unidades_Por_Pax_Override ?? cat.Def_Unidades_Por_Pax ?? 0;
+    linea._cantidad = Math.round(unitsPerPax * linea._pax);
   } else {
     linea._cantidad = 0;
   }

@@ -33,8 +33,19 @@ function cotizadorApp() {
         
         // --- INIT ---
         init() {
+            this.registerAlpineStore();
             this.generarDias();
             this.initXStateBridge();
+        },
+
+        registerAlpineStore() {
+            if (typeof window === 'undefined' || !window.Alpine || typeof window.Alpine.store !== 'function') {
+                return;
+            }
+
+            if (!window.Alpine.store('cotizadorApp')) {
+                window.Alpine.store('cotizadorApp', this);
+            }
         },
 
         initXStateBridge(attempt) {
