@@ -174,7 +174,7 @@ function cotizadorApp() {
         // --- CARRITO ---
         agregarItem(item) {
             if (this.useStateMachine && this.bridge) {
-                var stateItemId = item.ID_Item || item.itemId || item.id || item.nombre;
+                var stateItemId = item.ID_Item;
                 if (stateItemId) {
                     var sent = this.bridge.send('ADD_ITEM', {
                         itemId: stateItemId,
@@ -188,15 +188,16 @@ function cotizadorApp() {
                 }
             }
 
+            var basePrice = item.Precio_Base || 0;
             this.carrito.push({
-                nombre: item.nombre,
-                categoria: item.categoria,
-                precio: item.precio,
+                Nombre: item.Nombre,
+                ID_Categoria: item.ID_Categoria,
+                Precio_Base: basePrice,
                 cantidad: this.paxGlobal,
                 dia: this.diaSeleccionado,
                 fecha: this.obtenerFechaDia(this.diaSeleccionado),
                 hora: this.horaInicio,
-                total: item.precio * this.paxGlobal
+                total: basePrice * this.paxGlobal
             });
             
             this.carrito.sort((a,b) => {
@@ -220,7 +221,7 @@ function cotizadorApp() {
             }
 
             this.carrito[idx].cantidad = cant;
-            this.carrito[idx].total = this.carrito[idx].precio * cant;
+            this.carrito[idx].total = this.carrito[idx].Precio_Base * cant;
         },
         
         eliminarItem(idx) {

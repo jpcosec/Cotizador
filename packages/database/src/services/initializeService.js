@@ -112,6 +112,60 @@ export class InitializeService {
   }
 
   /**
+   * Delete all sheets and recreate with headers (clean slate)
+   * Useful when you need to start fresh with new schema
+   */
+  static cleanAllTables(schema) {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      Logger.log('=== Cleaning Database Tables ===');
+
+      // Delete all sheets except the first one
+      const allSheets = ss.getSheets();
+      for (let i = allSheets.length - 1; i >= 0; i--) {
+        const sheet = allSheets[i];
+        const isFirstSheet = (i === 0);
+
+        // Only keep first sheet if we need a default
+        if (isFirstSheet && allSheets.length === 1) {
+          sheet.clear();
+          Logger.log('Cleared first sheet (keeping minimum 1 sheet)');
+        } else {
+          ss.deleteSheet(sheet);
+          Logger.log('Deleted sheet: ' + sheet.getName());
+        }
+      }
+
+      // Now recreate all sheets with headers
+      Logger.log('Recreating all sheets...');
+      for (const [tableName, tableSchema] of Object.entries(schema)) {
+        const columns = tableSchema.columns;
+        let sheet = ss.getSheetByName(tableName);
+
+        if (!sheet) {
+          sheet = ss.insertSheet(tableName);
+          Logger.log('Created sheet: ' + tableName);
+        }
+
+        // Clear any existing data
+        sheet.clear();
+
+        // Set headers (row 1)
+        const headerNames = columns.map(col => col.name);
+        sheet.getRange(1, 1, 1, headerNames.length).setValues([headerNames]);
+        sheet.setFrozenRows(1);
+        Logger.log('Headers set for: ' + tableName);
+      }
+
+      Logger.log('✅ All tables cleaned and recreated!');
+      return { success: true, mensaje: 'All tables cleaned and recreated successfully' };
+    } catch (error) {
+      Logger.log('❌ Error during cleanup: ' + error.toString());
+      throw error;
+    }
+  }
+
+  /**
    * Validate that all sheets exist and have correct columns
    * Useful for debugging after deployment
    */
@@ -386,6 +440,14 @@ export function initializeSheetDb() {
 
 export function validateSheetDb() {
   return InitializeService.validateSheetDb();
+}
+
+/**
+ * Clean and recreate all tables wrapper
+ * For use in GAS environment
+ */
+export function cleanAllTables(schema) {
+  return InitializeService.cleanAllTables(schema);
 }
 
 /**
