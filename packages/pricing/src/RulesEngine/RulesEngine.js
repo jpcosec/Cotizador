@@ -20,10 +20,14 @@ export function getRulesForStageAndHook(stage, hook, store) {
 }
 
 export function evaluateCondition(logic, data) {
-  return jsonLogic.apply(logic, data);
+  // Parse logic if it's a JSON string
+  const parsedLogic = typeof logic === 'string' ? JSON.parse(logic) : logic;
+  return jsonLogic.apply(parsedLogic, data);
 }
 
 export function executeAction(tipoAccion, payload, target) {
   const handler = getActionHandler(tipoAccion);
-  return handler(payload, target);
+  // Parse payload if it's a JSON string
+  const parsedPayload = typeof payload === 'string' ? JSON.parse(payload) : payload;
+  return handler(parsedPayload, target);
 }

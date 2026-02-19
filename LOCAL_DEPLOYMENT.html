@@ -160,15 +160,22 @@
     </div>
 </div>
 
-<script type="module">
-// Import from the bundled quotation engine
-import('./dist/quotation-engine.iife.js').then(() => {
-    const { createCotizadorActor, AlpineXStateBridge } = window.QuotationEngine || {
-        createCotizadorActor: window.createCotizadorActor,
-    };
+<script src="dist/quotation-engine.iife.js"></script>
+<script>
+// Wait for bundle to load, then initialize
+function initializeApp() {
+    const createCotizadorActor = window.createCotizadorActor;
 
     if (!createCotizadorActor) {
-        throw new Error('createCotizadorActor not found in bundle');
+        console.error('createCotizadorActor not found - bundle may not have loaded');
+        document.getElementById('appContent').innerHTML = `
+            <div class="error-box">
+                <strong>Failed to load quotation engine bundle</strong><br>
+                The bundle script did not load properly.<br><br>
+                Make sure dist/quotation-engine.iife.js exists and is accessible.
+            </div>
+        `;
+        return;
     }
 
     // ============================================================
@@ -359,19 +366,20 @@ Value: ${snap.value}<br>
 
     console.log('✅ Local deployment ready!');
     console.log('📊 Actor:', actor);
-    console.log('🧮 QuotationEngine exports:', window.QuotationEngine);
+}
 
-}).catch(err => {
-    console.error('❌ Failed to load bundle:', err);
+// Call initialization immediately
+try {
+    initializeApp();
+} catch (err) {
+    console.error('❌ Initialization failed:', err);
     document.getElementById('appContent').innerHTML = `
         <div class="error-box">
-            <strong>Failed to load quotation engine bundle</strong><br>
-            ${err.message}<br><br>
-            Make sure the bundle is built:<br>
-            <code>npm run build:bundle</code>
+            <strong>Failed to initialize</strong><br>
+            ${err.message}
         </div>
     `;
-});
+}
 </script>
 </body>
 </html>

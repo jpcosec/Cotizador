@@ -323,17 +323,36 @@ export function createTestStore() {
 
   // REGLAS_NEGOCIO - Add tax and adjustment rules
   store.seed('REGLAS_NEGOCIO', [
+    // Overtime surcharge: salon duration > 480 min (8h standard)
     {
-      ID_Regla: 'R_IVA_19',
-      Nombre: 'IVA',
+      ID_Regla: 'R001_OVERTIME',
+      Nombre: 'Sobreturno salón (>8h)',
+      Etapa: 'AJUSTE_LINEA',
+      Scope: 'CATEGORIA',
+      Tipo_Accion: 'MULTIPLY',
+      Condicion_JSON: JSON.stringify({
+        and: [
+          { '===': [{ var: '_categoriaId' }, 'CAT_SALON'] },
+          { '>': [{ var: '_duracionMin' }, 480] },
+        ],
+      }),
+      Payload_JSON: JSON.stringify({ factor: 1.25 }),
+      Prioridad: 10,
+      Acumulable: false,
+      Activo: true,
+      Updated_At: now,
+    },
+    // IVA 19%
+    {
+      ID_Regla: 'R002_IVA',
+      Nombre: 'IVA 19%',
       Etapa: 'IMPUESTO',
       Scope: 'COTIZACION',
       Tipo_Accion: 'SET_TAX',
-      Hook: null,
-      Condicion_JSON: '{}',
-      Payload_JSON: { rate: 0.19, name: 'IVA' },
-      Prioridad: 1,
-      Acumulable: false,
+      Condicion_JSON: 'true',
+      Payload_JSON: JSON.stringify({ name: 'IVA', rate: 0.19 }),
+      Prioridad: 100,
+      Acumulable: true,
       Activo: true,
       Updated_At: now,
     },

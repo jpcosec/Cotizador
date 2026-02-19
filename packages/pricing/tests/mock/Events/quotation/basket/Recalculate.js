@@ -1,9 +1,9 @@
 import { AbstractEvent } from '../../../Core/AbstractEvent.js';
-import { resolveDefaults } from '../../../../src/Pricing/calculations/defaults.js';
-import { calculateLinePrice } from '../../../../src/Pricing/calculations/pricing.js';
-import { applyLineAdjustments, applyGlobalAdjustments } from '../../../../src/Pricing/calculations/rules.js';
-import { applyManualAdjustments } from '../../../../src/Pricing/manual.js';
-import { calculateTaxes } from '../../../../src/Pricing/taxes.js';
+import { resolveDefaults } from '../../../../../src/Pricing/calculations/defaults.js';
+import { calculateLinePrice } from '../../../../../src/Pricing/calculations/pricing.js';
+import { applyLineAdjustments, applyGlobalAdjustments } from '../../../../../src/Pricing/calculations/rules.js';
+import { applyManualAdjustments } from '../../../../../src/Pricing/manual.js';
+import { calculateTaxes } from '../../../../../src/Pricing/taxes.js';
 
 export class Recalculate extends AbstractEvent {
   constructor() {

@@ -1,6 +1,6 @@
 import { AbstractEvent } from '../../../Core/AbstractEvent.js';
-import { resolveDefaults } from '../../../../src/Pricing/calculations/defaults.js';
-import { calculateLinePrice } from '../../../../src/Pricing/calculations/pricing.js';
+import { resolveDefaults } from '../../../../../src/Pricing/calculations/defaults.js';
+import { calculateLinePrice } from '../../../../../src/Pricing/calculations/pricing.js';
 
 export class UpdateItem extends AbstractEvent {
   constructor(payload) {

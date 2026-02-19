@@ -1,7 +1,7 @@
 import { AbstractEvent } from '../../../Core/AbstractEvent.js';
-import { expandCompositions } from '../../../../src/Pricing/calculations/expand.js';
-import { resolveDefaults } from '../../../../src/Pricing/calculations/defaults.js';
-import { calculateLinePrice } from '../../../../src/Pricing/calculations/pricing.js';
+import { expandCompositions } from '../../../../../src/Pricing/calculations/expand.js';
+import { resolveDefaults } from '../../../../../src/Pricing/calculations/defaults.js';
+import { calculateLinePrice } from '../../../../../src/Pricing/calculations/pricing.js';
 
 export class AddItem extends AbstractEvent {
   constructor(payload) {

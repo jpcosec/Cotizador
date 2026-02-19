@@ -192,9 +192,42 @@ export function createSeededStore() {
     },
   ]);
 
-  // REGLAS_NEGOCIO - Empty (GAS doesn't seed rules by default)
-  // Source: initializeService.js doesn't seed this
-  store.seed('REGLAS_NEGOCIO', []);
+  // REGLAS_NEGOCIO - Core business rules for testing
+  store.seed('REGLAS_NEGOCIO', [
+    // Overtime surcharge: salon duration > 480 min (8h standard)
+    {
+      ID_Regla: 'R001_OVERTIME',
+      Nombre: 'Sobreturno salón (>8h)',
+      Etapa: 'AJUSTE_LINEA',
+      Scope: 'CATEGORIA',
+      Tipo_Accion: 'MULTIPLY',
+      Condicion_JSON: JSON.stringify({
+        and: [
+          { '===': [{ var: '_categoriaId' }, 'CAT_SALON'] },
+          { '>': [{ var: '_duracionMin' }, 480] },
+        ],
+      }),
+      Payload_JSON: JSON.stringify({ factor: 1.25 }),
+      Prioridad: 10,
+      Acumulable: false,
+      Activo: true,
+      Updated_At: now,
+    },
+    // IVA 19%
+    {
+      ID_Regla: 'R002_IVA',
+      Nombre: 'IVA 19%',
+      Etapa: 'IMPUESTO',
+      Scope: 'COTIZACION',
+      Tipo_Accion: 'SET_TAX',
+      Condicion_JSON: 'true',
+      Payload_JSON: JSON.stringify({ name: 'IVA', rate: 0.19 }),
+      Prioridad: 100,
+      Acumulable: true,
+      Activo: true,
+      Updated_At: now,
+    },
+  ]);
 
   // Add version property for determinism checking
   store.version = 'STORE_v1_GAS_SEED_2025_02_19';
