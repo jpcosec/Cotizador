@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DATA_SCHEMA } from './schema.js';
 
 function stripBom(value) {
   if (!value) return value;
@@ -79,6 +80,162 @@ function toIsoNow() {
   return new Date().toISOString();
 }
 
+function parseLegacyMoney(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 0;
+
+  const cleaned = raw.replace(/\$/g, '').replace(/\s/g, '');
+  const hasDot = cleaned.includes('.');
+  const hasComma = cleaned.includes(',');
+
+  let normalized = cleaned;
+  if (hasDot && hasComma) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    normalized = cleaned.replace(',', '.');
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function dedupeByPrimaryKey(rows, primaryKey) {
+  const map = new Map();
+  for (const row of rows) {
+    const id = String(row[primaryKey] || '').trim();
+    if (!id) continue;
+    if (!map.has(id)) {
+      map.set(id, row);
+    }
+  }
+  return Array.from(map.values());
+}
+
+function toBooleanByNumber(value) {
+  return Number(value || 0) > 0;
+}
+
+function createUniqueId(base, registry) {
+  let candidate = base;
+  let suffix = 2;
+  while (registry.has(candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  registry.add(candidate);
+  return candidate;
+}
+
+export function parseV1CsvToSchemaRows({ dataDir, schema = DATA_SCHEMA, now = toIsoNow() }) {
+  const clientesPath = path.resolve(dataDir, 'Cotizador - CLIENTES.csv');
+  const itemsPath = path.resolve(dataDir, 'Cotizador - Items.csv');
+
+  const clientesRows = parseCsv(fs.readFileSync(clientesPath, 'utf8'));
+  const itemsRows = parseCsv(fs.readFileSync(itemsPath, 'utf8'));
+
+  const rowsByTable = {};
+  for (const tableName of Object.keys(schema)) {
+    rowsByTable[tableName] = [];
+  }
+
+  rowsByTable.CLIENTES = dedupeByPrimaryKey(
+    clientesRows.map((row) => ({
+      ID_Cliente: String(row.ID_Cliente || '').trim(),
+      Nombre_Empresa: String(row.Nombre_Empresa || '').trim(),
+      RUT: String(row.RUT || '').trim(),
+      Email: String(row.Email || '').trim(),
+      Telefono: String(row.Telefono || '').trim(),
+      Updated_At: now
+    })),
+    'ID_Cliente'
+  );
+
+  const categoryIds = new Set();
+  const profileIds = new Set();
+  const itemIds = new Set();
+
+  const categoryState = new Map();
+
+  for (const row of itemsRows) {
+    const categoryName = String(row.Categoria || '').trim();
+    const itemName = String(row.Item || '').trim();
+    if (!categoryName || !itemName) continue;
+
+    const fixed = parseLegacyMoney(row['Valor Fijo'] || row['Valor Original']);
+    const perPax = parseLegacyMoney(row['Valor por persona']);
+    const requiresPax = toBooleanByNumber(perPax);
+    const requiresTime = String(row.Horario || '').trim() !== '';
+
+    let category = categoryState.get(categoryName);
+    if (!category) {
+      const categoryId = createUniqueId(`CAT_${slugify(categoryName, 'GEN')}`, categoryIds);
+      category = {
+        categoryId,
+        categoryName,
+        defaultProfileId: null,
+        requiresPax,
+        requiresCant: false,
+        requiresTime,
+        requiresHour: requiresTime,
+        durationMin: requiresTime ? 480 : 0,
+        unitsPerPax: requiresPax ? 1 : 0,
+        icon: ''
+      };
+      categoryState.set(categoryName, category);
+    } else {
+      category.requiresPax = category.requiresPax || requiresPax;
+      category.requiresTime = category.requiresTime || requiresTime;
+      category.requiresHour = category.requiresHour || requiresTime;
+    }
+
+    const profileId = createUniqueId(`PROF_${slugify(itemName, 'ITEM')}`, profileIds);
+    const itemId = createUniqueId(`ITEM_${slugify(itemName, 'SIN_NOMBRE')}`, itemIds);
+
+    rowsByTable.PERFILES_PRECIO.push({
+      ID_Perfil_Precio: profileId,
+      Nombre: `Perfil ${itemName}`,
+      Costo_Base_Fijo: fixed,
+      Costo_Unitario_Pax: perPax,
+      Costo_Unitario_Tiempo: 0,
+      Costo_Unitario_Item: 0,
+      Activo: true,
+      Updated_At: now
+    });
+
+    rowsByTable.ITEM_CATALOGO.push({
+      ID_Item: itemId,
+      Nombre: itemName,
+      ID_Categoria: category.categoryId,
+      ID_Perfil_Precio_Override: profileId,
+      Def_Unidades_Por_Pax_Override: requiresPax ? 1 : '',
+      Activo: true,
+      Updated_At: now
+    });
+
+    if (!category.defaultProfileId) {
+      category.defaultProfileId = profileId;
+    }
+  }
+
+  for (const category of categoryState.values()) {
+    rowsByTable.CATEGORIAS.push({
+      ID_Categoria: category.categoryId,
+      Nombre: category.categoryName,
+      ID_Perfil_Precio_Default: category.defaultProfileId || '',
+      Def_Requiere_Pax: category.requiresPax,
+      Def_Requiere_Cant: category.requiresCant,
+      Def_Requiere_Tiempo: category.requiresTime,
+      Def_Requiere_Hora: category.requiresHour,
+      Def_Duracion_Min: category.durationMin,
+      Def_Unidades_Por_Pax: category.unitsPerPax,
+      Icono_UI: category.icon,
+      Activo: true,
+      Updated_At: now
+    });
+  }
+
+  return rowsByTable;
+}
+
 function ensureModel(models, tableName) {
   const model = models[tableName];
   if (!model) {
@@ -136,82 +293,32 @@ export function seedFromCsvConfig({ models, imports = [] }) {
 }
 
 export function seedFromV1Csv({ models, dataDir, truncate = true }) {
-  const clientesModel = ensureModel(models, 'CLIENTES');
-  const categoriasModel = ensureModel(models, 'CATEGORIAS');
-  const itemsModel = ensureModel(models, 'ITEM_CATALOGO');
+  const rowsByTable = parseV1CsvToSchemaRows({ dataDir });
 
-  if (truncate) {
-    clientesModel.truncate();
-    categoriasModel.truncate();
-    itemsModel.truncate();
-  }
+  const insertedCounts = {};
 
-  const clientesPath = path.resolve(dataDir, 'Cotizador - CLIENTES.csv');
-  const itemsPath = path.resolve(dataDir, 'Cotizador - Items.csv');
+  for (const [tableName, rows] of Object.entries(rowsByTable)) {
+    const model = models[tableName];
+    if (!model) continue;
 
-  const clientesResult = importCsvIntoModel({
-    model: clientesModel,
-    filePath: clientesPath,
-    columnMap: {
-      ID_Cliente: 'ID_Cliente',
-      Nombre_Empresa: 'Nombre_Empresa',
-      RUT: 'RUT',
-      Email: 'Email',
-      Telefono: 'Telefono'
-    },
-    transformRow: (mappedRow) => ({
-      ...mappedRow,
-      Updated_At: toIsoNow()
-    })
-  });
-
-  const rawItems = parseCsv(fs.readFileSync(itemsPath, 'utf8'));
-  const categoriesByName = new Map();
-  const itemNameCounter = new Map();
-
-  for (const row of rawItems) {
-    const categoryName = String(row.Categoria || '').trim();
-    if (!categoryName) continue;
-
-    if (!categoriesByName.has(categoryName)) {
-      const baseId = `CAT_${slugify(categoryName, 'GEN')}`;
-      let candidate = baseId;
-      let suffix = 2;
-      while (categoriasModel.findById(candidate)) {
-        candidate = `${baseId}_${suffix++}`;
-      }
-
-      categoriesByName.set(categoryName, candidate);
-      categoriasModel.create({
-        ID_Categoria: candidate,
-        Nombre: categoryName,
-        Activo: true,
-        Updated_At: toIsoNow()
-      });
+    if (truncate) {
+      model.truncate();
     }
 
-    const itemName = String(row.Item || '').trim();
-    if (!itemName) continue;
-
-    const normalizedName = itemName.toUpperCase();
-    const seen = itemNameCounter.get(normalizedName) || 0;
-    itemNameCounter.set(normalizedName, seen + 1);
-
-    const suffix = seen > 0 ? `_${seen + 1}` : '';
-    const itemId = `ITEM_${slugify(itemName, 'SIN_NOMBRE')}${suffix}`;
-
-    itemsModel.create({
-      ID_Item: itemId,
-      Nombre: itemName,
-      ID_Categoria: categoriesByName.get(categoryName),
-      Activo: true,
-      Updated_At: toIsoNow()
-    });
+    let inserted = 0;
+    for (const row of rows) {
+      model.create(row);
+      inserted += 1;
+    }
+    insertedCounts[tableName] = inserted;
   }
 
   return {
-    clientes: clientesResult,
-    categorias: categoriasModel.all().length,
-    items: itemsModel.all().length
+    type: 'v1',
+    rowsByTable: insertedCounts,
+    clientes: insertedCounts.CLIENTES || 0,
+    categorias: insertedCounts.CATEGORIAS || 0,
+    perfilesPrecio: insertedCounts.PERFILES_PRECIO || 0,
+    items: insertedCounts.ITEM_CATALOGO || 0
   };
 }

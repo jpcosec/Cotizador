@@ -2,10 +2,7 @@
  * Sheet Schema for GAS Integration
  *
  * READS DIRECTLY from Config_Schema.js (src/Config/Config_Schema.js)
- * This is NOT a duplicate - it imports the source of truth and filters for MVP.
- *
- * MVP Tables (Phase 1-4): CLIENTES, CATEGORIAS, PERFILES_PRECIO, ITEM_CATALOGO, COTIZACIONES, LINEA_DETALLE
- * Future Tables (Phase 5+): REGLAS_NEGOCIO, COMPOSICION_KIT, AJUSTES_COTIZACION, CACHE_COTIZACION, HISTORIAL_COTIZACION
+ * This is NOT a duplicate - it imports the source of truth with no table filtering.
  */
 
 import fs from 'node:fs';
@@ -47,31 +44,10 @@ function loadConfigSchema() {
 }
 
 /**
- * Load and filter CONFIG_SCHEMA to MVP tables only
+ * Load full CONFIG_SCHEMA (no filtering)
  */
 function getSheetSchema() {
-  const CONFIG_SCHEMA = loadConfigSchema();
-
-  // MVP tables (Phase 1-4)
-  const MVP_TABLES = [
-    'CLIENTES',
-    'CATEGORIAS',
-    'PERFILES_PRECIO',
-    'ITEM_CATALOGO',
-    'COTIZACIONES',
-    'LINEA_DETALLE'
-  ];
-
-  // Filter to MVP only
-  const schema = {};
-  MVP_TABLES.forEach(tableName => {
-    if (!CONFIG_SCHEMA[tableName]) {
-      throw new Error(`Table ${tableName} not found in CONFIG_SCHEMA`);
-    }
-    schema[tableName] = CONFIG_SCHEMA[tableName];
-  });
-
-  return schema;
+  return loadConfigSchema();
 }
 
 /**

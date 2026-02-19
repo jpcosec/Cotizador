@@ -17,9 +17,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 /**
- * Extract CONFIG_SCHEMA and filter to MVP tables only
+ * Extract full CONFIG_SCHEMA object literal
  */
-function generateMvpSheetSchema(configSource) {
+function generateSheetSchema(configSource) {
   // Extract object literal
   const marker = 'export const DATA_SCHEMA =';
   const markerIndex = configSource.indexOf(marker);
@@ -43,30 +43,31 @@ function generateMvpSheetSchema(configSource) {
 
   const objectLiteral = configSource.slice(startBrace, endBrace + 1);
 
-  // Parse the schema
+  // Parse full schema
   const CONFIG_SCHEMA = Function(`"use strict"; return (${objectLiteral});`)();
 
-  // MVP tables only
-  const MVP_TABLES = [
-    'CLIENTES',
-    'CATEGORIAS',
-    'PERFILES_PRECIO',
-    'ITEM_CATALOGO',
-    'COTIZACIONES',
-    'LINEA_DETALLE'
-  ];
-
-  // Build filtered schema object
-  const schema = {};
-  MVP_TABLES.forEach(tableName => {
-    if (!CONFIG_SCHEMA[tableName]) {
-      throw new Error(`Table ${tableName} not found in CONFIG_SCHEMA`);
-    }
-    schema[tableName] = CONFIG_SCHEMA[tableName];
-  });
-
   // Generate JavaScript object literal
-  return `const SHEET_SCHEMA = ${JSON.stringify(schema, null, 2)};`;
+  return `const SHEET_SCHEMA = ${JSON.stringify(CONFIG_SCHEMA, null, 2)};`;
+}
+
+function generateInitCsvDataMap(rootDir) {
+  const initDir = path.join(rootDir, 'data', 'init');
+  if (!fs.existsSync(initDir)) {
+    return 'const INIT_CSV_DATA_MAP = {};';
+  }
+
+  const entries = fs.readdirSync(initDir)
+    .filter((name) => name.endsWith('.csv'))
+    .sort();
+
+  const map = {};
+  for (const fileName of entries) {
+    const tableName = path.basename(fileName, '.csv');
+    const filePath = path.join(initDir, fileName);
+    map[tableName] = fs.readFileSync(filePath, 'utf8');
+  }
+
+  return `const INIT_CSV_DATA_MAP = ${JSON.stringify(map, null, 2)};`;
 }
 
 // Read source files
@@ -74,6 +75,10 @@ const catalogServicePath = path.join(root, 'packages/database/src/services/catal
 const clientServicePath = path.join(root, 'packages/database/src/services/clientService.js');
 const quotationServicePath = path.join(root, 'packages/database/src/services/quotationService.js');
 const initServicePath = path.join(root, 'packages/database/src/services/initializeService.js');
+const runtimePath = path.join(root, 'packages/database/src/services/databaseRuntime.js');
+const iStorePath = path.join(root, 'packages/database/src/IStore.js');
+const modelFactoryPath = path.join(root, 'packages/database/src/ModelFactory.js');
+const gasStorePath = path.join(root, 'packages/database/src/stores/GasSheetStore.js');
 const configSchemaPath = path.join(root, 'src/Config/Config_Schema.js');
 
 const outPath = path.join(root, 'gas', 'Code.gs');
@@ -84,6 +89,10 @@ try {
   const clientService = fs.readFileSync(clientServicePath, 'utf8');
   const quotationService = fs.readFileSync(quotationServicePath, 'utf8');
   const initService = fs.readFileSync(initServicePath, 'utf8');
+  const runtimeService = fs.readFileSync(runtimePath, 'utf8');
+  const iStore = fs.readFileSync(iStorePath, 'utf8');
+  const modelFactory = fs.readFileSync(modelFactoryPath, 'utf8');
+  const gasStore = fs.readFileSync(gasStorePath, 'utf8');
   const configSchema = fs.readFileSync(configSchemaPath, 'utf8');
 
   // Remove import/export statements (GAS doesn't support ES modules)
@@ -91,9 +100,14 @@ try {
   const cleanClientService = removeImportsExports(clientService);
   const cleanQuotationService = removeImportsExports(quotationService);
   const cleanInitService = removeImportsExports(initService);
+  const cleanRuntimeService = removeImportsExports(runtimeService);
+  const cleanIStore = removeImportsExports(iStore);
+  const cleanModelFactory = removeImportsExports(modelFactory);
+  const cleanGasStore = removeImportsExports(gasStore);
 
-  // Extract and filter CONFIG_SCHEMA to MVP tables only
-  const sheetSchema = generateMvpSheetSchema(configSchema);
+  // Extract full CONFIG_SCHEMA (no filtering)
+  const sheetSchema = generateSheetSchema(configSchema);
+  const initCsvDataMap = generateInitCsvDataMap(root);
 
   // Generate Code.gs
   const code = `/**
@@ -108,10 +122,32 @@ try {
  */
 
 // ============================================================================
-// SHEET SCHEMA DEFINITIONS (MVP Tables only - filtered from Config_Schema)
+// SHEET SCHEMA DEFINITIONS (full schema from Config_Schema)
 // ============================================================================
 
 ${sheetSchema}
+
+// ============================================================================
+// INIT CSV DATA MAP (generated from data/init/*.csv)
+// ============================================================================
+
+${initCsvDataMap}
+
+// ============================================================================
+// GENERIC DATABASE LAYER (IStore + GasSheetStore + ModelFactory)
+// ============================================================================
+
+${cleanIStore}
+
+${cleanGasStore}
+
+${cleanModelFactory}
+
+// ============================================================================
+// DATABASE RUNTIME (shared GAS model routing)
+// ============================================================================
+
+${cleanRuntimeService}
 
 // ============================================================================
 // INITIALIZATION SERVICE

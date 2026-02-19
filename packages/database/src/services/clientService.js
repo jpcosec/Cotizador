@@ -5,9 +5,16 @@
  * Uses Google Sheets as the backing store.
  */
 
+import { getGasModels } from './databaseRuntime.js';
+
 export class ClientService {
   constructor(spreadsheetId) {
     this.spreadsheetId = spreadsheetId;
+  }
+
+  _getModel() {
+    const models = getGasModels(this.spreadsheetId);
+    return models.CLIENTES;
   }
 
   /**
@@ -17,31 +24,13 @@ export class ClientService {
    */
   searchClients(query) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('CLIENTES');
-
-      if (!sheet || sheet.getLastRow() <= 1) {
-        return [];
-      }
-
-      const data = sheet.getDataRange().getValues();
-      const headers = data[0];
-      const nombreIdx = headers.indexOf('Nombre_Empresa');
-
-      if (nombreIdx === -1) return [];
-
       const q = (query || '').toLowerCase();
-      const results = [];
+      const model = this._getModel();
 
-      for (let i = 1; i < data.length; i++) {
-        const nombre = String(data[i][nombreIdx] || '').toLowerCase();
-        if (nombre.includes(q)) {
-          const client = this._rowToObject(data[i], headers);
-          results.push(client);
-        }
-      }
-
-      return results;
+      return model.where((client) => {
+        const nombre = String(client.Nombre_Empresa || '').toLowerCase();
+        return nombre.includes(q);
+      });
     } catch (error) {
       Logger.log('Error in searchClients: ' + error.toString());
       return [];
@@ -55,26 +44,8 @@ export class ClientService {
    */
   findClientByRut(rut) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('CLIENTES');
-
-      if (!sheet || sheet.getLastRow() <= 1) {
-        return null;
-      }
-
-      const data = sheet.getDataRange().getValues();
-      const headers = data[0];
-      const rutIdx = headers.indexOf('RUT');
-
-      if (rutIdx === -1) return null;
-
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][rutIdx]) === String(rut)) {
-          return this._rowToObject(data[i], headers);
-        }
-      }
-
-      return null;
+      const model = this._getModel();
+      return model.find((client) => String(client.RUT) === String(rut));
     } catch (error) {
       Logger.log('Error in findClientByRut: ' + error.toString());
       return null;
@@ -88,12 +59,7 @@ export class ClientService {
    */
   createOrGetClient(data) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('CLIENTES');
-
-      if (!sheet) {
-        throw new Error('CLIENTES sheet not found. Run initializeSheetDb() first.');
-      }
+      const model = this._getModel();
 
       // Check if client exists
       const existing = this.findClientByRut(data.rut);
@@ -105,23 +71,14 @@ export class ClientService {
       const clientId = 'CLI_' + Utilities.getUuid().substring(0, 8).toUpperCase();
       const now = new Date().toISOString();
 
-      sheet.appendRow([
-        clientId,
-        data.nombre || '',
-        data.rut || '',
-        data.email || '',
-        data.telefono || '',
-        now
-      ]);
-
-      return {
+      return model.create({
         ID_Cliente: clientId,
-        Nombre_Empresa: data.nombre,
-        RUT: data.rut,
-        Email: data.email,
-        Telefono: data.telefono,
+        Nombre_Empresa: data.nombre || '',
+        RUT: data.rut || '',
+        Email: data.email || '',
+        Telefono: data.telefono || '',
         Updated_At: now
-      };
+      });
     } catch (error) {
       Logger.log('Error in createOrGetClient: ' + error.toString());
       throw error;
@@ -135,42 +92,12 @@ export class ClientService {
    */
   getClientById(clientId) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('CLIENTES');
-
-      if (!sheet || sheet.getLastRow() <= 1) {
-        return null;
-      }
-
-      const data = sheet.getDataRange().getValues();
-      const headers = data[0];
-      const idIdx = headers.indexOf('ID_Cliente');
-
-      if (idIdx === -1) return null;
-
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][idIdx]) === clientId) {
-          return this._rowToObject(data[i], headers);
-        }
-      }
-
-      return null;
+      const model = this._getModel();
+      return model.findById(clientId);
     } catch (error) {
       Logger.log('Error in getClientById: ' + error.toString());
       return null;
     }
-  }
-
-  /**
-   * Helper: convert sheet row to object
-   * @private
-   */
-  _rowToObject(row, headers) {
-    const obj = {};
-    headers.forEach((header, idx) => {
-      obj[header] = row[idx];
-    });
-    return obj;
   }
 }
 

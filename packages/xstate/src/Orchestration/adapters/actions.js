@@ -14,6 +14,7 @@ import {
   aggregateBasketTotals,
   fullRecalculateBasket,
 } from '../../../../pricing/src/Pricing/pipeline.js';
+import { DATA_SCHEMA } from '../../../../../src/Config/Config_Schema.js';
 
 // --- Helpers ---
 
@@ -22,16 +23,27 @@ function nextId(quotation) {
   return `LIN_${quotation._lineSeq}`;
 }
 
-const TABLE_PRIMARY_KEY = {
-  CLIENTES: 'ID_Cliente',
-  CATEGORIAS: 'ID_Categoria',
-  PERFILES_PRECIO: 'ID_Perfil_Precio',
-  ITEM_CATALOGO: 'ID_Item',
-  REGLAS_NEGOCIO: 'ID_Regla',
-  COTIZACIONES: 'ID_Cotizacion',
-  LINEA_DETALLE: 'ID_Linea',
-  CACHE_COTIZACION: 'ID_Cotizacion',
-};
+function buildSchemaMetadata(schema) {
+  const primaryKeyByTable = {};
+  const tablesByIdField = {};
+
+  for (const [tableName, tableSchema] of Object.entries(schema || {})) {
+    const pkColumn = (tableSchema.columns || []).find((column) => String(column.type || '').includes('PK'));
+    if (!pkColumn) continue;
+
+    primaryKeyByTable[tableName] = pkColumn.name;
+
+    if (!tablesByIdField[pkColumn.name]) {
+      tablesByIdField[pkColumn.name] = [];
+    }
+    tablesByIdField[pkColumn.name].push(tableName);
+  }
+
+  return { primaryKeyByTable, tablesByIdField };
+}
+
+const SCHEMA_METADATA = buildSchemaMetadata(DATA_SCHEMA);
+const TABLE_PRIMARY_KEY = SCHEMA_METADATA.primaryKeyByTable;
 
 function parseSnapshot(value) {
   if (!value) return null;
@@ -78,13 +90,21 @@ function hydrateLoadedQuotation(record) {
 
 function inferTableNameFromRecord(record = {}) {
   if (!record || typeof record !== 'object') return null;
-  if (record.ID_Cliente) return 'CLIENTES';
-  if (record.ID_Categoria) return 'CATEGORIAS';
-  if (record.ID_Perfil_Precio) return 'PERFILES_PRECIO';
-  if (record.ID_Item) return 'ITEM_CATALOGO';
-  if (record.ID_Regla) return 'REGLAS_NEGOCIO';
-  if (record.ID_Cotizacion) return 'COTIZACIONES';
-  if (record.ID_Linea) return 'LINEA_DETALLE';
+
+  const idFields = Object.keys(record).filter((key) => {
+    const value = record[key];
+    return key.startsWith('ID_') && value !== undefined && value !== null && value !== '';
+  });
+
+  if (idFields.length === 0) return null;
+
+  for (const idField of idFields) {
+    const candidates = SCHEMA_METADATA.tablesByIdField[idField] || [];
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+  }
+
   return null;
 }
 

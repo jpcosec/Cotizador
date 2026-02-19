@@ -5,11 +5,15 @@
  * Uses GasSheetStore as the backing store.
  */
 
-import { SHEET_SCHEMA } from './sheetSchema.js';
+import { getGasModels } from './databaseRuntime.js';
 
 export class CatalogService {
   constructor(spreadsheetId) {
     this.spreadsheetId = spreadsheetId;
+  }
+
+  _getModels() {
+    return getGasModels(this.spreadsheetId);
   }
 
   /**
@@ -25,42 +29,26 @@ export class CatalogService {
    */
   getCatalogo() {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const models = this._getModels();
+      const items = models.ITEM_CATALOGO.all();
+      const categories = models.CATEGORIAS.all();
+      const profiles = models.PERFILES_PRECIO.all();
 
-      // Get all items
-      const itemsSheet = ss.getSheetByName('ITEM_CATALOGO');
-      if (!itemsSheet || itemsSheet.getLastRow() <= 1) {
-        return [];
-      }
-
-      const itemsData = itemsSheet.getDataRange().getValues();
-      const itemHeaders = itemsData[0];
-
-      // Get categories
-      const catSheet = ss.getSheetByName('CATEGORIAS');
-      const catData = catSheet ? catSheet.getDataRange().getValues() : [];
-      const catHeaders = catData[0] || [];
-      const catMap = this._buildMap(catData, catHeaders, 'ID_Categoria');
-
-      // Get price profiles
-      const priceSheet = ss.getSheetByName('PERFILES_PRECIO');
-      const priceData = priceSheet ? priceSheet.getDataRange().getValues() : [];
-      const priceHeaders = priceData[0] || [];
-      const priceMap = this._buildMap(priceData, priceHeaders, 'ID_Perfil_Precio');
+      const catMap = this._buildMapFromRecords(categories, 'ID_Categoria');
+      const priceMap = this._buildMapFromRecords(profiles, 'ID_Perfil_Precio');
 
       // Build items with enriched data
-      const items = [];
-      for (let i = 1; i < itemsData.length; i++) {
-        const row = itemsData[i];
-        const item = this._rowToObject(row, itemHeaders);
+      const out = [];
+      for (const item of items) {
+        const current = { ...item };
 
         // Only include active items
-        if (item.Activo === false) continue;
+        if (current.Activo === false) continue;
 
         // Enrich with category info
-        const categoria = catMap[item.ID_Categoria];
+        const categoria = catMap[current.ID_Categoria];
         if (categoria) {
-          item._categoria = {
+          current._categoria = {
             ID_Categoria: categoria.ID_Categoria,
             Nombre: categoria.Nombre,
             Icono_UI: categoria.Icono_UI
@@ -69,10 +57,10 @@ export class CatalogService {
 
         // Enrich with price profile
         // Use override if present, otherwise use category default
-        const priceProfileId = item.ID_Perfil_Precio_Override || (categoria && categoria.ID_Perfil_Precio_Default);
+        const priceProfileId = current.ID_Perfil_Precio_Override || (categoria && categoria.ID_Perfil_Precio_Default);
         const priceProfile = priceMap[priceProfileId];
         if (priceProfile) {
-          item._precioProfile = {
+          current._precioProfile = {
             ID_Perfil_Precio: priceProfile.ID_Perfil_Precio,
             Nombre: priceProfile.Nombre,
             Costo_Base_Fijo: priceProfile.Costo_Base_Fijo,
@@ -82,13 +70,13 @@ export class CatalogService {
           };
 
           // Calculate base price for display (simplified: just base cost)
-          item.Precio_Base = priceProfile.Costo_Base_Fijo || 0;
+          current.Precio_Base = priceProfile.Costo_Base_Fijo || 0;
         }
 
-        items.push(item);
+        out.push(current);
       }
 
-      return items;
+      return out;
     } catch (error) {
       Logger.log('Error in getCatalogo: ' + error.toString());
       return [];
@@ -123,35 +111,17 @@ export class CatalogService {
    * Helper: build map from array by primary key
    * @private
    */
-  _buildMap(data, headers, pkColumn) {
+  _buildMapFromRecords(records, pkColumn) {
     const map = {};
-    const pkIdx = headers.indexOf(pkColumn);
-    if (pkIdx === -1) return map;
 
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const pk = row[pkIdx];
+    for (const record of records) {
+      const pk = record[pkColumn];
       if (!pk) continue;
 
-      const obj = {};
-      headers.forEach((header, idx) => {
-        obj[header] = row[idx];
-      });
-      map[String(pk)] = obj;
+      map[String(pk)] = record;
     }
-    return map;
-  }
 
-  /**
-   * Helper: convert sheet row to object
-   * @private
-   */
-  _rowToObject(row, headers) {
-    const obj = {};
-    headers.forEach((header, idx) => {
-      obj[header] = row[idx];
-    });
-    return obj;
+    return map;
   }
 }
 

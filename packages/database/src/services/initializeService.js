@@ -6,6 +6,7 @@
  */
 
 import { SHEET_SCHEMA } from './sheetSchema.js';
+import { clearGasModelsCache, getGasModels } from './databaseRuntime.js';
 
 export class InitializeService {
   /**
@@ -43,7 +44,8 @@ export class InitializeService {
       }
 
       // Populate with seed data
-      this.populateSeedData(ss);
+      clearGasModelsCache();
+      this.populateSeedData(ss.getId());
 
       Logger.log('✅ Database initialization complete!');
       return { success: true, mensaje: 'Database initialized successfully' };
@@ -57,51 +59,34 @@ export class InitializeService {
    * Populate seed data into sheets
    * @private
    */
-  static populateSeedData(ss) {
+  static populateSeedData(spreadsheetId) {
     const now = new Date().toISOString();
+    const models = getGasModels(spreadsheetId);
 
     // Seed PERFILES_PRECIO
-    const priceSheet = ss.getSheetByName('PERFILES_PRECIO');
-    if (priceSheet && priceSheet.getLastRow() === 1) {
-      priceSheet.appendRow([
-        'PROF_COFFEE', 'Coffee Intermedio', 0, 5500, 0, 0, true, now
-      ]);
-      priceSheet.appendRow([
-        'PROF_SALON', 'Salón Standard', 220000, 0, 0, 0, true, now
-      ]);
-      priceSheet.appendRow([
-        'PROF_ALMUERZOS', 'Almuerzos Buffet', 0, 15000, 0, 0, true, now
-      ]);
+    const perfiles = models.PERFILES_PRECIO;
+    if (perfiles.all().length === 0) {
+      perfiles.create({ ID_Perfil_Precio: 'PROF_COFFEE', Nombre: 'Coffee Intermedio', Costo_Base_Fijo: 0, Costo_Unitario_Pax: 5500, Costo_Unitario_Tiempo: 0, Costo_Unitario_Item: 0, Activo: true, Updated_At: now });
+      perfiles.create({ ID_Perfil_Precio: 'PROF_SALON', Nombre: 'Salón Standard', Costo_Base_Fijo: 220000, Costo_Unitario_Pax: 0, Costo_Unitario_Tiempo: 0, Costo_Unitario_Item: 0, Activo: true, Updated_At: now });
+      perfiles.create({ ID_Perfil_Precio: 'PROF_ALMUERZOS', Nombre: 'Almuerzos Buffet', Costo_Base_Fijo: 0, Costo_Unitario_Pax: 15000, Costo_Unitario_Tiempo: 0, Costo_Unitario_Item: 0, Activo: true, Updated_At: now });
       Logger.log('✅ Seeded PERFILES_PRECIO');
     }
 
     // Seed CATEGORIAS
-    const catSheet = ss.getSheetByName('CATEGORIAS');
-    if (catSheet && catSheet.getLastRow() === 1) {
-      catSheet.appendRow([
-        'CAT_CAFE', 'Cafés', 'PROF_COFFEE', true, false, false, false, 0, 1, '☕', true, now
-      ]);
-      catSheet.appendRow([
-        'CAT_SALONES', 'Salones', 'PROF_SALON', false, false, false, true, 240, 1, '🏛️', true, now
-      ]);
-      catSheet.appendRow([
-        'CAT_COMIDAS', 'Comidas', 'PROF_ALMUERZOS', true, false, false, true, 120, 1, '🍽️', true, now
-      ]);
+    const categorias = models.CATEGORIAS;
+    if (categorias.all().length === 0) {
+      categorias.create({ ID_Categoria: 'CAT_CAFE', Nombre: 'Cafés', ID_Perfil_Precio_Default: 'PROF_COFFEE', Def_Requiere_Pax: true, Def_Requiere_Cant: false, Def_Requiere_Tiempo: false, Def_Requiere_Hora: false, Def_Duracion_Min: 0, Def_Unidades_Por_Pax: 1, Icono_UI: '☕', Activo: true, Updated_At: now });
+      categorias.create({ ID_Categoria: 'CAT_SALONES', Nombre: 'Salones', ID_Perfil_Precio_Default: 'PROF_SALON', Def_Requiere_Pax: false, Def_Requiere_Cant: false, Def_Requiere_Tiempo: false, Def_Requiere_Hora: true, Def_Duracion_Min: 240, Def_Unidades_Por_Pax: 1, Icono_UI: '🏛️', Activo: true, Updated_At: now });
+      categorias.create({ ID_Categoria: 'CAT_COMIDAS', Nombre: 'Comidas', ID_Perfil_Precio_Default: 'PROF_ALMUERZOS', Def_Requiere_Pax: true, Def_Requiere_Cant: false, Def_Requiere_Tiempo: false, Def_Requiere_Hora: true, Def_Duracion_Min: 120, Def_Unidades_Por_Pax: 1, Icono_UI: '🍽️', Activo: true, Updated_At: now });
       Logger.log('✅ Seeded CATEGORIAS');
     }
 
     // Seed ITEM_CATALOGO
-    const itemsSheet = ss.getSheetByName('ITEM_CATALOGO');
-    if (itemsSheet && itemsSheet.getLastRow() === 1) {
-      itemsSheet.appendRow([
-        'ITEM_COFFEE_INT', 'Coffee Intermedio', 'CAT_CAFE', null, null, true, now
-      ]);
-      itemsSheet.appendRow([
-        'ITEM_SALON_FARIO', 'Salón Fario', 'CAT_SALONES', 'PROF_SALON', null, true, now
-      ]);
-      itemsSheet.appendRow([
-        'ITEM_ALMUERZO_PARRILLA', 'Almuerzos Buffet Parrilla', 'CAT_COMIDAS', 'PROF_ALMUERZOS', null, true, now
-      ]);
+    const items = models.ITEM_CATALOGO;
+    if (items.all().length === 0) {
+      items.create({ ID_Item: 'ITEM_COFFEE_INT', Nombre: 'Coffee Intermedio', ID_Categoria: 'CAT_CAFE', ID_Perfil_Precio_Override: '', Def_Unidades_Por_Pax_Override: '', Activo: true, Updated_At: now });
+      items.create({ ID_Item: 'ITEM_SALON_FARIO', Nombre: 'Salón Fario', ID_Categoria: 'CAT_SALONES', ID_Perfil_Precio_Override: 'PROF_SALON', Def_Unidades_Por_Pax_Override: '', Activo: true, Updated_At: now });
+      items.create({ ID_Item: 'ITEM_ALMUERZO_PARRILLA', Nombre: 'Almuerzos Buffet Parrilla', ID_Categoria: 'CAT_COMIDAS', ID_Perfil_Precio_Override: 'PROF_ALMUERZOS', Def_Unidades_Por_Pax_Override: '', Activo: true, Updated_At: now });
       Logger.log('✅ Seeded ITEM_CATALOGO');
     }
 
@@ -435,6 +420,10 @@ export class InitializeService {
 }
 
 export function initializeSheetDb() {
+  if (typeof INIT_CSV_DATA_MAP !== 'undefined' && INIT_CSV_DATA_MAP) {
+    return InitializeService.initializeFromCsv(INIT_CSV_DATA_MAP, SHEET_SCHEMA, {});
+  }
+
   return InitializeService.initializeSheetDb();
 }
 
@@ -468,4 +457,20 @@ export function initializeFromCsvFiles(csvDataMap, schema, columnMappings = {}) 
       stats: { tablesCreated: 0, rowsMigrated: 0, rowsSkipped: 0 }
     };
   }
+}
+
+/**
+ * Initialize from bundled init CSV map when available (GAS build artifact).
+ */
+export function initializeSheetDbFromInitCsv() {
+  if (typeof INIT_CSV_DATA_MAP === 'undefined' || !INIT_CSV_DATA_MAP) {
+    return {
+      success: false,
+      results: {},
+      warnings: ['INIT_CSV_DATA_MAP is not available in this runtime'],
+      stats: { tablesCreated: 0, rowsMigrated: 0, rowsSkipped: 0 }
+    };
+  }
+
+  return InitializeService.initializeFromCsv(INIT_CSV_DATA_MAP, SHEET_SCHEMA, {});
 }

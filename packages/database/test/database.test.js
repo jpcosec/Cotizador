@@ -104,6 +104,8 @@ test('initializes from v1 CSV preset in data directory', () => {
 
   assert.ok(db.models.CLIENTES.all().length > 0);
   assert.ok(db.models.CATEGORIAS.all().length > 0);
+  assert.ok(db.models.PERFILES_PRECIO.all().length > 0);
   assert.ok(db.models.ITEM_CATALOGO.all().length > 0);
   assert.equal(db.seedSummary.type, 'v1');
+  assert.ok(db.seedSummary.result.rowsByTable.PERFILES_PRECIO > 0);
 });

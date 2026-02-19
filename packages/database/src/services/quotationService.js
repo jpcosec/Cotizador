@@ -5,9 +5,15 @@
  * Manages COTIZACIONES and LINEA_DETALLE sheets.
  */
 
+import { getGasModels } from './databaseRuntime.js';
+
 export class QuotationService {
   constructor(spreadsheetId) {
     this.spreadsheetId = spreadsheetId;
+  }
+
+  _getModels() {
+    return getGasModels(this.spreadsheetId);
   }
 
   /**
@@ -30,27 +36,23 @@ export class QuotationService {
    */
   createQuotation(quotationData, lineItems = []) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const cotSheet = ss.getSheetByName('COTIZACIONES');
-      const lineaSheet = ss.getSheetByName('LINEA_DETALLE');
-
-      if (!cotSheet || !lineaSheet) {
-        throw new Error('COTIZACIONES or LINEA_DETALLE sheets not found.');
-      }
+      const models = this._getModels();
+      const cotModel = models.COTIZACIONES;
+      const lineaModel = models.LINEA_DETALLE;
 
       const cotizacionId = 'COT_' + Math.floor(Date.now() / 1000);
       const now = new Date().toISOString();
 
       // Add quotation header
-      cotSheet.appendRow([
-        cotizacionId,
-        quotationData.ID_Cliente || '',
-        quotationData.Estado || 'Borrador',
-        quotationData.Fecha_Evento || new Date().toISOString().split('T')[0],
-        quotationData.Duracion_Dias || 1,
-        quotationData.Pax_Global || 1,
-        now
-      ]);
+      cotModel.create({
+        ID_Cotizacion: cotizacionId,
+        ID_Cliente: quotationData.ID_Cliente || '',
+        Estado: quotationData.Estado || 'Borrador',
+        Fecha_Evento: quotationData.Fecha_Evento || new Date().toISOString().split('T')[0],
+        Duracion_Dias: quotationData.Duracion_Dias || 1,
+        Pax_Global: quotationData.Pax_Global || 1,
+        Updated_At: now
+      });
 
       // Add line items with CORRECT column order
       // Order: ID_Linea, ID_Cotizacion, ID_Item, Estado_Linea, Dia_Numero, Hora_Inicio,
@@ -59,19 +61,19 @@ export class QuotationService {
         const linea = lineItems[i];
         const lineaId = cotizacionId + '_L' + (i + 1);
 
-        lineaSheet.appendRow([
-          lineaId,
-          cotizacionId,
-          linea.ID_Item || '',
-          linea.Estado_Linea || 'ACTIVA',
-          linea.Dia_Numero || 1,
-          linea.Hora_Inicio || '09:00',
-          linea.Override_Pax || '',
-          linea.Override_Cantidad || '',
-          linea.Override_Duracion_Min || '',
-          linea.Comentarios || '',
-          now
-        ]);
+        lineaModel.create({
+          ID_Linea: lineaId,
+          ID_Cotizacion: cotizacionId,
+          ID_Item: linea.ID_Item || '',
+          Estado_Linea: linea.Estado_Linea || 'ACTIVA',
+          Dia_Numero: linea.Dia_Numero || 1,
+          Hora_Inicio: linea.Hora_Inicio || '09:00',
+          Override_Pax: linea.Override_Pax || '',
+          Override_Cantidad: linea.Override_Cantidad || '',
+          Override_Duracion_Min: linea.Override_Duracion_Min || '',
+          Comentarios: linea.Comentarios || '',
+          Updated_At: now
+        });
       }
 
       return {
@@ -95,44 +97,20 @@ export class QuotationService {
    */
   loadQuotation(cotizacionId) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const cotSheet = ss.getSheetByName('COTIZACIONES');
-      const lineaSheet = ss.getSheetByName('LINEA_DETALLE');
-      const clientesSheet = ss.getSheetByName('CLIENTES');
-
-      if (!cotSheet || !lineaSheet) {
-        throw new Error('Data sheets not found.');
-      }
+      const models = this._getModels();
 
       // Find quotation
-      const cotData = cotSheet.getDataRange().getValues();
-      const cotHeaders = cotData[0];
-      const cotizacion = this._findRow(cotData, cotHeaders, 'ID_Cotizacion', cotizacionId);
+      const cotizacion = models.COTIZACIONES.findById(cotizacionId);
 
       if (!cotizacion) {
         return { success: false, mensaje: 'Cotización no encontrada' };
       }
 
       // Find client
-      let cliente = null;
-      if (clientesSheet && clientesSheet.getLastRow() > 1) {
-        const clientData = clientesSheet.getDataRange().getValues();
-        const clientHeaders = clientData[0];
-        cliente = this._findRow(clientData, clientHeaders, 'ID_Cliente', cotizacion.ID_Cliente);
-      }
+      const cliente = models.CLIENTES.findById(cotizacion.ID_Cliente);
 
       // Find line items
-      const lineaData = lineaSheet.getDataRange().getValues();
-      const lineaHeaders = lineaData[0];
-      const lineas = [];
-
-      for (let i = 1; i < lineaData.length; i++) {
-        const row = lineaData[i];
-        const linea = this._rowToObject(row, lineaHeaders);
-        if (linea.ID_Cotizacion === cotizacionId) {
-          lineas.push(linea);
-        }
-      }
+      const lineas = models.LINEA_DETALLE.where((linea) => linea.ID_Cotizacion === cotizacionId);
 
       return {
         success: true,
@@ -154,29 +132,24 @@ export class QuotationService {
    */
   addLineItem(cotizacionId, lineData) {
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const lineaSheet = ss.getSheetByName('LINEA_DETALLE');
-
-      if (!lineaSheet) {
-        throw new Error('LINEA_DETALLE sheet not found.');
-      }
+      const models = this._getModels();
 
       const lineaId = cotizacionId + '_L' + Math.floor(Math.random() * 10000);
       const now = new Date().toISOString();
 
-      lineaSheet.appendRow([
-        lineaId,
-        cotizacionId,
-        lineData.ID_Item || '',
-        lineData.Estado_Linea || 'ACTIVA',
-        lineData.Dia_Numero || 1,
-        lineData.Hora_Inicio || '09:00',
-        lineData.Override_Pax || '',
-        lineData.Override_Cantidad || '',
-        lineData.Override_Duracion_Min || '',
-        lineData.Comentarios || '',
-        now
-      ]);
+      models.LINEA_DETALLE.create({
+        ID_Linea: lineaId,
+        ID_Cotizacion: cotizacionId,
+        ID_Item: lineData.ID_Item || '',
+        Estado_Linea: lineData.Estado_Linea || 'ACTIVA',
+        Dia_Numero: lineData.Dia_Numero || 1,
+        Hora_Inicio: lineData.Hora_Inicio || '09:00',
+        Override_Pax: lineData.Override_Pax || '',
+        Override_Cantidad: lineData.Override_Cantidad || '',
+        Override_Duracion_Min: lineData.Override_Duracion_Min || '',
+        Comentarios: lineData.Comentarios || '',
+        Updated_At: now
+      });
 
       return {
         success: true,
@@ -189,33 +162,6 @@ export class QuotationService {
     }
   }
 
-  /**
-   * Helper: find row by column value
-   * @private
-   */
-  _findRow(data, headers, columnName, value) {
-    const colIdx = headers.indexOf(columnName);
-    if (colIdx === -1) return null;
-
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][colIdx]) === String(value)) {
-        return this._rowToObject(data[i], headers);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Helper: convert sheet row to object
-   * @private
-   */
-  _rowToObject(row, headers) {
-    const obj = {};
-    headers.forEach((header, idx) => {
-      obj[header] = row[idx];
-    });
-    return obj;
-  }
 }
 
 export function createQuotationService(spreadsheetId) {
