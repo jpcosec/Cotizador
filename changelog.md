@@ -5,6 +5,15 @@
 ### 2026-02-19
 - docs: rewrote `README.md` as a concise integration-worktree guide with current state, IO contract, tech stack, structural differences, and active TODOs.
 - pricing: removed Rollup circular-dependency warnings by extracting pricing recalculation primitives to `packages/pricing/src/Pricing/recalculation.js` and updating operations to import from that module.
+- docs: moved root-level operational documentation into `docs/workspace/root_migration/` and centralized references in `docs/README.md`.
+- docs: added runtime reality-check at `docs/ACTIVE/status-reality-2026-02-19.md` (GAS deployed, machine usage unverified, DB seeding/adaptation pending, missing HTML app entries).
+- database: routed GAS service CRUD flows through the generic model/store layer via `GasSheetStore` + `ModelFactory`, added shared runtime model cache (`services/databaseRuntime.js`), and updated GAS code generation to embed the generic routing layer.
+- database: removed MVP table filtering from GAS schema loading/generation, so initialization and CSV migration now work against the full `DATA_SCHEMA`.
+- xstate: removed hardcoded table-to-primary-key mapping in `actions` adapter and now derive table metadata dynamically from `DATA_SCHEMA`; regenerated GAS runtime bundle.
+- database: added `parseV1CsvToSchemaRows` to transform legacy `Cotizador - CLIENTES.csv` and `Cotizador - Items.csv` into the current schema shape (including `PERFILES_PRECIO` + category defaults), and updated `seedFromV1Csv` to seed all available schema tables from the parsed output.
+- data: generated `data/init.parsed.v1.json` with legacy CSVs normalized to current schema table payloads for initialization workflows.
+- data: replaced bulky parsed JSON with per-table initialization CSVs under `data/init/` and removed `data/init.parsed.v1.json`.
+- gas/database: wired initializer wrappers to use bundled `data/init/*.csv` map (`INIT_CSV_DATA_MAP`) by default in GAS-generated `Code.gs`; added `initializeSheetDbFromInitCsv()` explicit entrypoint.
 
 ## [0.2.0] - 2026-02-17 — Event-Driven Architecture Rewrite
 
