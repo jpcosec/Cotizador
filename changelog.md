@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### 2026-02-19
+- docs: refreshed `README.md`, `docs/README.md`, and `PLAN.md` to reflect merged-repo reality (active build pipeline, current priorities, valid doc links, and current architecture boundaries).
+- docs/subfolders: refreshed `docs/ARCHITECTURE/state-machine.md`, `docs/PACKAGES/{database,pricing,xstate,frontend}.md`, and `docs/DEPLOYMENT/LOCAL_vs_GAS.md` to remove stale worktree-era assumptions and align with current merged repository architecture.
 - build/deps: added root bundler dependency `json-logic-js` so Rollup resolves pricing rules-engine imports without unresolved external warnings.
 - xstate/architecture: refactored `packages/xstate/src/QuotationService.js` to remove filesystem + test-seed coupling; it now requires injected store/adapters and keeps xstate as middleware-only orchestration.
 - xstate/examples: updated `packages/xstate/examples/examples/create-quotation.js` to inject store explicitly and stop using removed filesystem-based service helpers.
