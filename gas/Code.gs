@@ -1329,16 +1329,6 @@ function getSpreadsheetId() {
 // Run once from Apps Script editor console:
 // > initializeSheetDb()
 
-(function() {
-  // Expose global init functions
-  window.initializeSheetDb = function() {
-    return InitializeService.initializeSheetDb();
-  };
-  window.validateSheetDb = function() {
-    return InitializeService.validateSheetDb();
-  };
-})();
-
 // --- CATALOG API ---
 
 /**
