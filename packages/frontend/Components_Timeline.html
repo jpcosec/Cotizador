@@ -17,6 +17,10 @@
                 <button class="btn-small btn-primary" @click="generarPDF()" :disabled="carrito.length === 0">
                     <span x-text="generandoPDF ? '⏳' : '📄 PDF'"></span>
                 </button>
+
+                <button class="btn-small btn-secondary" @click="openDatabaseViewer()" title="Ver base de datos">
+                    <i class="fa-solid fa-table"></i> Datos
+                </button>
             </div>
         </div>
         <div class="config-grid">

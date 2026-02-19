@@ -30,6 +30,16 @@ function cotizadorApp() {
         messages: [],
         databaseOpen: false,
         selectedRowData: null,
+        databaseViewerOpen: false,
+        databaseViewerLoading: false,
+        databaseViewerTab: 'items',
+        databaseViewerSearch: '',
+        databaseViewerData: {
+            CATEGORIAS: [],
+            ITEM_CATALOGO: [],
+            COMPOSICION_KIT: [],
+            REGLAS_NEGOCIO: []
+        },
         
         // --- INIT ---
         init() {
@@ -133,6 +143,139 @@ function cotizadorApp() {
         formatCurrency(value) {
             var amount = Number(value) || 0;
             return '$' + amount.toLocaleString('es-CL');
+        },
+
+        normalizeDatabaseViewerData(data) {
+            var source = data || {};
+            return {
+                CATEGORIAS: Array.isArray(source.CATEGORIAS) ? source.CATEGORIAS : [],
+                ITEM_CATALOGO: Array.isArray(source.ITEM_CATALOGO) ? source.ITEM_CATALOGO : [],
+                COMPOSICION_KIT: Array.isArray(source.COMPOSICION_KIT) ? source.COMPOSICION_KIT : [],
+                REGLAS_NEGOCIO: Array.isArray(source.REGLAS_NEGOCIO) ? source.REGLAS_NEGOCIO : []
+            };
+        },
+
+        openDatabaseViewer(tab) {
+            if (tab) this.databaseViewerTab = tab;
+            this.databaseViewerOpen = true;
+            this.loadDatabaseViewerData();
+        },
+
+        closeDatabaseViewer() {
+            this.databaseViewerOpen = false;
+        },
+
+        loadDatabaseViewerData() {
+            var self = this;
+            self.databaseViewerLoading = true;
+
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    self.databaseViewerData = self.normalizeDatabaseViewerData(data);
+                    self.databaseViewerLoading = false;
+                })
+                .withFailureHandler(function(err) {
+                    self.databaseViewerData = self.normalizeDatabaseViewerData({});
+                    self.databaseViewerLoading = false;
+                    console.warn('No se pudo cargar datos del visor de base', err);
+                })
+                .getPricingReferenceData();
+        },
+
+        prettyJson(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            if (typeof value === 'string') return value;
+            try {
+                return JSON.stringify(value);
+            } catch (e) {
+                return String(value);
+            }
+        },
+
+        get categoryMap() {
+            var map = {};
+            var categories = this.databaseViewerData && Array.isArray(this.databaseViewerData.CATEGORIAS)
+                ? this.databaseViewerData.CATEGORIAS
+                : [];
+            categories.forEach(function(c) {
+                if (c && c.ID_Categoria) map[c.ID_Categoria] = c;
+            });
+            return map;
+        },
+
+        get itemMap() {
+            var map = {};
+            var items = this.databaseViewerData && Array.isArray(this.databaseViewerData.ITEM_CATALOGO)
+                ? this.databaseViewerData.ITEM_CATALOGO
+                : [];
+            items.forEach(function(i) {
+                if (i && i.ID_Item) map[i.ID_Item] = i;
+            });
+            return map;
+        },
+
+        get filteredDatabaseItems() {
+            var search = (this.databaseViewerSearch || '').toLowerCase().trim();
+            var rows = this.databaseViewerData && Array.isArray(this.databaseViewerData.ITEM_CATALOGO)
+                ? this.databaseViewerData.ITEM_CATALOGO
+                : [];
+            var categoryMap = this.categoryMap;
+
+            return rows.filter(function(row) {
+                if (!search) return true;
+                var categoryName = (categoryMap[row.ID_Categoria] && categoryMap[row.ID_Categoria].Nombre) || row.ID_Categoria || '';
+                var haystack = [row.ID_Item, row.Nombre, categoryName].join(' ').toLowerCase();
+                return haystack.indexOf(search) !== -1;
+            });
+        },
+
+        get filteredDatabaseCategories() {
+            var search = (this.databaseViewerSearch || '').toLowerCase().trim();
+            var rows = this.databaseViewerData && Array.isArray(this.databaseViewerData.CATEGORIAS)
+                ? this.databaseViewerData.CATEGORIAS
+                : [];
+
+            return rows.filter(function(row) {
+                if (!search) return true;
+                var haystack = [row.ID_Categoria, row.Nombre].join(' ').toLowerCase();
+                return haystack.indexOf(search) !== -1;
+            });
+        },
+
+        get filteredDatabaseCompositions() {
+            var search = (this.databaseViewerSearch || '').toLowerCase().trim();
+            var rows = this.databaseViewerData && Array.isArray(this.databaseViewerData.COMPOSICION_KIT)
+                ? this.databaseViewerData.COMPOSICION_KIT
+                : [];
+            var itemMap = this.itemMap;
+
+            return rows.filter(function(row) {
+                if (!search) return true;
+                var parentName = (itemMap[row.ID_Item_Padre] && itemMap[row.ID_Item_Padre].Nombre) || '';
+                var childName = (itemMap[row.ID_Item_Hijo] && itemMap[row.ID_Item_Hijo].Nombre) || '';
+                var haystack = [row.ID_Item_Padre, parentName, row.ID_Item_Hijo, childName, row.Modo_Precio].join(' ').toLowerCase();
+                return haystack.indexOf(search) !== -1;
+            });
+        },
+
+        get filteredDatabaseRules() {
+            var search = (this.databaseViewerSearch || '').toLowerCase().trim();
+            var rows = this.databaseViewerData && Array.isArray(this.databaseViewerData.REGLAS_NEGOCIO)
+                ? this.databaseViewerData.REGLAS_NEGOCIO
+                : [];
+
+            return rows.filter(function(row) {
+                if (!search) return true;
+                var haystack = [
+                    row.ID_Regla,
+                    row.Etapa,
+                    row.Hook,
+                    row.Tipo_Accion,
+                    row.Descripcion,
+                    row.Prioridad
+                ].join(' ').toLowerCase();
+                return haystack.indexOf(search) !== -1;
+            });
         },
 
         get selectedClientName() {
