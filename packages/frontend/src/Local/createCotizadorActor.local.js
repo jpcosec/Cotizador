@@ -13,7 +13,7 @@ export function createCotizadorActor(opts = {}) {
 
   actor.start();
 
-  const bootstrap = opts.bootstrap !== false;
+  const bootstrap = opts.bootstrap === true;
   if (bootstrap) {
     const clienteId = opts.clienteId || 'CLI_CORP';
     const paxGlobal = Number.isFinite(opts.paxGlobal) ? opts.paxGlobal : 10;

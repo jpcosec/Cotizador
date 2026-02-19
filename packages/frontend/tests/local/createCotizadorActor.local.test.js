@@ -9,8 +9,17 @@ function currentStatePath(actor) {
   return JSON.stringify(value);
 }
 
-test('createCotizadorActor boots directly into basket flow', () => {
+test('createCotizadorActor starts in browse by default', () => {
+  const actor = createCotizadorActor();
+
+  const state = currentStatePath(actor);
+  assert.equal(state.includes('browse'), true);
+  actor.stop();
+});
+
+test('createCotizadorActor boots into basket when bootstrap=true', () => {
   const actor = createCotizadorActor({
+    bootstrap: true,
     clienteId: 'CLI_CORP',
     paxGlobal: 25,
     fechaEvento: '2026-04-01',
@@ -28,7 +37,7 @@ test('createCotizadorActor boots directly into basket flow', () => {
 });
 
 test('local actor supports add/update/remove with pricing totals', () => {
-  const actor = createCotizadorActor({ paxGlobal: 25 });
+  const actor = createCotizadorActor({ bootstrap: true, paxGlobal: 25 });
 
   actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_CHINOOK', overrides: {} });
   let snap = actor.getSnapshot();

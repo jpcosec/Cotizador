@@ -10,14 +10,42 @@
     <?!= include('Styles_Global'); ?>
 </head>
 <body>
-    <div x-data="cotizadorApp()" x-cloak class="container">
-        
-        <?!= include('Components_Sidebar'); ?>
-        
-        <?!= include('Components_Timeline'); ?>
-        
+    <div x-data="cotizadorApp()" x-cloak>
+        <section x-show="useStateMachine && isMachineInBrowse()" style="padding: 28px; max-width: 920px; margin: 0 auto;">
+            <h2 style="margin-bottom: 8px; color: var(--primary);">Bienvenido al Cotizador</h2>
+            <p style="margin-top: 0; color: var(--secondary);">Inicia una cotizacion nueva o carga una existente.</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;">
+                <button class="btn-small btn-primary" @click="modalCliente = true">Seleccionar Cliente</button>
+                <button class="btn-small btn-secondary" @click="cargarCotizacion()">Cargar Anterior</button>
+            </div>
+        </section>
+
+        <section x-show="useStateMachine && isMachineInInitialize()" style="padding: 28px; max-width: 920px; margin: 0 auto;">
+            <h2 style="margin-bottom: 8px; color: var(--primary);">Inicializando Cotizacion</h2>
+            <p style="margin-top: 0; color: var(--secondary);">Selecciona cliente y configura fecha, dias y pax para continuar.</p>
+        </section>
+
+        <section x-show="!useStateMachine || isMachineInBasket()" class="container">
+            <?!= include('Components_Sidebar'); ?>
+            <?!= include('Components_Timeline'); ?>
+        </section>
+
+        <section x-show="useStateMachine && isMachineInValidation()">
+            <?!= include('Components_ValidationSummary'); ?>
+        </section>
+
+        <section x-show="useStateMachine && isMachineInCompleted()">
+            <?!= include('Components_CompletionSuccess'); ?>
+        </section>
+
+        <section x-show="useStateMachine && isMachineInError()" style="padding: 28px; max-width: 920px; margin: 0 auto;">
+            <h2 style="margin-bottom: 8px; color: #b91c1c;">Error en la Cotizacion</h2>
+            <p style="margin-top: 0; color: var(--secondary);">Revisa el detalle e intenta nuevamente.</p>
+            <p style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px;" x-text="errors?.[0]?.message || 'Error desconocido'"></p>
+            <button class="btn-small btn-secondary" @click="crearNuevaCotizacion()">Volver al Inicio</button>
+        </section>
+
         <?!= include('Components_ModalCliente'); ?>
-        
     </div>
     
     <?!= include('Local_XState_ActorLoader'); ?>

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### 2026-02-19
+- frontend: completed Phase 3 TIER 1 integration in `packages/frontend` by fixing catalog-load race timing, setting local actor bootstrap to opt-in, enforcing client selection before add-item, adding machine-state helpers/conditional views, and creating validation/completion UI components for the save flow.
 - docs: rewrote `README.md` as a concise integration-worktree guide with current state, IO contract, tech stack, structural differences, and active TODOs.
 - pricing: removed Rollup circular-dependency warnings by extracting pricing recalculation primitives to `packages/pricing/src/Pricing/recalculation.js` and updating operations to import from that module.
 - docs: moved root-level operational documentation into `docs/workspace/root_migration/` and centralized references in `docs/README.md`.
