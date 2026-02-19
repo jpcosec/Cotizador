@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rollup -c rollup.config.mjs && node tools/generate_gas_runtime_bundle.mjs",
+    "build": "npm run build:bundle && npm run build:gas",
+    "build:bundle": "rollup -c rollup.config.mjs && node tools/generate_gas_runtime_bundle.mjs",
+    "build:gas": "node tools/generate_gas_code.mjs",
     "build:watch": "rollup -c rollup.config.mjs -w",
     "serve:dist": "python3 -m http.server 8082",
     "test:integration": "node --test bundling/tests",
