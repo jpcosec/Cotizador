@@ -1,4 +1,4 @@
-import { resolveItemDefaults, recalculateItemPrice, applyItemRules } from '../pipeline.js';
+import { resolveItemDefaults, recalculateItemPrice, applyItemRules } from '../recalculation.js';
 
 /**
  * Update an item's properties (quantity, pax, duration, etc).

@@ -4676,11 +4676,8 @@ var QuotationEngine = (function (exports) {
     return { subtotal, taxes, total: subtotal + totalTax };
   }
 
-  // Pipeline orchestration for quotation recalculation.
-  // Splits recalculation into discrete steps aligned with rule stages.
-  //
-  // LEVEL 1: Item-level functions (for basket mutations)
-  // LEVEL 2: Full basket function (for validation/resume)
+  // Pipeline recalculation primitives split from pipeline.js to avoid
+  // circular imports with operations modules.
 
 
   const DEFAULT_FIELD_TO_LINE_KEY = {
@@ -4719,51 +4716,22 @@ var QuotationEngine = (function (exports) {
     }
   }
 
-  // ========== LEVEL 1: Item-level Recalculation ==========
-
-  /**
-   * Expand compositions for a line (if it's a composition parent).
-   * @param {object} linea - The line to expand
-   * @param {object} store - The data store
-   * @returns {array} The line(s) after expansion (may be [linea] if no expansion)
-   */
   function expandItemCompositions(linea, store) {
-    const expanded = expandCompositions([linea], store);
-    return expanded;
+    return expandCompositions([linea], store);
   }
 
-  /**
-   * Resolve Q/T/P defaults for a line.
-   * Uses CANTIDAD_DEFAULT rules if available.
-   * @param {object} linea - The line to resolve
-   * @param {number} paxGlobal - Global pax value
-   * @param {object} store - The data store
-   */
   function resolveItemDefaults(linea, paxGlobal, store) {
     resolveDefaults(linea, paxGlobal, store);
     applyCantidadDefaultRules(linea, store);
   }
 
-  /**
-   * Calculate the base price for a line (_netoBase).
-   * @param {object} linea - The line to price
-   * @param {object} store - The data store
-   */
   function recalculateItemPrice(linea, store) {
     calculateLinePrice(linea, store);
   }
 
-  /**
-   * Apply item-level rules (RESTRICCION_UI, AJUSTE_LINEA).
-   * Returns errors and adjusted values.
-   * @param {object} linea - The line to check/adjust
-   * @param {object} store - The data store
-   * @returns {{ linea, errors: [], adjustments: [] }}
-   */
   function applyItemRules(linea, store) {
     const errors = [];
 
-    // Check RESTRICCION_UI rules for this item
     const restriccionRules = getRulesForStageAndHook('RESTRICCION_UI', null, store);
     for (const rule of restriccionRules) {
       if (!evaluateCondition(rule.Condicion_JSON, { linea })) continue;
@@ -4776,7 +4744,6 @@ var QuotationEngine = (function (exports) {
       }
     }
 
-    // Apply AJUSTE_LINEA rules (auto-adjust this line's price)
     applyLineAdjustments([linea], store);
 
     return {
@@ -4786,26 +4753,13 @@ var QuotationEngine = (function (exports) {
     };
   }
 
-  /**
-   * Aggregate basket totals and apply global rules and manual adjustments.
-   * @param {array} lineas - All line items
-   * @param {array} ajustesManuales - Manual adjustments from user
-   * @param {object} store - The data store
-   * @returns {{ subtotal, taxes, total, messages }}
-   */
   function aggregateBasketTotals(lineas, ajustesManuales, store) {
     const messages = [];
 
-    // Apply AJUSTE_GLOBAL rules
     applyGlobalAdjustments(lineas, messages, store);
-
-    // Apply manual adjustments (line-level overrides, discounts)
     applyManualAdjustments(lineas, ajustesManuales);
 
-    // Apply IMPUESTO rules and calculate final totals
     const totals = calculateTaxes(lineas, store);
-
-    // Apply global manual adjustments (DESCUENTO_GLOBAL, RECARGO)
     const globalManuals = getGlobalManualAdjustments(ajustesManuales);
     const globalDelta = globalManuals.reduce(
       (sum, a) =>
@@ -4819,15 +4773,8 @@ var QuotationEngine = (function (exports) {
     return { totals, messages };
   }
 
-  // ========== LEVEL 2: Full Basket Recalculation ==========
-
   const STRUCTURAL_KEYS = new Set(['_source', '_parentItem', '_tipoPrecio', '_cantidadComp']);
 
-  /**
-   * Strip computed fields while preserving structural metadata.
-   * @param {array} lineas - Line items to clean
-   * @returns {array} Cleaned lines
-   */
   function stripComputedFields(lineas) {
     return lineas.map(linea => {
       const clean = {};
@@ -4840,40 +4787,23 @@ var QuotationEngine = (function (exports) {
     });
   }
 
-  /**
-   * Full basket recalculation from scratch.
-   * Used during validation and when resuming from database changes.
-   *
-   * @param {array} lineas - All line items
-   * @param {object} quotation - Quotation header (paxGlobal, ajustesManuales, etc)
-   * @param {object} store - The data store
-   * @returns {{ lineas, totals, messages, errors }}
-   */
   function fullRecalculateBasket(lineas, quotation, store) {
     const messages = [];
     const errors = [];
+    const cleanedLineas = stripComputedFields(lineas);
 
-    // Step 1: Strip computed fields, keep inputs and structural metadata
-    let cleanedLineas = stripComputedFields(lineas);
-
-    // Step 2: For each line, resolve structure and calculate
     for (let i = 0; i < cleanedLineas.length; i++) {
       const linea = cleanedLineas[i];
 
-      // Resolve defaults
       resolveItemDefaults(linea, quotation.paxGlobal, store);
-
-      // Calculate price
       recalculateItemPrice(linea, store);
 
-      // Apply item-level rules
       const ruleResult = applyItemRules(linea, store);
       if (ruleResult.errors.length > 0) {
         errors.push(...ruleResult.errors);
       }
     }
 
-    // Step 3: Aggregate and apply global rules + manual + taxes
     const { totals, messages: globalMessages } = aggregateBasketTotals(
       cleanedLineas,
       quotation.ajustesManuales,
@@ -4882,7 +4812,6 @@ var QuotationEngine = (function (exports) {
 
     messages.push(...globalMessages);
 
-    // Step 4: Check basket-level validation rules
     const basketValidationRules = getRulesForStageAndHook('RESTRICCION_UI', null, store);
     for (const rule of basketValidationRules) {
       if (!evaluateCondition(rule.Condicion_JSON, { lineas: cleanedLineas, quotation })) {

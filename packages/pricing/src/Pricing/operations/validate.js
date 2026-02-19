@@ -1,4 +1,4 @@
-import { fullRecalculateBasket } from '../pipeline.js';
+import { fullRecalculateBasket } from '../recalculation.js';
 
 /**
  * Perform full basket validation with recalculation.

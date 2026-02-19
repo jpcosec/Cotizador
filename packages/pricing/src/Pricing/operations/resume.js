@@ -1,4 +1,4 @@
-import { fullRecalculateBasket } from '../pipeline.js';
+import { fullRecalculateBasket } from '../recalculation.js';
 
 /**
  * Resume quotation from database by recalculating everything.

@@ -1,4 +1,9 @@
-import { expandItemCompositions, resolveItemDefaults, recalculateItemPrice, applyItemRules } from '../pipeline.js';
+import {
+  expandItemCompositions,
+  resolveItemDefaults,
+  recalculateItemPrice,
+  applyItemRules,
+} from '../recalculation.js';
 
 /**
  * Add a new item to the basket.
