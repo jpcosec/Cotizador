@@ -1,13 +1,13 @@
 import readline from 'node:readline';
-import { EventBus } from '../mock/Core/EventBus.js';
-import { QuotationState, resetLineSeq } from '../mock/Core/QuotationState.js';
-import { QuotationScenario } from '../mock/Scenarios/Quotation.js';
+import { EventBus } from '../tests/mock/Core/EventBus.js';
+import { QuotationState, resetLineSeq } from '../tests/mock/Core/QuotationState.js';
+import { QuotationScenario } from '../tests/mock/Scenarios/Quotation.js';
 import { createSeededStore } from '../tests/helpers/store_factory.js';
 
-import { AdvanceStep } from '../mock/Events/quotation/AdvanceStep.js';
-import { AddItem } from '../mock/Events/quotation/basket/AddItem.js';
-import { ChangePax } from '../mock/Events/quotation/basket/ChangePax.js';
-import { Recalculate } from '../mock/Events/quotation/basket/Recalculate.js';
+import { AdvanceStep } from '../tests/mock/Events/quotation/AdvanceStep.js';
+import { AddItem } from '../tests/mock/Events/quotation/basket/AddItem.js';
+import { ChangePax } from '../tests/mock/Events/quotation/basket/ChangePax.js';
+import { Recalculate } from '../tests/mock/Events/quotation/basket/Recalculate.js';
 
 // ── Colors ──
 const C = { bold: '\x1b[1m', dim: '\x1b[2m', cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', magenta: '\x1b[35m', reset: '\x1b[0m' };

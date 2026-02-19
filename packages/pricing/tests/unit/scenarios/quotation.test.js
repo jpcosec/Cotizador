@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { QuotationScenario } from '../../../mock/Scenarios/Quotation.js';
-import { EventBus } from '../../../mock/Core/EventBus.js';
-import { QuotationState, resetLineSeq } from '../../../mock/Core/QuotationState.js';
-import { AbstractEvent } from '../../../mock/Core/AbstractEvent.js';
+import { QuotationScenario } from '../../mock/Scenarios/Quotation.js';
+import { EventBus } from '../../mock/Core/EventBus.js';
+import { QuotationState, resetLineSeq } from '../../mock/Core/QuotationState.js';
+import { AbstractEvent } from '../../mock/Core/AbstractEvent.js';
 
 class TestEvent extends AbstractEvent {
   constructor(name) { super(name); }

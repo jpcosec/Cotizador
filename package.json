@@ -4,12 +4,16 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:bundle && npm run build:gas",
-    "build:bundle": "rollup -c rollup.config.mjs && node tools/generate_gas_runtime_bundle.mjs",
-    "build:gas": "node tools/generate_gas_code.mjs",
+    "build:bundle": "rollup -c rollup.config.mjs",
+    "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
+    "dev:local": "npm run build && npm run serve:dist",
     "build:watch": "rollup -c rollup.config.mjs -w",
     "serve:dist": "python3 -m http.server 8082",
     "test:integration": "node --test bundling/tests",
     "validate:local": "npm run build && npm run test:integration"
+  },
+  "dependencies": {
+    "json-logic-js": "^2.0.5"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.0",

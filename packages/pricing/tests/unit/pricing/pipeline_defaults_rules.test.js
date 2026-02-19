@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveItemDefaults } from '../../../src/Pricing/pipeline.js';
-import { InMemoryStore } from '../../../src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../../database/src/stores/TableInMemoryStore.js';
 
 function createStore() {
   const store = new InMemoryStore();

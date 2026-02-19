@@ -1,4 +1,4 @@
-export class InMemoryStore {
+export class TableInMemoryStore {
   constructor() {
     this._tables = new Map();
   }
@@ -17,18 +17,17 @@ export class InMemoryStore {
   }
 
   findById(tableName, pkField, id) {
-    return this.all(tableName).find(r => r[pkField] === id) || null;
+    return this.all(tableName).find((row) => row[pkField] === id) || null;
   }
 
   findAll(tableName, filters = {}) {
     const entries = Object.entries(filters);
     if (!entries.length) return this.all(tableName);
-    return this.all(tableName).filter(r =>
-      entries.every(([k, v]) => r[k] === v)
-    );
+
+    return this.all(tableName).filter((row) => entries.every(([key, value]) => row[key] === value));
   }
 
   findByFK(tableName, fkField, value) {
-    return this.all(tableName).filter(r => r[fkField] === value);
+    return this.all(tableName).filter((row) => row[fkField] === value);
   }
 }

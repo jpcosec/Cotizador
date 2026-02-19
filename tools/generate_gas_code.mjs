@@ -208,6 +208,14 @@ function searchCatalogo(query) {
   return service.searchItems(query);
 }
 
+/**
+ * Get raw pricing reference tables for runtime hydration
+ */
+function getPricingReferenceData() {
+  const service = new CatalogService(getSpreadsheetId());
+  return service.getPricingReferenceData();
+}
+
 // --- CLIENT API ---
 
 /**

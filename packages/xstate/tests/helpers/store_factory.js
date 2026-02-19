@@ -1,4 +1,4 @@
-import { InMemoryStore } from '../../../pricing/src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../database/src/stores/TableInMemoryStore.js';
 
 /**
  * Creates a seeded InMemoryStore with the same seed data as GAS initialization.
@@ -113,6 +113,15 @@ export function createSeededStore() {
       Updated_At: now,
     },
     {
+      ID_Item: 'ITEM_COFFEE_BASIC',
+      Nombre: 'Coffee Basico',
+      ID_Categoria: 'CAT_CAFE',
+      ID_Perfil_Precio_Override: 'PROF_COFFEE',
+      Def_Unidades_Por_Pax_Override: '',
+      Activo: true,
+      Updated_At: now,
+    },
+    {
       ID_Item: 'ITEM_SALON_FARIO',
       Nombre: 'Salón Fario',
       ID_Categoria: 'CAT_SALONES',
@@ -122,8 +131,26 @@ export function createSeededStore() {
       Updated_At: now,
     },
     {
+      ID_Item: 'ITEM_CHINOOK',
+      Nombre: 'Salon Chinook',
+      ID_Categoria: 'CAT_SALONES',
+      ID_Perfil_Precio_Override: 'PROF_SALON',
+      Def_Unidades_Por_Pax_Override: '',
+      Activo: true,
+      Updated_At: now,
+    },
+    {
       ID_Item: 'ITEM_ALMUERZO_PARRILLA',
       Nombre: 'Almuerzos Buffet Parrilla',
+      ID_Categoria: 'CAT_COMIDAS',
+      ID_Perfil_Precio_Override: 'PROF_ALMUERZOS',
+      Def_Unidades_Por_Pax_Override: '',
+      Activo: true,
+      Updated_At: now,
+    },
+    {
+      ID_Item: 'ITEM_ALMUERZO',
+      Nombre: 'Almuerzo Basico',
       ID_Categoria: 'CAT_COMIDAS',
       ID_Perfil_Precio_Override: 'PROF_ALMUERZOS',
       Def_Unidades_Por_Pax_Override: '',

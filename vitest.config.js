@@ -26,7 +26,6 @@ export default defineConfig({
       '@tests': path.resolve(__dirname, 'tests'),
       '../../Pricing/': path.resolve(__dirname, 'packages/pricing/src/Pricing/'),
       '../../RulesEngine/': path.resolve(__dirname, 'packages/pricing/src/RulesEngine/'),
-      '../../DataStore/': path.resolve(__dirname, 'packages/pricing/src/DataStore/'),
     },
   },
 });

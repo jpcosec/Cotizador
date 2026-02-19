@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryStore } from '../../src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../database/src/stores/TableInMemoryStore.js';
 
 describe('InMemoryStore', () => {
   let store;

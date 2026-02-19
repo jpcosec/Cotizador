@@ -30,6 +30,19 @@
           }
         }, 0);
       },
+      getPricingReferenceData: function() {
+        setTimeout(function() {
+          if (successHandler) {
+            successHandler(window.localPricingReferenceData || {
+              PERFILES_PRECIO: [],
+              CATEGORIAS: [],
+              ITEM_CATALOGO: [],
+              COMPOSICION_KIT: [],
+              REGLAS_NEGOCIO: []
+            });
+          }
+        }, 0);
+      },
       buscarCliente: function(query) {
         setTimeout(function() {
           var q = (query || '').toLowerCase();

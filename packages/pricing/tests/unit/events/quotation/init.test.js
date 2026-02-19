@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { LoadCatalog } from '../../../../mock/Events/quotation/init/LoadCatalog.js';
-import { CreateQuotation } from '../../../../mock/Events/quotation/init/CreateQuotation.js';
-import { QuotationState, resetLineSeq } from '../../../../mock/Core/QuotationState.js';
+import { LoadCatalog } from '../../../mock/Events/quotation/init/LoadCatalog.js';
+import { CreateQuotation } from '../../../mock/Events/quotation/init/CreateQuotation.js';
+import { QuotationState, resetLineSeq } from '../../../mock/Core/QuotationState.js';
 import { createSeededStore } from '../../../helpers/store_factory.js';
-import { InMemoryStore } from '../../../../src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../../../database/src/stores/TableInMemoryStore.js';
 
 describe('LoadCatalog', () => {
   it('succeeds when all tables have data', async () => {

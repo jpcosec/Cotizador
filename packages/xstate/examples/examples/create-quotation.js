@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Example: Create a complete quotation with the QuotationService.
+ * Example: Create a quotation flow with QuotationService.
  *
  * This demonstrates the full workflow:
  * 1. Start a new quotation
  * 2. Add items to the basket
  * 3. Inspect and modify items
- * 4. Validate and save to file
- * 5. Load and display the saved quotation
+ * 4. Validate and save through adapter service
  *
  * Run: node examples/create-quotation.js
  */
 
-import { QuotationService } from '../src/QuotationService.js';
+import { QuotationService } from '../../src/QuotationService.js';
+import { createSeededStore } from '../../tests/helpers/store_factory.js';
 
 function formatCLP(amount) {
   return new Intl.NumberFormat('es-CL', {
@@ -24,7 +24,7 @@ function formatCLP(amount) {
 }
 
 async function main() {
-  const service = new QuotationService();
+  const service = new QuotationService({ store: createSeededStore() });
 
   console.log('\n' + '='.repeat(60));
   console.log('📝 Creating Corporate Seminar Quotation');
@@ -100,8 +100,7 @@ async function main() {
   try {
     result = service.validateAndSave();
     const quotationId = result.context.quotation.cotizacion.ID_Cotizacion;
-    const filePath = `${service.getDataDirectory()}/${quotationId}.json`;
-    console.log(`  Saved: ${filePath}`);
+    console.log(`  Saved quotation: ${quotationId}`);
     console.log(
       `  State: ${JSON.stringify(result.value.quotation_workflow).replace(/"/g, '')}`
     );
@@ -110,19 +109,11 @@ async function main() {
     process.exit(1);
   }
 
-  // 6. List all saved quotations
-  console.log('\n✓ Step 6: All saved quotations');
-  const saved = service.listSavedQuotations();
-  saved.forEach(id => console.log(`  • ${id}`));
-
-  // 7. Load and inspect saved quotation
-  const quotationId = result.context.quotation.cotizacion.ID_Cotizacion;
-  console.log(`\n✓ Step 7: Loading saved quotation: ${quotationId}`);
-  const loaded = service.loadFromFile(quotationId);
-
-  console.log(`  Items: ${loaded.lineas.length}`);
-  console.log(`  Total: ${formatCLP(loaded.totals.total)}`);
-  console.log(`  State: Guardada (Saved)`);
+  const finalSnapshot = service.getSnapshot();
+  console.log('\n✓ Final snapshot');
+  console.log(`  Items: ${finalSnapshot.context.lineas.length}`);
+  console.log(`  Total: ${formatCLP(finalSnapshot.context.totals.total)}`);
+  console.log(`  Estado: ${finalSnapshot.context.quotation.cotizacion.Estado}`);
 
   console.log('\n' + '='.repeat(60));
   console.log('✅ Complete!');

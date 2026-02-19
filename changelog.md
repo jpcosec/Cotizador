@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 ### 2026-02-19
+- build/deps: added root bundler dependency `json-logic-js` so Rollup resolves pricing rules-engine imports without unresolved external warnings.
+- xstate/architecture: refactored `packages/xstate/src/QuotationService.js` to remove filesystem + test-seed coupling; it now requires injected store/adapters and keeps xstate as middleware-only orchestration.
+- xstate/examples: updated `packages/xstate/examples/examples/create-quotation.js` to inject store explicitly and stop using removed filesystem-based service helpers.
+- architecture/testing: moved pricing `mock/` under `packages/pricing/tests/mock/` and updated all imports so runtime source no longer keeps mock scaffolding at package root.
+- architecture/database: moved table-oriented in-memory testing store ownership to database via `packages/database/src/stores/TableInMemoryStore.js`; updated pricing/xstate test helpers to import from database and removed `packages/pricing/src/DataStore/InMemoryStore.js`.
+- test-config: removed stale root Vitest alias pointing to deleted `packages/pricing/src/DataStore/`.
+- frontend+database: added `CatalogService.getPricingReferenceData()` and GAS `getPricingReferenceData()` API; `Stores_App.html` now hydrates XState runtime store from backend reference tables before catalog use and normalizes catalog shape to avoid category/search casing mismatches.
+- tooling: added `npm run dev:local` to build and serve local runtime in one command.
+- xstate/test-seed: extended `createSeededStore()` with compatibility item IDs (`ITEM_CHINOOK`, `ITEM_COFFEE_BASIC`, `ITEM_ALMUERZO`) to prevent local bundle flows from failing on missing catalog references.
+- build/frontend+gas: made `packages/frontend/*.html` + `packages/frontend/appsscript.json` the source for GAS templates via `tools/reset_gas_workspace.mjs`; `npm run build:gas` now deletes and regenerates the entire `gas/` workspace before rebuilding `Bundle_Runtime.html` and `Code.gs`.
+- docs/deployment: rewrote `DEPLOYMENT_GUIDE.md` to match current build behavior (`build:gas` reset + regenerate), clarified local testing modes, and removed stale references to outdated local/deploy assumptions.
 - frontend: completed Phase 3 TIER 1 integration in `packages/frontend` by fixing catalog-load race timing, setting local actor bootstrap to opt-in, enforcing client selection before add-item, adding machine-state helpers/conditional views, and creating validation/completion UI components for the save flow.
 - docs: rewrote `README.md` as a concise integration-worktree guide with current state, IO contract, tech stack, structural differences, and active TODOs.
 - pricing: removed Rollup circular-dependency warnings by extracting pricing recalculation primitives to `packages/pricing/src/Pricing/recalculation.js` and updating operations to import from that module.

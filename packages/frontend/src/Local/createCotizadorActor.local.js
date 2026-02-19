@@ -41,11 +41,19 @@ export function createCotizadorActor(opts = {}) {
     precio:    item.Precio_Base || 0,
   }));
   const clientes = store.tables?.CLIENTES || [];
+  const pricingReferenceData = {
+    PERFILES_PRECIO: store.tables?.PERFILES_PRECIO || [],
+    CATEGORIAS: store.tables?.CATEGORIAS || [],
+    ITEM_CATALOGO: store.tables?.ITEM_CATALOGO || [],
+    COMPOSICION_KIT: store.tables?.COMPOSICION_KIT || [],
+    REGLAS_NEGOCIO: store.tables?.REGLAS_NEGOCIO || [],
+  };
 
   if (typeof window !== 'undefined') {
     window.createCotizadorActor = () => actor;
     window.localCatalogItems = catalogItems;
     window.localClientes = clientes;
+    window.localPricingReferenceData = pricingReferenceData;
   }
 
   return actor;

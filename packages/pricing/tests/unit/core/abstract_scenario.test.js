@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AbstractScenario } from '../../../mock/Core/AbstractScenario.js';
+import { AbstractScenario } from '../../mock/Core/AbstractScenario.js';
 
 const steps = [
   { name: 'init', allows: ['LoadCatalog', 'CreateQuotation'] },

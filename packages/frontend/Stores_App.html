@@ -182,14 +182,100 @@ function cotizadorApp() {
             var d = this.dias.find(d => d.numero === num);
             return d ? d.fecha : this.fechaInicio;
         },
+
+        normalizeCatalogItem(raw) {
+            var item = raw || {};
+            var categoriaObj = item._categoria || null;
+            var categoriaNombre = item.categoria
+                || (categoriaObj && categoriaObj.Nombre)
+                || item.Categoria
+                || item.ID_Categoria
+                || 'Varios';
+            var categoriaId = item.ID_Categoria
+                || (categoriaObj && categoriaObj.ID_Categoria)
+                || item.categoria
+                || null;
+
+            return {
+                ...item,
+                ID_Item: item.ID_Item || item.itemId || item.id || null,
+                Nombre: item.Nombre || item.nombre || item.ID_Item || item.itemId || 'Item',
+                Precio_Base: Number(item.Precio_Base ?? item.precio ?? 0) || 0,
+                ID_Categoria: categoriaId,
+                _categoria: categoriaObj || {
+                    ID_Categoria: categoriaId,
+                    Nombre: categoriaNombre
+                }
+            };
+        },
+
+        normalizeCatalogo(items) {
+            var out = [];
+            (items || []).forEach((item) => {
+                var normalized = this.normalizeCatalogItem(item);
+                if (normalized.ID_Item) out.push(normalized);
+            });
+            return out;
+        },
+
+        hydrateMachineStoreFromReference(reference) {
+            if (!this.useStateMachine || !this.bridge) return;
+            var actor = this.bridge.actor;
+            if (!actor || typeof actor.getSnapshot !== 'function') return;
+
+            var snap = actor.getSnapshot();
+            var store = snap && snap.context ? snap.context.store : null;
+            if (!store || typeof store.seed !== 'function') return;
+
+            var tableNames = [
+                'PERFILES_PRECIO',
+                'CATEGORIAS',
+                'ITEM_CATALOGO',
+                'COMPOSICION_KIT',
+                'REGLAS_NEGOCIO'
+            ];
+
+            tableNames.forEach(function(tableName) {
+                var rows = reference && Array.isArray(reference[tableName]) ? reference[tableName] : null;
+                if (rows) {
+                    store.seed(tableName, rows);
+                }
+            });
+        },
         
         cargarCatalogo() {
             var self = this;
-            google.script.run.withSuccessHandler(function(data) {
-                self.catalogo = data || [];
+
+            function finishCatalogLoad(data) {
+                self.catalogo = self.normalizeCatalogo(data || []);
                 self.cargando = false;
-                // YA NO NECESITAMOS initSelect2() !!
-            }).getCatalogo();
+            }
+
+            function loadCatalogOnly() {
+                google.script.run
+                    .withSuccessHandler(finishCatalogLoad)
+                    .withFailureHandler(function() {
+                        self.catalogo = [];
+                        self.cargando = false;
+                    })
+                    .getCatalogo();
+            }
+
+            self.cargando = true;
+            if (this.useStateMachine && this.bridge) {
+                google.script.run
+                    .withSuccessHandler(function(reference) {
+                        self.hydrateMachineStoreFromReference(reference || {});
+                        loadCatalogOnly();
+                    })
+                    .withFailureHandler(function() {
+                        loadCatalogOnly();
+                    })
+                    .getPricingReferenceData();
+                return;
+            }
+
+            loadCatalogOnly();
         },
         
         // --- CLIENTE ---
@@ -257,14 +343,14 @@ function cotizadorApp() {
             }
 
             this.carrito.push({
-                nombre: item.nombre,
-                categoria: item.categoria,
-                precio: item.precio,
+                nombre: item.Nombre || item.nombre,
+                categoria: (item._categoria && item._categoria.Nombre) || item.categoria || item.ID_Categoria || 'Varios',
+                precio: item.Precio_Base || item.precio || 0,
                 cantidad: this.paxGlobal,
                 dia: this.diaSeleccionado,
                 fecha: this.obtenerFechaDia(this.diaSeleccionado),
                 hora: this.horaInicio,
-                total: item.precio * this.paxGlobal
+                total: (item.Precio_Base || item.precio || 0) * this.paxGlobal
             });
             
             this.carrito.sort((a,b) => {
@@ -321,12 +407,13 @@ function cotizadorApp() {
             var busqueda = this.busquedaCatalogo.toLowerCase(); // Texto del input
             
             this.catalogo.forEach(function(i) {
+                var nombre = (i.Nombre || i.nombre || '').toLowerCase();
                 // FILTRO: Si hay búsqueda, verificamos si el nombre coincide
-                if (busqueda && i.nombre.toLowerCase().indexOf(busqueda) === -1) {
+                if (busqueda && nombre.indexOf(busqueda) === -1) {
                     return; // Si no coincide, saltamos este item
                 }
                 
-                var c = i.categoria || 'Varios';
+                var c = (i._categoria && i._categoria.Nombre) || i.categoria || i.ID_Categoria || 'Varios';
                 if (!g[c]) g[c] = [];
                 g[c].push(i);
             });

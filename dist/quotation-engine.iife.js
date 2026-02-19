@@ -5696,7 +5696,7 @@ var QuotationEngine = (function (exports) {
 
   const quotationAdapters = { guards, actions, services, actors };
 
-  class InMemoryStore {
+  class TableInMemoryStore {
     constructor() {
       this._tables = new Map();
     }
@@ -5715,19 +5715,18 @@ var QuotationEngine = (function (exports) {
     }
 
     findById(tableName, pkField, id) {
-      return this.all(tableName).find(r => r[pkField] === id) || null;
+      return this.all(tableName).find((row) => row[pkField] === id) || null;
     }
 
     findAll(tableName, filters = {}) {
       const entries = Object.entries(filters);
       if (!entries.length) return this.all(tableName);
-      return this.all(tableName).filter(r =>
-        entries.every(([k, v]) => r[k] === v)
-      );
+
+      return this.all(tableName).filter((row) => entries.every(([key, value]) => row[key] === value));
     }
 
     findByFK(tableName, fkField, value) {
-      return this.all(tableName).filter(r => r[fkField] === value);
+      return this.all(tableName).filter((row) => row[fkField] === value);
     }
   }
 
@@ -5742,7 +5741,7 @@ var QuotationEngine = (function (exports) {
    * Used across all test suites to ensure consistent store state.
    */
   function createSeededStore() {
-    const store = new InMemoryStore();
+    const store = new TableInMemoryStore();
     const now = new Date().toISOString();
 
     // ============================================================================
@@ -5844,6 +5843,15 @@ var QuotationEngine = (function (exports) {
         Updated_At: now,
       },
       {
+        ID_Item: 'ITEM_COFFEE_BASIC',
+        Nombre: 'Coffee Basico',
+        ID_Categoria: 'CAT_CAFE',
+        ID_Perfil_Precio_Override: 'PROF_COFFEE',
+        Def_Unidades_Por_Pax_Override: '',
+        Activo: true,
+        Updated_At: now,
+      },
+      {
         ID_Item: 'ITEM_SALON_FARIO',
         Nombre: 'Salón Fario',
         ID_Categoria: 'CAT_SALONES',
@@ -5853,8 +5861,26 @@ var QuotationEngine = (function (exports) {
         Updated_At: now,
       },
       {
+        ID_Item: 'ITEM_CHINOOK',
+        Nombre: 'Salon Chinook',
+        ID_Categoria: 'CAT_SALONES',
+        ID_Perfil_Precio_Override: 'PROF_SALON',
+        Def_Unidades_Por_Pax_Override: '',
+        Activo: true,
+        Updated_At: now,
+      },
+      {
         ID_Item: 'ITEM_ALMUERZO_PARRILLA',
         Nombre: 'Almuerzos Buffet Parrilla',
+        ID_Categoria: 'CAT_COMIDAS',
+        ID_Perfil_Precio_Override: 'PROF_ALMUERZOS',
+        Def_Unidades_Por_Pax_Override: '',
+        Activo: true,
+        Updated_At: now,
+      },
+      {
+        ID_Item: 'ITEM_ALMUERZO',
+        Nombre: 'Almuerzo Basico',
         ID_Categoria: 'CAT_COMIDAS',
         ID_Perfil_Precio_Override: 'PROF_ALMUERZOS',
         Def_Unidades_Por_Pax_Override: '',

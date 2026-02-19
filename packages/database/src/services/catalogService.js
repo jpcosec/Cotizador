@@ -108,6 +108,36 @@ export class CatalogService {
   }
 
   /**
+   * Returns raw reference tables required by pricing/XState runtime.
+   *
+   * This is used by frontend runtime hydration so catalog UI and pricing
+   * resolve items/categories/profiles from the same source.
+   *
+   * @returns {{ITEM_CATALOGO:Array, CATEGORIAS:Array, PERFILES_PRECIO:Array, COMPOSICION_KIT:Array, REGLAS_NEGOCIO:Array}}
+   */
+  getPricingReferenceData() {
+    try {
+      const models = this._getModels();
+      return {
+        ITEM_CATALOGO: models.ITEM_CATALOGO.all(),
+        CATEGORIAS: models.CATEGORIAS.all(),
+        PERFILES_PRECIO: models.PERFILES_PRECIO.all(),
+        COMPOSICION_KIT: models.COMPOSICION_KIT ? models.COMPOSICION_KIT.all() : [],
+        REGLAS_NEGOCIO: models.REGLAS_NEGOCIO ? models.REGLAS_NEGOCIO.all() : []
+      };
+    } catch (error) {
+      Logger.log('Error in getPricingReferenceData: ' + error.toString());
+      return {
+        ITEM_CATALOGO: [],
+        CATEGORIAS: [],
+        PERFILES_PRECIO: [],
+        COMPOSICION_KIT: [],
+        REGLAS_NEGOCIO: []
+      };
+    }
+  }
+
+  /**
    * Helper: build map from array by primary key
    * @private
    */

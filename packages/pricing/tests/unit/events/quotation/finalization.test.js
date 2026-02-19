@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Validate } from '../../../../mock/Events/quotation/finalization/Validate.js';
-import { SaveQuotation } from '../../../../mock/Events/quotation/finalization/SaveQuotation.js';
-import { AddItem } from '../../../../mock/Events/quotation/basket/AddItem.js';
-import { Recalculate } from '../../../../mock/Events/quotation/basket/Recalculate.js';
-import { QuotationState, resetLineSeq } from '../../../../mock/Core/QuotationState.js';
+import { Validate } from '../../../mock/Events/quotation/finalization/Validate.js';
+import { SaveQuotation } from '../../../mock/Events/quotation/finalization/SaveQuotation.js';
+import { AddItem } from '../../../mock/Events/quotation/basket/AddItem.js';
+import { Recalculate } from '../../../mock/Events/quotation/basket/Recalculate.js';
+import { QuotationState, resetLineSeq } from '../../../mock/Core/QuotationState.js';
 import { createSeededStore } from '../../../helpers/store_factory.js';
 
 function freshState(pax = 25) {

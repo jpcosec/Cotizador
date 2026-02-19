@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getRulesForStageAndHook, evaluateCondition, executeAction } from '../../../src/RulesEngine/RulesEngine.js';
-import { InMemoryStore } from '../../../src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../../database/src/stores/TableInMemoryStore.js';
 import { BUSINESS_RULES } from '../../fixtures/rules.js';
 
 function makeStore(rules = BUSINESS_RULES) {

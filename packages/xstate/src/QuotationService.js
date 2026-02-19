@@ -1,43 +1,29 @@
 import { createActor } from 'xstate';
 import { createQuotationXStateMachine } from './Orchestration/quotationMachine.xstate.js';
 import { quotationAdapters } from './Orchestration/adapters/index.js';
-import { FileStore } from './DataStore/FileStore.js';
-import { createSeededStore } from '../tests/helpers/store_factory.js';
 
 /**
- * Main service for creating and managing quotations.
+ * Main orchestration service for quotation workflows.
  *
- * This service:
- * - Manages the XState quotation machine actor
- * - Provides high-level API for creating/editing quotations
- * - Persists quotations to files using FileStore
- * - Integrates with the pricing pipeline for calculations
+ * XState remains middleware only: callers must provide the data store
+ * (typically from @claps/database) and optional transport/persistence hooks
+ * through adapter overrides.
  *
  * Usage:
- *   const service = new QuotationService();
+ *   const service = new QuotationService({ store });
  *   const actor = service.startNew('CLI_001', 25);
  *   service.addItem('ITEM_SALA');
  *   service.validateAndSave();
  */
 export class QuotationService {
-  constructor() {
-    // Create a FileStore which handles both master data and quotation persistence
-    this.store = new FileStore();
-    // Seed with master data (items, prices, rules, categories)
-    this._seedMasterData();
-    this.actor = null;
-  }
+  constructor({ store, adapters } = {}) {
+    if (!store) {
+      throw new Error('QuotationService requires a store instance (from @claps/database).');
+    }
 
-  _seedMasterData() {
-    const seededStore = createSeededStore();
-    // Copy all master data from seeded store to FileStore
-    const tables = ['CLIENTES', 'CATEGORIAS', 'PERFILES_PRECIO', 'ITEM_CATALOGO', 'COMPOSICION_KIT', 'REGLAS_NEGOCIO'];
-    tables.forEach(table => {
-      const data = seededStore.all(table);
-      if (data.length > 0) {
-        this.store.seed(table, data);
-      }
-    });
+    this.store = store;
+    this.adapters = adapters || quotationAdapters;
+    this.actor = null;
   }
 
   /**
@@ -59,7 +45,7 @@ export class QuotationService {
    *   });
    */
   startNew(clienteId, paxGlobal, opts = {}) {
-    const machine = createQuotationXStateMachine(quotationAdapters);
+    const machine = createQuotationXStateMachine(this.adapters);
 
     // Create actor
     this.actor = createActor(machine);
@@ -238,71 +224,6 @@ export class QuotationService {
       errors: snap.context.errors,
       messages: snap.context.messages,
     };
-  }
-
-  /**
-   * Load a saved quotation from file.
-   *
-   * @param {string} cotizacionId - Quotation ID to load
-   * @returns {object} Quotation snapshot data
-   * @throws {Error} If quotation not found
-   *
-   * @example
-   *   const data = service.loadFromFile('COT_1739891234567');
-   *   console.log(data);
-   *   // { cotizacion: {...}, lineas: [...], totals: {...} }
-   */
-  loadFromFile(cotizacionId) {
-    const store = new FileStore();
-    const data = store.getQuotationFile(cotizacionId);
-    if (!data) {
-      throw new Error(`Quotation not found: ${cotizacionId}`);
-    }
-    // Return parsed snapshot if stored as JSON string
-    return data.Snapshot_JSON
-      ? JSON.parse(data.Snapshot_JSON)
-      : data;
-  }
-
-  /**
-   * List all saved quotation IDs.
-   *
-   * @returns {string[]} Array of quotation IDs
-   *
-   * @example
-   *   const ids = service.listSavedQuotations();
-   *   console.log(ids); // ['COT_123...', 'COT_456...', ...]
-   */
-  listSavedQuotations() {
-    const store = new FileStore();
-    return store.listQuotations();
-  }
-
-  /**
-   * Delete a saved quotation file.
-   *
-   * @param {string} cotizacionId - Quotation ID to delete
-   *
-   * @example
-   *   service.deleteQuotation('COT_1739891234567');
-   */
-  deleteQuotation(cotizacionId) {
-    const store = new FileStore();
-    store.deleteQuotation(cotizacionId);
-  }
-
-  /**
-   * Get the path to the quotations data directory.
-   *
-   * @returns {string} Absolute path to data/quotations/
-   *
-   * @example
-   *   console.log(service.getDataDirectory());
-   *   // /home/jp/CotizadorLodge/packages/xstate/data/quotations
-   */
-  getDataDirectory() {
-    const store = new FileStore();
-    return store.getDataDirectory();
   }
 
   /**

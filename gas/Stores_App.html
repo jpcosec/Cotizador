@@ -33,20 +33,34 @@ function cotizadorApp() {
         
         // --- INIT ---
         init() {
+            this.registerAlpineStore();
             this.generarDias();
-            this.cargarCatalogo();
             this.initXStateBridge();
+        },
+
+        registerAlpineStore() {
+            if (typeof window === 'undefined' || !window.Alpine || typeof window.Alpine.store !== 'function') {
+                return;
+            }
+
+            if (!window.Alpine.store('cotizadorApp')) {
+                window.Alpine.store('cotizadorApp', this);
+            }
         },
 
         initXStateBridge(attempt) {
             var currentAttempt = attempt || 0;
             if (typeof window === 'undefined' || typeof window.AlpineXStateBridge !== 'function') {
+                this.useStateMachine = false;
+                this.cargarCatalogo();
                 return;
             }
 
             var actorFactory = null;
+            var useBootstrapOptions = false;
             if (typeof window.createCotizadorActor === 'function') {
                 actorFactory = window.createCotizadorActor;
+                useBootstrapOptions = true;
             } else if (window.QuotationXState && typeof window.QuotationXState.createActor === 'function') {
                 actorFactory = window.QuotationXState.createActor;
             }
@@ -57,12 +71,16 @@ function cotizadorApp() {
                     setTimeout(function() {
                         self.initXStateBridge(currentAttempt + 1);
                     }, 200);
+                } else {
+                    this.useStateMachine = false;
+                    console.warn('Machine not available, using local mode');
+                    this.cargarCatalogo();
                 }
                 return;
             }
 
             try {
-                var actor = actorFactory();
+                var actor = useBootstrapOptions ? actorFactory({ bootstrap: false }) : actorFactory();
                 if (!actor || typeof actor.getSnapshot !== 'function') return;
 
                 this.bridge = new window.AlpineXStateBridge(actor, this, {
@@ -70,16 +88,60 @@ function cotizadorApp() {
                     syncLineasAsCarrito: true
                 }).start();
                 this.useStateMachine = true;
+                this.cargarCatalogo();
             } catch (e) {
                 console.warn('No se pudo inicializar AlpineXStateBridge. Se mantiene modo local.', e);
                 this.useStateMachine = false;
+                this.cargarCatalogo();
             }
+        },
+
+        isMachineInBrowse() {
+            return this.useStateMachine
+                && this.machineState?.includes('quotation_workflow.browse');
+        },
+
+        isMachineInInitialize() {
+            return this.useStateMachine
+                && this.machineState?.includes('quotation.initialize');
         },
 
         isMachineInBasket() {
             return this.useStateMachine
-                && typeof this.machineState === 'string'
-                && this.machineState.indexOf('quotation_workflow.quotation.basket') !== -1;
+                && this.machineState?.includes('quotation.basket');
+        },
+
+        isMachineInValidation() {
+            return this.useStateMachine
+                && this.machineState?.includes('quotation.validation');
+        },
+
+        isMachineInCompleted() {
+            return this.useStateMachine
+                && this.machineState?.includes('quotation.completed');
+        },
+
+        isMachineInError() {
+            return this.useStateMachine
+                && this.machineState?.includes('quotation.error');
+        },
+
+        get quotationSnapshot() {
+            return this.quotation && this.quotation.cotizacion ? this.quotation.cotizacion : null;
+        },
+
+        formatCurrency(value) {
+            var amount = Number(value) || 0;
+            return '$' + amount.toLocaleString('es-CL');
+        },
+
+        get selectedClientName() {
+            if (!this.cliente) return '-';
+            return this.cliente.Nombre_Empresa || this.cliente.nombre || this.cliente.ID_Cliente || String(this.cliente);
+        },
+
+        get completionDateText() {
+            return new Date().toLocaleDateString('es-CL');
         },
 
         syncClientToMachine(cli) {
@@ -120,14 +182,100 @@ function cotizadorApp() {
             var d = this.dias.find(d => d.numero === num);
             return d ? d.fecha : this.fechaInicio;
         },
+
+        normalizeCatalogItem(raw) {
+            var item = raw || {};
+            var categoriaObj = item._categoria || null;
+            var categoriaNombre = item.categoria
+                || (categoriaObj && categoriaObj.Nombre)
+                || item.Categoria
+                || item.ID_Categoria
+                || 'Varios';
+            var categoriaId = item.ID_Categoria
+                || (categoriaObj && categoriaObj.ID_Categoria)
+                || item.categoria
+                || null;
+
+            return {
+                ...item,
+                ID_Item: item.ID_Item || item.itemId || item.id || null,
+                Nombre: item.Nombre || item.nombre || item.ID_Item || item.itemId || 'Item',
+                Precio_Base: Number(item.Precio_Base ?? item.precio ?? 0) || 0,
+                ID_Categoria: categoriaId,
+                _categoria: categoriaObj || {
+                    ID_Categoria: categoriaId,
+                    Nombre: categoriaNombre
+                }
+            };
+        },
+
+        normalizeCatalogo(items) {
+            var out = [];
+            (items || []).forEach((item) => {
+                var normalized = this.normalizeCatalogItem(item);
+                if (normalized.ID_Item) out.push(normalized);
+            });
+            return out;
+        },
+
+        hydrateMachineStoreFromReference(reference) {
+            if (!this.useStateMachine || !this.bridge) return;
+            var actor = this.bridge.actor;
+            if (!actor || typeof actor.getSnapshot !== 'function') return;
+
+            var snap = actor.getSnapshot();
+            var store = snap && snap.context ? snap.context.store : null;
+            if (!store || typeof store.seed !== 'function') return;
+
+            var tableNames = [
+                'PERFILES_PRECIO',
+                'CATEGORIAS',
+                'ITEM_CATALOGO',
+                'COMPOSICION_KIT',
+                'REGLAS_NEGOCIO'
+            ];
+
+            tableNames.forEach(function(tableName) {
+                var rows = reference && Array.isArray(reference[tableName]) ? reference[tableName] : null;
+                if (rows) {
+                    store.seed(tableName, rows);
+                }
+            });
+        },
         
         cargarCatalogo() {
             var self = this;
-            google.script.run.withSuccessHandler(function(data) {
-                self.catalogo = data || [];
+
+            function finishCatalogLoad(data) {
+                self.catalogo = self.normalizeCatalogo(data || []);
                 self.cargando = false;
-                // YA NO NECESITAMOS initSelect2() !!
-            }).getCatalogo();
+            }
+
+            function loadCatalogOnly() {
+                google.script.run
+                    .withSuccessHandler(finishCatalogLoad)
+                    .withFailureHandler(function() {
+                        self.catalogo = [];
+                        self.cargando = false;
+                    })
+                    .getCatalogo();
+            }
+
+            self.cargando = true;
+            if (this.useStateMachine && this.bridge) {
+                google.script.run
+                    .withSuccessHandler(function(reference) {
+                        self.hydrateMachineStoreFromReference(reference || {});
+                        loadCatalogOnly();
+                    })
+                    .withFailureHandler(function() {
+                        loadCatalogOnly();
+                    })
+                    .getPricingReferenceData();
+                return;
+            }
+
+            loadCatalogOnly();
         },
         
         // --- CLIENTE ---
@@ -173,8 +321,14 @@ function cotizadorApp() {
         
         // --- CARRITO ---
         agregarItem(item) {
+            if (!this.cliente) {
+                alert('Select client first');
+                this.modalCliente = true;
+                return;
+            }
+
             if (this.useStateMachine && this.bridge) {
-                var stateItemId = item.ID_Item;
+                var stateItemId = item.ID_Item || item.itemId || item.id || item.nombre;
                 if (stateItemId) {
                     var sent = this.bridge.send('ADD_ITEM', {
                         itemId: stateItemId,
@@ -188,16 +342,15 @@ function cotizadorApp() {
                 }
             }
 
-            var basePrice = item.Precio_Base || 0;
             this.carrito.push({
-                Nombre: item.Nombre,
-                ID_Categoria: item.ID_Categoria,
-                Precio_Base: basePrice,
+                nombre: item.Nombre || item.nombre,
+                categoria: (item._categoria && item._categoria.Nombre) || item.categoria || item.ID_Categoria || 'Varios',
+                precio: item.Precio_Base || item.precio || 0,
                 cantidad: this.paxGlobal,
                 dia: this.diaSeleccionado,
                 fecha: this.obtenerFechaDia(this.diaSeleccionado),
                 hora: this.horaInicio,
-                total: basePrice * this.paxGlobal
+                total: (item.Precio_Base || item.precio || 0) * this.paxGlobal
             });
             
             this.carrito.sort((a,b) => {
@@ -221,7 +374,7 @@ function cotizadorApp() {
             }
 
             this.carrito[idx].cantidad = cant;
-            this.carrito[idx].total = this.carrito[idx].Precio_Base * cant;
+            this.carrito[idx].total = this.carrito[idx].precio * cant;
         },
         
         eliminarItem(idx) {
@@ -254,12 +407,13 @@ function cotizadorApp() {
             var busqueda = this.busquedaCatalogo.toLowerCase(); // Texto del input
             
             this.catalogo.forEach(function(i) {
+                var nombre = (i.Nombre || i.nombre || '').toLowerCase();
                 // FILTRO: Si hay búsqueda, verificamos si el nombre coincide
-                if (busqueda && i.nombre.toLowerCase().indexOf(busqueda) === -1) {
+                if (busqueda && nombre.indexOf(busqueda) === -1) {
                     return; // Si no coincide, saltamos este item
                 }
                 
-                var c = i.categoria || 'Varios';
+                var c = (i._categoria && i._categoria.Nombre) || i.categoria || i.ID_Categoria || 'Varios';
                 if (!g[c]) g[c] = [];
                 g[c].push(i);
             });
@@ -302,19 +456,7 @@ function cotizadorApp() {
 
             if (this.useStateMachine && this.bridge) {
                 this.syncClientToMachine(this.cliente);
-
-                var self = this;
-                var unwatch = this.$watch('machineState', function(newState) {
-                    unwatch();
-                    if (self.errors && self.errors.length > 0) {
-                        alert('Error: ' + (self.errors[0].message || 'Revisa los datos'));
-                    } else if (newState.indexOf('completed') !== -1) {
-                        alert('✅ Cotización guardada correctamente');
-                    }
-                });
-
                 this.bridge.send('ADVANCE_TO_VALIDATION');
-                this.bridge.send('VALIDATE_AND_SAVE');
                 return;
             }
 
@@ -329,6 +471,38 @@ function cotizadorApp() {
                 })
                 .withFailureHandler((e) => alert('Error: ' + e.message))
                 .guardarCotizacion(this.cliente, this.carrito);
+        },
+
+        confirmarYGuardar() {
+            if (!this.useStateMachine || !this.bridge) {
+                this.guardarCotizacion();
+                return;
+            }
+
+            this.bridge.send('VALIDATE_AND_SAVE');
+        },
+
+        volverAlCarrito() {
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('BACK_TO_BASKET');
+            }
+        },
+
+        crearNuevaCotizacion() {
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('RETURN_TO_BROWSE');
+                this.cliente = null;
+                return;
+            }
+
+            this.cliente = null;
+            this.carrito = [];
+        },
+
+        verCotizacionesAnteriores() {
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('RETURN_TO_BROWSE');
+            }
         },
 
 cargarCotizacion() {

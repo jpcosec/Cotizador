@@ -1,4 +1,4 @@
-import { InMemoryStore } from '../../src/DataStore/InMemoryStore.js';
+import { TableInMemoryStore as InMemoryStore } from '../../../database/src/stores/TableInMemoryStore.js';
 
 /**
  * Creates a store with controlled test-specific pricing values.

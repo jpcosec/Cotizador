@@ -73,7 +73,7 @@
                         </div>
                         
                         <div class="acc-info">
-                            <div class="acc-title" x-text="item.Nombre"></div>
+                            <div class="acc-title" x-text="item.nombre"></div>
                             <div class="acc-subtitle">
                                 <span x-text="'$' + item.total.toLocaleString('es-CL')"></span>
                                 <span style="margin: 0 5px;">•</span>
@@ -97,7 +97,7 @@
                             </div>
                             <div class="control-group">
                                 <label>Precio Unit:</label>
-                                <input type="text" :value="'$' + (item.Precio_Base || 0).toLocaleString('es-CL')" disabled style="background: #f1f5f9;">
+                                <input type="text" :value="'$' + item.precio.toLocaleString('es-CL')" disabled style="background: #f1f5f9;">
                             </div>
                             <button class="btn-delete" @click="eliminarItem(carrito.indexOf(item))">
                                 <i class="fa-solid fa-trash"></i> Eliminar
