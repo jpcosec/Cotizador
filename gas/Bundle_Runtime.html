@@ -3976,21 +3976,24 @@ var QuotationEngine = (function (exports) {
 
     linea._categoriaId = cat.ID_Categoria;
 
-    linea._pax = cat.Def_Requiere_Pax
-      ? (linea.Override_Pax ?? paxGlobal)
-      : 0;
+    // Overrides bypass category requirements
+    if (linea.Override_Pax != null) {
+      linea._pax = linea.Override_Pax;
+    } else {
+      linea._pax = cat.Def_Requiere_Pax ? paxGlobal : 0;
+    }
 
-    linea._duracionMin = cat.Def_Requiere_Tiempo
-      ? (linea.Override_Duracion_Min ?? cat.Def_Duracion_Min ?? 0)
-      : 0;
+    if (linea.Override_Duracion_Min != null) {
+      linea._duracionMin = linea.Override_Duracion_Min;
+    } else {
+      linea._duracionMin = cat.Def_Requiere_Tiempo ? (cat.Def_Duracion_Min ?? 0) : 0;
+    }
 
-    if (cat.Def_Requiere_Cant) {
-      if (linea.Override_Cantidad != null) {
-        linea._cantidad = linea.Override_Cantidad;
-      } else {
-        const unitsPerPax = item.Def_Unidades_Por_Pax_Override ?? cat.Def_Unidades_Por_Pax ?? 0;
-        linea._cantidad = Math.round(unitsPerPax * linea._pax);
-      }
+    if (linea.Override_Cantidad != null) {
+      linea._cantidad = linea.Override_Cantidad;
+    } else if (cat.Def_Requiere_Cant) {
+      const unitsPerPax = item.Def_Unidades_Por_Pax_Override ?? cat.Def_Unidades_Por_Pax ?? 0;
+      linea._cantidad = Math.round(unitsPerPax * linea._pax);
     } else {
       linea._cantidad = 0;
     }
@@ -5730,192 +5733,176 @@ var QuotationEngine = (function (exports) {
   }
 
   /**
-   * Creates a seeded InMemoryStore with minimal test data.
+   * Creates a seeded InMemoryStore with the same seed data as GAS initialization.
+   *
+   * This ensures LOCAL and GAS have identical reference data for consistent testing.
+   * Source: packages/database/src/services/initializeService.js (populateSeedData)
+   *
+   * For tests requiring specific pricing values, see createPricingTestStore()
+   *
    * Used across all test suites to ensure consistent store state.
    */
   function createSeededStore() {
     const store = new InMemoryStore();
+    const now = new Date().toISOString();
 
-    // CLIENTES
-    store.seed('CLIENTES', [
-      {
-        ID_Cliente: 'CLI_CORP',
-        Nombre_Empresa: 'Corporate Client Inc',
-        RUT: '12.345.678-9',
-        Email: 'corp@example.com',
-        Telefono: '+56 2 1234 5678',
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-      {
-        ID_Cliente: 'CLI_WEDDING',
-        Nombre_Empresa: 'Wedding Planner Co',
-        RUT: '98.765.432-1',
-        Email: 'wedding@example.com',
-        Telefono: '+56 9 9876 5432',
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-    ]);
+    // ============================================================================
+    // SEED DATA: Identical to GAS initialization (initializeService.js line 62)
+    // ============================================================================
 
-    // CATEGORIAS
-    store.seed('CATEGORIAS', [
-      {
-        ID_Categoria: 'CAT_SALON',
-        Nombre: 'Salones',
-        ID_Perfil_Precio_Default: 'PP_SALON_BASE',
-        Def_Requiere_Pax: true,
-        Def_Requiere_Cant: false,
-        Def_Requiere_Tiempo: true,
-        Def_Requiere_Hora: true,
-        Def_Duracion_Min: 240,
-        Def_Unidades_Por_Pax: null,
-        Icono_UI: 'building',
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-      {
-        ID_Categoria: 'CAT_CAFE',
-        Nombre: 'Cafés y Bebidas',
-        ID_Perfil_Precio_Default: 'PP_CAFE_BASE',
-        Def_Requiere_Pax: true,
-        Def_Requiere_Cant: false,
-        Def_Requiere_Tiempo: false,
-        Def_Requiere_Hora: false,
-        Def_Duracion_Min: null,
-        Def_Unidades_Por_Pax: 0.5,
-        Icono_UI: 'coffee',
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-      {
-        ID_Categoria: 'CAT_COMIDA',
-        Nombre: 'Almuerzos',
-        ID_Perfil_Precio_Default: 'PP_ALMUERZO_BASE',
-        Def_Requiere_Pax: true,
-        Def_Requiere_Cant: false,
-        Def_Requiere_Tiempo: false,
-        Def_Requiere_Hora: false,
-        Def_Duracion_Min: null,
-        Def_Unidades_Por_Pax: 1,
-        Icono_UI: 'utensils',
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-    ]);
-
-    // PERFILES_PRECIO
+    // PERFILES_PRECIO - Pricing profiles (same as GAS)
+    // Source: initializeService.js lines 67-72
     store.seed('PERFILES_PRECIO', [
       {
-        ID_Perfil_Precio: 'PP_SALON_BASE',
-        Nombre: 'Salón Chinook 4h',
-        Costo_Base_Fijo: 385000,
+        ID_Perfil_Precio: 'PROF_COFFEE',
+        Nombre: 'Coffee Intermedio',
+        Costo_Base_Fijo: 0,
+        Costo_Unitario_Pax: 5500,
+        Costo_Unitario_Tiempo: 0,
+        Costo_Unitario_Item: 0,
+        Activo: true,
+        Updated_At: now,
+      },
+      {
+        ID_Perfil_Precio: 'PROF_SALON',
+        Nombre: 'Salón Standard',
+        Costo_Base_Fijo: 220000,
         Costo_Unitario_Pax: 0,
-        Costo_Unitario_Tiempo: 8333.33,
-        Costo_Unitario_Item: 0,
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-      {
-        ID_Perfil_Precio: 'PP_CAFE_BASE',
-        Nombre: 'Café Básico',
-        Costo_Base_Fijo: 0,
-        Costo_Unitario_Pax: 6380,
         Costo_Unitario_Tiempo: 0,
         Costo_Unitario_Item: 0,
         Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
       {
-        ID_Perfil_Precio: 'PP_ALMUERZO_BASE',
-        Nombre: 'Almuerzo',
+        ID_Perfil_Precio: 'PROF_ALMUERZOS',
+        Nombre: 'Almuerzos Buffet',
         Costo_Base_Fijo: 0,
-        Costo_Unitario_Pax: 27311,
+        Costo_Unitario_Pax: 15000,
         Costo_Unitario_Tiempo: 0,
         Costo_Unitario_Item: 0,
         Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
     ]);
 
-    // ITEM_CATALOGO
+    // CATEGORIAS - Item categories (same as GAS)
+    // Source: initializeService.js lines 76-81
+    store.seed('CATEGORIAS', [
+      {
+        ID_Categoria: 'CAT_CAFE',
+        Nombre: 'Cafés',
+        ID_Perfil_Precio_Default: 'PROF_COFFEE',
+        Def_Requiere_Pax: true,
+        Def_Requiere_Cant: false,
+        Def_Requiere_Tiempo: false,
+        Def_Requiere_Hora: false,
+        Def_Duracion_Min: 0,
+        Def_Unidades_Por_Pax: 1,
+        Icono_UI: '☕',
+        Activo: true,
+        Updated_At: now,
+      },
+      {
+        ID_Categoria: 'CAT_SALONES',
+        Nombre: 'Salones',
+        ID_Perfil_Precio_Default: 'PROF_SALON',
+        Def_Requiere_Pax: false,
+        Def_Requiere_Cant: false,
+        Def_Requiere_Tiempo: false,
+        Def_Requiere_Hora: true,
+        Def_Duracion_Min: 240,
+        Def_Unidades_Por_Pax: 1,
+        Icono_UI: '🏛️',
+        Activo: true,
+        Updated_At: now,
+      },
+      {
+        ID_Categoria: 'CAT_COMIDAS',
+        Nombre: 'Comidas',
+        ID_Perfil_Precio_Default: 'PROF_ALMUERZOS',
+        Def_Requiere_Pax: true,
+        Def_Requiere_Cant: false,
+        Def_Requiere_Tiempo: false,
+        Def_Requiere_Hora: true,
+        Def_Duracion_Min: 120,
+        Def_Unidades_Por_Pax: 1,
+        Icono_UI: '🍽️',
+        Activo: true,
+        Updated_At: now,
+      },
+    ]);
+
+    // ITEM_CATALOGO - Catalog items (GAS + test composition pack)
+    // Source: initializeService.js lines 85-90, plus pack for composition testing
     store.seed('ITEM_CATALOGO', [
       {
-        ID_Item: 'ITEM_CHINOOK',
-        Nombre: 'Salón Chinook',
-        ID_Categoria: 'CAT_SALON',
-        ID_Perfil_Precio_Override: null,
-        Def_Unidades_Por_Pax_Override: null,
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-      {
-        ID_Item: 'ITEM_COFFEE_BASIC',
-        Nombre: 'Café Básico',
+        ID_Item: 'ITEM_COFFEE_INT',
+        Nombre: 'Coffee Intermedio',
         ID_Categoria: 'CAT_CAFE',
-        ID_Perfil_Precio_Override: null,
-        Def_Unidades_Por_Pax_Override: null,
+        ID_Perfil_Precio_Override: '',
+        Def_Unidades_Por_Pax_Override: '',
         Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
       {
-        ID_Item: 'ITEM_ALMUERZO',
-        Nombre: 'Almuerzo Básico',
-        ID_Categoria: 'CAT_COMIDA',
-        ID_Perfil_Precio_Override: null,
-        Def_Unidades_Por_Pax_Override: null,
+        ID_Item: 'ITEM_SALON_FARIO',
+        Nombre: 'Salón Fario',
+        ID_Categoria: 'CAT_SALONES',
+        ID_Perfil_Precio_Override: 'PROF_SALON',
+        Def_Unidades_Por_Pax_Override: '',
         Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
+      },
+      {
+        ID_Item: 'ITEM_ALMUERZO_PARRILLA',
+        Nombre: 'Almuerzos Buffet Parrilla',
+        ID_Categoria: 'CAT_COMIDAS',
+        ID_Perfil_Precio_Override: 'PROF_ALMUERZOS',
+        Def_Unidades_Por_Pax_Override: '',
+        Activo: true,
+        Updated_At: now,
       },
       {
         ID_Item: 'PACK_COFFEE_COMPLETO',
         Nombre: 'Pack Café Completo',
         ID_Categoria: 'CAT_CAFE',
-        ID_Perfil_Precio_Override: null,
-        Def_Unidades_Por_Pax_Override: null,
+        ID_Perfil_Precio_Override: '',
+        Def_Unidades_Por_Pax_Override: '',
         Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
     ]);
 
-    // COMPOSICION_KIT - Pack expands into children
+    // CLIENTES - Empty (users create them)
+    // Source: initializeService.js line 93
+    store.seed('CLIENTES', []);
+
+    // COMPOSICION_KIT - Kit compositions (for testing composition expansion)
     store.seed('COMPOSICION_KIT', [
       {
         ID_Composicion: 'COMP_001',
         ID_Item_Padre: 'PACK_COFFEE_COMPLETO',
-        ID_Item_Hijo: 'ITEM_COFFEE_BASIC',
+        ID_Item_Hijo: 'ITEM_COFFEE_INT',
         Cantidad: 1,
         Tipo_Precio: 'ABSORBIDO',
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
       {
         ID_Composicion: 'COMP_002',
         ID_Item_Padre: 'PACK_COFFEE_COMPLETO',
-        ID_Item_Hijo: 'ITEM_ALMUERZO',
+        ID_Item_Hijo: 'ITEM_ALMUERZO_PARRILLA',
         Cantidad: 0.5,
         Tipo_Precio: 'SUMAR',
-        Updated_At: '2025-01-01T00:00:00Z',
+        Updated_At: now,
       },
     ]);
 
-    // REGLAS_NEGOCIO - Basic rules (IVA)
-    store.seed('REGLAS_NEGOCIO', [
-      {
-        ID_Regla: 'R_IVA_19',
-        Nombre: 'IVA 19%',
-        Etapa: 'IMPUESTO',
-        Scope: 'COTIZACION',
-        Tipo_Accion: 'SET_TAX',
-        Hook: null,
-        Condicion_JSON: '{}',
-        Payload_JSON: { rate: 0.19, name: 'IVA 19%' },
-        Prioridad: 1,
-        Acumulable: false,
-        Activo: true,
-        Updated_At: '2025-01-01T00:00:00Z',
-      },
-    ]);
+    // REGLAS_NEGOCIO - Empty (GAS doesn't seed rules by default)
+    // Source: initializeService.js doesn't seed this
+    store.seed('REGLAS_NEGOCIO', []);
 
     // Add version property for determinism checking
-    store.version = 'TEST_STORE_v1_2025_02_18';
+    store.version = 'STORE_v1_GAS_SEED_2025_02_19';
 
     return store;
   }
