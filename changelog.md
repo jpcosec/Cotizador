@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### 2026-02-19
+- docs: rewrote `README.md` as a concise integration-worktree guide with current state, IO contract, tech stack, structural differences, and active TODOs.
+
 ## [0.2.0] - 2026-02-17 — Event-Driven Architecture Rewrite
 
 ### Changed
