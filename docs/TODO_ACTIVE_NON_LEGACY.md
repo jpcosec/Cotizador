@@ -4,16 +4,16 @@ This file captures actionable items that are still relevant after reviewing `doc
 
 ## Priority 1
 
-- [ ] Implement machine-native `LOAD_QUOTATION` flow end-to-end in xstate adapters and frontend bridge.
-- [ ] Replace deep `node_modules` imports in actor/bootstrap code with stable package-level imports.
-- [ ] Implement xstate adapter write stubs in `actions.js` (`updateRow`, `addNewRow`).
-- [ ] Implement real async send behavior in xstate `services.js`.
+- [x] Implement machine-native `LOAD_QUOTATION` flow end-to-end in xstate adapters and frontend bridge.
+- [x] Replace deep `node_modules` imports in actor/bootstrap code with stable package-level imports.
+- [x] Implement xstate adapter write stubs in `actions.js` (`updateRow`, `addNewRow`).
+- [x] Implement real async send behavior in xstate `services.js`.
 
 ## Priority 2
 
-- [ ] Implement `CANTIDAD_DEFAULT` defaults behavior in pricing pipeline where marked TODO.
-- [ ] Standardize local vs GAS runtime path and document one canonical local validation flow.
-- [ ] Add integration test that covers quotation load + edit + save with bridged frontend state.
+- [x] Implement `CANTIDAD_DEFAULT` defaults behavior in pricing pipeline where marked TODO.
+- [x] Standardize local vs GAS runtime path and document one canonical local validation flow.
+- [x] Add integration test that covers quotation load + edit + save with bridged frontend state.
 
 ## Priority 3
 

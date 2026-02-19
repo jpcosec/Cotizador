@@ -116,3 +116,15 @@ test('respects snapshot.can() when dispatching', () => {
   assert.equal(bridge.send('REMOVE_ITEM', { lineId: 'LIN_1' }), false);
   assert.deepEqual(actor.getSent(), [{ type: 'ADD_ITEM', itemId: 'ITEM_1' }]);
 });
+
+test('loadQuotation helper dispatches LOAD_QUOTATION event', () => {
+  const actor = createMockActor({
+    value: 'browse',
+    context: { lineas: [], totals: { subtotal: 0, taxes: [], total: 0 } },
+  });
+  const bridge = new AlpineXStateBridge(actor, {});
+
+  const sent = bridge.loadQuotation('COT_123');
+  assert.equal(sent, true);
+  assert.deepEqual(actor.getSent(), [{ type: 'LOAD_QUOTATION', cotizacionId: 'COT_123' }]);
+});

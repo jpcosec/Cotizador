@@ -10,7 +10,43 @@ import { calculateLinePrice } from './calculations/pricing.js';
 import { applyLineAdjustments, applyGlobalAdjustments } from './calculations/rules.js';
 import { applyManualAdjustments, getGlobalManualAdjustments } from './manual.js';
 import { calculateTaxes } from './taxes.js';
-import { getRulesForStageAndHook, evaluateCondition } from '../RulesEngine/RulesEngine.js';
+import { getRulesForStageAndHook, evaluateCondition, executeAction } from '../RulesEngine/RulesEngine.js';
+
+const DEFAULT_FIELD_TO_LINE_KEY = {
+  cantidad: '_cantidad',
+  pax: '_pax',
+  duracionMin: '_duracionMin',
+  _cantidad: '_cantidad',
+  _pax: '_pax',
+  _duracionMin: '_duracionMin',
+};
+
+function applyCantidadDefaultRules(linea, store) {
+  const rules = getRulesForStageAndHook('CANTIDAD_DEFAULT', null, store);
+  if (!rules.length) return;
+
+  for (const rule of rules) {
+    if (!evaluateCondition(rule.Condicion_JSON, { linea })) continue;
+
+    const result = executeAction(rule.Tipo_Accion, rule.Payload_JSON, {
+      cantidad: linea._cantidad,
+      pax: linea._pax,
+      duracionMin: linea._duracionMin,
+      linea,
+    });
+
+    const targetField = DEFAULT_FIELD_TO_LINE_KEY[result?.field] || null;
+    if (targetField && Number.isFinite(result.value)) {
+      linea[targetField] = result.value;
+      continue;
+    }
+
+    if (Number.isFinite(result?.cantidad)) linea._cantidad = result.cantidad;
+    if (Number.isFinite(result?.pax)) linea._pax = result.pax;
+    if (Number.isFinite(result?.duracionMin)) linea._duracionMin = result.duracionMin;
+    if (result?.field == null && Number.isFinite(result?.value)) linea._cantidad = result.value;
+  }
+}
 
 // ========== LEVEL 1: Item-level Recalculation ==========
 
@@ -33,11 +69,8 @@ export function expandItemCompositions(linea, store) {
  * @param {object} store - The data store
  */
 export function resolveItemDefaults(linea, paxGlobal, store) {
-  // First, base defaults from category
   resolveDefaults(linea, paxGlobal, store);
-
-  // TODO: Apply CANTIDAD_DEFAULT rules if needed to modify Q/T/P
-  // For now, base defaults are sufficient
+  applyCantidadDefaultRules(linea, store);
 }
 
 /**

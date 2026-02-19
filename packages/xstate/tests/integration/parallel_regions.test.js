@@ -151,6 +151,23 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
       expect(dbState).toEqual({ open: 'browse_database' });
     });
 
+    it('SAVE_ROW in add_new_row persists new rows into store', () => {
+      const newCategory = {
+        tableName: 'CATEGORIAS',
+        ID_Categoria: 'CAT_TEST_NEW',
+        Nombre: 'Categoria Test',
+      };
+
+      actor.send({ type: 'OPEN_DATABASE' });
+      actor.send({ type: 'SELECT_ADD_NEW' });
+      actor.send({ type: 'SAVE_ROW', tableName: 'CATEGORIAS', newRowData: newCategory });
+
+      const ctx = getContext(actor);
+      const inserted = ctx.store.findById('CATEGORIAS', 'ID_Categoria', 'CAT_TEST_NEW');
+      expect(inserted).toBeDefined();
+      expect(inserted.Nombre).toBe('Categoria Test');
+    });
+
     it('CANCEL from add_new_row returns to browse_database', () => {
       actor.send({ type: 'OPEN_DATABASE' });
       actor.send({ type: 'SELECT_ADD_NEW' });
@@ -174,6 +191,28 @@ describe('Parallel Regions: Quotation Workflow + Database Management', () => {
 
       const dbState = getCurrentDatabaseState(actor);
       expect(dbState).toEqual({ open: 'browse_database' });
+    });
+
+    it('SAVE_ROW in modify_row persists updates into store', () => {
+      actor.send({ type: 'OPEN_DATABASE' });
+      actor.send({
+        type: 'SELECT_ROW_TO_MODIFY',
+        rowId: 'CAT_SALON',
+        rowData: {
+          _tableName: 'CATEGORIAS',
+          ID_Categoria: 'CAT_SALON',
+          Nombre: 'Salones',
+        },
+      });
+      actor.send({
+        type: 'SAVE_ROW',
+        modifiedData: { Nombre: 'Salones Premium' },
+      });
+
+      const ctx = getContext(actor);
+      const updated = ctx.store.findById('CATEGORIAS', 'ID_Categoria', 'CAT_SALON');
+      expect(updated).toBeDefined();
+      expect(updated.Nombre).toBe('Salones Premium');
     });
   });
 

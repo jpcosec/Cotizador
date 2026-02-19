@@ -51,6 +51,23 @@ describe('State Machine Transitions', () => {
       const state = getCurrentWorkflowState(actor);
       expect(state).toEqual({ quotation: { initialize: 'loadingPrevious' } });
     });
+
+    it('LOAD_QUOTATION loads saved snapshot directly into basket', () => {
+      navigateToBasket(actor, { paxGlobal: 25, clienteId: 'CLI_CORP' });
+      addItemToBasket(actor, 'ITEM_CHINOOK');
+      actor.send({ type: 'ADVANCE_TO_VALIDATION' });
+      actor.send({ type: 'VALIDATE_AND_SAVE' });
+
+      const savedId = actor.getSnapshot().context.quotation.cotizacion.ID_Cotizacion;
+      actor.send({ type: 'RETURN_TO_BROWSE' });
+      actor.send({ type: 'LOAD_QUOTATION', cotizacionId: savedId });
+
+      const state = getCurrentWorkflowState(actor);
+      const ctx = getContext(actor);
+      expect(state).toEqual({ quotation: 'basket' });
+      expect(ctx.quotation.cotizacion.ID_Cotizacion).toBe(savedId);
+      expect(ctx.lineas.length).toBeGreaterThan(0);
+    });
   });
 
   describe('Initialize → Basket Transitions', () => {

@@ -23,10 +23,22 @@
 - Local validation should use standalone bundle/runtime paths.
 - Browser runtime cannot rely on `google.script.run` unless running inside GAS.
 
+## Canonical Local Validation Flow
+
+From `claps_codelab`:
+
+```bash
+npm run validate:local
+```
+
+This is the single local gate for runtime parity:
+
+1. Build integrated bundle and GAS runtime include.
+2. Run merged integration tests in `bundling/tests`.
+
 ## Known Open Items
 
-- Remove fragile deep import paths in actor bootstrap/integration helpers.
-- Unify one canonical local run path equivalent to integrated runtime behavior.
-- Complete machine-native quotation load flow to avoid fallback-only paths.
+- Reduce remaining direct `google.script.run` fallback usage to machine-first flows where feasible.
+- Keep GAS and package frontend HTML entry files aligned to avoid drift.
 
 See `../TODO_ACTIVE_NON_LEGACY.md`.

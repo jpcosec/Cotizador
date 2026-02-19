@@ -37,6 +37,29 @@ export async function sendQuotationService({ quotation }) {
   if (quotation.cotizacion.Estado !== 'Guardada') {
     throw new Error('Quotation must be saved before sending');
   }
-  // TODO: Implement actual sending logic (email, webhook, etc)
-  return { cotizacionId: quotation.cotizacion.ID_Cotizacion };
+
+  const payload = {
+    cotizacionId: quotation.cotizacion.ID_Cotizacion,
+    clienteId: quotation.cotizacion.ID_Cliente,
+    fechaEvento: quotation.cotizacion.Fecha_Evento,
+    estado: quotation.cotizacion.Estado,
+    sentAt: new Date().toISOString(),
+  };
+
+  if (typeof quotation.sendTransport === 'function') {
+    const response = await quotation.sendTransport(payload);
+    return {
+      cotizacionId: quotation.cotizacion.ID_Cotizacion,
+      status: 'sent',
+      transport: response?.transport || 'custom',
+      response: response || null,
+    };
+  }
+
+  return {
+    cotizacionId: quotation.cotizacion.ID_Cotizacion,
+    status: 'queued',
+    transport: 'local-fallback',
+    payload,
+  };
 }

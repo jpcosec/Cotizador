@@ -83,6 +83,11 @@ export class AlpineXStateBridge {
     return true;
   }
 
+  loadQuotation(cotizacionId) {
+    if (!cotizacionId) return false;
+    return this.send('LOAD_QUOTATION', { cotizacionId });
+  }
+
   syncToAlpine() {
     const context = (this.snapshot && this.snapshot.context) || {};
 

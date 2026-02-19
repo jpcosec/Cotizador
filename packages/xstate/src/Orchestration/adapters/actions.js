@@ -22,19 +22,211 @@ function nextId(quotation) {
   return `LIN_${quotation._lineSeq}`;
 }
 
+const TABLE_PRIMARY_KEY = {
+  CLIENTES: 'ID_Cliente',
+  CATEGORIAS: 'ID_Categoria',
+  PERFILES_PRECIO: 'ID_Perfil_Precio',
+  ITEM_CATALOGO: 'ID_Item',
+  REGLAS_NEGOCIO: 'ID_Regla',
+  COTIZACIONES: 'ID_Cotizacion',
+  LINEA_DETALLE: 'ID_Linea',
+  CACHE_COTIZACION: 'ID_Cotizacion',
+};
+
+function parseSnapshot(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function getCachedQuotation(store, cotizacionId) {
+  if (!store || !cotizacionId) return null;
+  if (typeof store.findById === 'function') {
+    const found = store.findById('CACHE_COTIZACION', 'ID_Cotizacion', cotizacionId);
+    if (found) return found;
+  }
+  if (typeof store.findAll === 'function') {
+    const matches = store.findAll('CACHE_COTIZACION', { ID_Cotizacion: cotizacionId });
+    if (Array.isArray(matches) && matches.length > 0) return matches[0];
+  }
+  return null;
+}
+
+function hydrateLoadedQuotation(record) {
+  const snapshot = parseSnapshot(record.Snapshot_JSON || record);
+  if (!snapshot || !snapshot.cotizacion) return null;
+
+  return {
+    quotation: {
+      cotizacion: { ...snapshot.cotizacion },
+      paxGlobal: snapshot.cotizacion.Pax_Global ?? snapshot.paxGlobal ?? 0,
+      ajustesManuales: Array.isArray(snapshot.ajustesManuales)
+        ? [...snapshot.ajustesManuales]
+        : [],
+      _lineSeq: Array.isArray(snapshot.lineas) ? snapshot.lineas.length : 0,
+    },
+    lineas: Array.isArray(snapshot.lineas) ? snapshot.lineas.map(l => ({ ...l })) : [],
+    totals: snapshot.totals || { subtotal: 0, taxes: [], total: 0 },
+  };
+}
+
+function inferTableNameFromRecord(record = {}) {
+  if (!record || typeof record !== 'object') return null;
+  if (record.ID_Cliente) return 'CLIENTES';
+  if (record.ID_Categoria) return 'CATEGORIAS';
+  if (record.ID_Perfil_Precio) return 'PERFILES_PRECIO';
+  if (record.ID_Item) return 'ITEM_CATALOGO';
+  if (record.ID_Regla) return 'REGLAS_NEGOCIO';
+  if (record.ID_Cotizacion) return 'COTIZACIONES';
+  if (record.ID_Linea) return 'LINEA_DETALLE';
+  return null;
+}
+
+function resolveTableName(event, context) {
+  return (
+    event.tableName
+    || event.modifiedData?.tableName
+    || event.newRowData?.tableName
+    || context.selectedRowData?._tableName
+    || inferTableNameFromRecord(context.selectedRowData)
+    || inferTableNameFromRecord(event.modifiedData)
+    || inferTableNameFromRecord(event.newRowData)
+  );
+}
+
+function resolvePrimaryKey(tableName, row = {}) {
+  if (!tableName) return null;
+  const mapped = TABLE_PRIMARY_KEY[tableName];
+  if (mapped) return mapped;
+  const dynamic = Object.keys(row).find(key => key.startsWith('ID_'));
+  return dynamic || null;
+}
+
+function upsertWithSeed(store, tableName, row, primaryKey) {
+  if (!store || typeof store.all !== 'function' || typeof store.seed !== 'function') return;
+  const existing = store.all(tableName);
+  const next = Array.isArray(existing) ? [...existing] : [];
+  const rowId = row[primaryKey];
+  const idx = next.findIndex(entry => String(entry[primaryKey]) === String(rowId));
+
+  if (idx >= 0) {
+    next[idx] = { ...next[idx], ...row };
+  } else {
+    next.push({ ...row });
+  }
+
+  store.seed(tableName, next);
+}
+
+function persistRowUpdate(store, tableName, row) {
+  const primaryKey = resolvePrimaryKey(tableName, row);
+  if (!store || !tableName || !primaryKey) return;
+
+  if (typeof store.update === 'function') {
+    try {
+      store.update(tableName, row);
+      return;
+    } catch {
+      try {
+        store.update(row);
+        return;
+      } catch {
+      }
+    }
+  }
+
+  upsertWithSeed(store, tableName, row, primaryKey);
+}
+
+function persistRowInsert(store, tableName, row) {
+  if (!store || !tableName) return;
+  if (typeof store.insert === 'function') {
+    try {
+      store.insert(tableName, row);
+      return;
+    } catch {
+      try {
+        store.insert(row);
+        return;
+      } catch {
+      }
+    }
+  }
+
+  const primaryKey = resolvePrimaryKey(tableName, row);
+  if (primaryKey) {
+    upsertWithSeed(store, tableName, row, primaryKey);
+  }
+}
+
 // --- Browse Actions ---
 
 export const browseActions = {
   listPreviousQuotations: assign(({ context }) => {
-    // Fetch previous quotations from store and display them
-    // Implementation: call store.findAll('CACHE_COTIZACION') and format
-    return {};
+    if (!context.store || typeof context.store.findAll !== 'function') {
+      return { previousQuotations: [] };
+    }
+
+    const rows = context.store.findAll('CACHE_COTIZACION', {});
+    const previousQuotations = rows
+      .map((row) => {
+        const snapshot = parseSnapshot(row.Snapshot_JSON);
+        if (!snapshot || !snapshot.cotizacion) return null;
+        return {
+          cotizacionId: row.ID_Cotizacion,
+          estado: snapshot.cotizacion.Estado || 'Borrador',
+          clienteId: snapshot.cotizacion.ID_Cliente || null,
+          fechaEvento: snapshot.cotizacion.Fecha_Evento || null,
+          total: snapshot.totals?.total || 0,
+          updatedAt: row.Updated_At || null,
+        };
+      })
+      .filter(Boolean);
+
+    return { previousQuotations };
   }),
 
-  loadPreviousQuotation: assign(({ event }) => {
+  loadPreviousQuotation: assign(({ context, event }) => {
     const { cotizacionId } = event;
-    // Fetch from store and initialize quotation context
-    return { /* quotation loaded and initialized */ };
+    const row = getCachedQuotation(context.store, cotizacionId);
+    if (!row) {
+      return {
+        errors: [
+          ...context.errors,
+          {
+            source: 'load',
+            blocking: true,
+            message: `Quotation not found: ${cotizacionId}`,
+          },
+        ],
+      };
+    }
+
+    const loaded = hydrateLoadedQuotation(row);
+    if (!loaded) {
+      return {
+        errors: [
+          ...context.errors,
+          {
+            source: 'load',
+            blocking: true,
+            message: `Invalid quotation snapshot: ${cotizacionId}`,
+          },
+        ],
+      };
+    }
+
+    return {
+      ...loaded,
+      messages: context.messages,
+      errors: context.errors.filter(error => error.source !== 'load'),
+    };
   }),
 };
 
@@ -303,10 +495,17 @@ export const databaseActions = {
 
   saveRowModification: assign(({ context, event }) => {
     const { modifiedData } = event;
-    // Store save logic (implementation depends on data store)
-    if (context.store) {
-      // TODO: call context.store.update(...) with modified data
+    const tableName = resolveTableName(event, context);
+    if (context.store && tableName) {
+      const base = context.selectedRowData || {};
+      const row = {
+        ...base,
+        ...modifiedData,
+      };
+      delete row._tableName;
+      persistRowUpdate(context.store, tableName, row);
     }
+
     return {
       selectedRowId: null,
       selectedRowData: null,
@@ -322,9 +521,11 @@ export const databaseActions = {
 
   saveNewRow: assign(({ context, event }) => {
     const { newRowData } = event;
-    // Store save logic
-    if (context.store) {
-      // TODO: call context.store.insert(...) with new row data
+    const tableName = resolveTableName(event, context);
+    if (context.store && tableName && newRowData) {
+      const row = { ...newRowData };
+      delete row._tableName;
+      persistRowInsert(context.store, tableName, row);
     }
     return {
       databaseUIState: 'browse_database',

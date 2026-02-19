@@ -38,7 +38,7 @@ export const quotationMachineBlueprint = {
           on: {
             VIEW_PREVIOUS_QUOTATIONS: { actions: ['listPreviousQuotations'] },
             START_NEW_QUOTATION: { target: 'quotation.initialize' },
-            LOAD_QUOTATION: { target: 'quotation.initialize', actions: ['loadPreviousQuotation'] },
+            LOAD_QUOTATION: { target: 'quotation.basket', actions: ['loadPreviousQuotation'] },
           },
         },
 

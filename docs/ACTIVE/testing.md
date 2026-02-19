@@ -5,6 +5,8 @@
 From `claps_codelab`:
 
 ```bash
+cd /home/jp/CotizadorLodge/claps_codelab && npm run validate:local
+
 cd /home/jp/CotizadorLodge/claps_codelab/packages/database && npm test
 cd /home/jp/CotizadorLodge/claps_codelab/packages/pricing && npm test
 cd /home/jp/CotizadorLodge/claps_codelab/packages/xstate && npm test

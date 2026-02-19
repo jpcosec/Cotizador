@@ -1,4 +1,4 @@
-import { createActor } from '../../../xstate/node_modules/xstate/dist/xstate.cjs.mjs';
+import { createActor } from '../../../xstate/src/runtime/createActor.js';
 import { createQuotationXStateMachine } from '../../../xstate/src/Orchestration/quotationMachine.xstate.js';
 import { quotationAdapters } from '../../../xstate/src/Orchestration/adapters/index.js';
 import { createSeededStore } from '../../../xstate/tests/helpers/store_factory.js';

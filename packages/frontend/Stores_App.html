@@ -334,6 +334,42 @@ cargarCotizacion() {
             var id = prompt("Ingrese el ID de la cotización (Ej: COT-0001):");
             if (!id) return;
 
+            if (this.useStateMachine && this.bridge) {
+                this.cargando = true;
+                this.bridge.send('RETURN_TO_BROWSE');
+                var loaded = this.bridge.loadQuotation
+                    ? this.bridge.loadQuotation(id)
+                    : this.bridge.send('LOAD_QUOTATION', { cotizacionId: id });
+                this.cargando = false;
+
+                if (!loaded) {
+                    alert('No se pudo enviar evento LOAD_QUOTATION.');
+                    return;
+                }
+
+                var cot = this.quotation && this.quotation.cotizacion ? this.quotation.cotizacion : null;
+                if (!cot || String(cot.ID_Cotizacion) !== String(id)) {
+                    alert('Error: cotización no encontrada en el estado de máquina.');
+                    return;
+                }
+
+                this.fechaInicio = cot.Fecha_Evento || this.fechaInicio;
+                this.duracionDias = cot.Duracion_Dias || this.duracionDias;
+                this.paxGlobal = this.quotation.paxGlobal || this.paxGlobal;
+                this.generarDias();
+                this.diaSeleccionado = 1;
+
+                var localCli = null;
+                if (Array.isArray(window.localClientes)) {
+                    localCli = window.localClientes.find(function(c) {
+                        return String(c.ID_Cliente) === String(cot.ID_Cliente);
+                    }) || null;
+                }
+                this.cliente = localCli || this.cliente || { ID_Cliente: cot.ID_Cliente, Nombre_Empresa: cot.ID_Cliente };
+                alert('✅ Cotización cargada desde XState.');
+                return;
+            }
+
             this.cargando = true;
             
             var self = this;

@@ -65,3 +65,41 @@ test('bridge syncs real merged actor snapshot to Alpine-style state', () => {
   bridge.stop();
   actor.stop();
 });
+
+test('bridge supports load + edit + save quotation flow', () => {
+  const actor = createCotizadorActor({
+    clienteId: 'CLI_CORP',
+    paxGlobal: 18,
+    cotizacionId: 'COT_IT_LOAD_001',
+    bootstrap: true,
+  });
+
+  actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_CHINOOK' });
+  actor.send({ type: 'ADVANCE_TO_VALIDATION' });
+  actor.send({ type: 'VALIDATE_AND_SAVE' });
+
+  const savedId = actor.getSnapshot().context.quotation.cotizacion.ID_Cotizacion;
+  actor.send({ type: 'RETURN_TO_BROWSE' });
+
+  const alpineStore = {
+    carrito: [],
+    totalsSnapshot: { subtotal: 0, taxes: [], total: 0 },
+  };
+  const bridge = new AlpineXStateBridge(actor, alpineStore).start();
+
+  assert.equal(bridge.loadQuotation(savedId), true);
+  assert.equal(alpineStore.carrito.length > 0, true);
+
+  const lineId = alpineStore.carrito[0].lineId;
+  assert.equal(Boolean(lineId), true);
+  assert.equal(bridge.send('UPDATE_ITEM', { lineId, overrides: { Override_Pax: 35 } }), true);
+  assert.equal(bridge.send('ADVANCE_TO_VALIDATION'), true);
+  assert.equal(bridge.send('VALIDATE_AND_SAVE'), true);
+
+  const snap = actor.getSnapshot();
+  assert.equal(JSON.stringify(snap.value).includes('completed'), true);
+  assert.equal(snap.context.quotation.cotizacion.ID_Cotizacion, savedId);
+
+  bridge.stop();
+  actor.stop();
+});
