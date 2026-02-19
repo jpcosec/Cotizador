@@ -19,12 +19,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="(linea, index) in carrito" :key="linea.lineId || linea.id || index">
+                    <template x-for="(linea, index) in (Array.isArray(carrito) ? carrito : [])" :key="linea.lineId || linea.id || index">
                         <tr>
-                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="linea.nombre"></td>
-                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="linea.cantidad"></td>
-                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(linea.precio)"></td>
-                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(linea.total || (linea.cantidad * linea.precio))"></td>
+                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="linea.nombre || linea.Nombre || 'Item'"></td>
+                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="linea.cantidad || 0"></td>
+                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(Number(linea.precio ?? 0))"></td>
+                            <td style="padding: 10px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(Number(linea.total ?? ((linea.cantidad || 0) * Number(linea.precio ?? 0))))"></td>
                         </tr>
                     </template>
                 </tbody>

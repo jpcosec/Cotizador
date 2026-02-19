@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### 2026-02-19
+- frontend/hardening: added defensive `x-for` array guards, stable key fallbacks, and normalized display fallbacks in sidebar/timeline/modal/validation components to prevent Alpine `:key` undefined loops and `Cannot read properties of undefined (reading 'after')` crashes.
+- frontend/gas-fix: included `Bundle_Runtime` in `packages/frontend/Index.html` so GAS runtime exposes `createCotizadorActor`; hardened `Components_Sidebar.html` item rendering keys/fields to support normalized catalog shape and prevent Alpine x-for key/undefined crashes.
 - docs: refreshed `README.md`, `docs/README.md`, and `PLAN.md` to reflect merged-repo reality (active build pipeline, current priorities, valid doc links, and current architecture boundaries).
 - docs/subfolders: refreshed `docs/ARCHITECTURE/state-machine.md`, `docs/PACKAGES/{database,pricing,xstate,frontend}.md`, and `docs/DEPLOYMENT/LOCAL_vs_GAS.md` to remove stale worktree-era assumptions and align with current merged repository architecture.
 - build/deps: added root bundler dependency `json-logic-js` so Rollup resolves pricing rules-engine imports without unresolved external warnings.

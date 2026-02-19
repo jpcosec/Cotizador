@@ -51,14 +51,14 @@
                 <details class="cat-group" :open="busquedaCatalogo.length > 0">
                     <summary class="cat-header">
                         <span x-text="categoria"></span>
-                        <span style="font-size: 0.75rem; color: #94a3b8; float: right;" x-text="items.length"></span>
+                        <span style="font-size: 0.75rem; color: #94a3b8; float: right;" x-text="Array.isArray(items) ? items.length : 0"></span>
                     </summary>
                     <div class="cat-items">
-                        <template x-for="item in items" :key="item.nombre">
-                            <div class="mini-card" @click="agregarItem(item)" :title="item.detalle">
+                        <template x-for="item in (Array.isArray(items) ? items : [])" :key="item.ID_Item || item.itemId || item.id || item.Nombre || item.nombre">
+                            <div class="mini-card" @click="agregarItem(item)" :title="item.detalle || item.Nombre || item.nombre || ''">
                                 <div>
-                                    <h5 x-text="item.nombre"></h5>
-                                    <span x-text="'$' + item.precio.toLocaleString('es-CL')"></span>
+                                    <h5 x-text="item.Nombre || item.nombre || 'Item'"></h5>
+                                    <span x-text="'$' + Number(item.Precio_Base ?? item.precio ?? 0).toLocaleString('es-CL')"></span>
                                 </div>
                                 <i class="fa-solid fa-plus add-icon"></i>
                             </div>

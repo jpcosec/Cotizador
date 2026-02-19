@@ -12,9 +12,9 @@
             </div>
             
             <div style="margin: 10px 0; max-height: 150px; overflow-y: auto; border: 1px solid #eee;">
-                <template x-for="cli in clientesEncontrados" :key="cli.ID_Cliente">
+                <template x-for="cli in (Array.isArray(clientesEncontrados) ? clientesEncontrados : [])" :key="cli.ID_Cliente || cli.RUT || cli.Nombre_Empresa">
                     <div @click="seleccionarCliente(cli)" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; hover:background: #f9f9f9;">
-                        <strong x-text="cli.Nombre_Empresa"></strong> - <small x-text="cli.RUT"></small>
+                        <strong x-text="cli.Nombre_Empresa || cli.nombre || 'Cliente' "></strong> - <small x-text="cli.RUT || cli.rut || '-' "></small>
                     </div>
                 </template>
                 <div x-show="clientesEncontrados.length === 0 && busquedaCliente.length > 2" style="padding:10px; color:gray;">No se encontraron clientes.</div>

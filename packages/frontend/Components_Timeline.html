@@ -58,7 +58,7 @@
         </div>
         
         <div x-show="carritoFiltrado.length > 0" class="timeline-container">
-            <template x-for="(item, index) in carritoFiltrado" :key="index">
+            <template x-for="(item, index) in (Array.isArray(carritoFiltrado) ? carritoFiltrado : [])" :key="item.lineId || item.id || (item.ID_Item ? item.ID_Item + '_' + index : index)">
                 
                 <div class="accordion-item" x-data="{ expanded: false }">
                     
@@ -73,11 +73,11 @@
                         </div>
                         
                         <div class="acc-info">
-                            <div class="acc-title" x-text="item.nombre"></div>
+                            <div class="acc-title" x-text="item.nombre || item.Nombre || 'Item'"></div>
                             <div class="acc-subtitle">
-                                <span x-text="'$' + item.total.toLocaleString('es-CL')"></span>
+                                <span x-text="'$' + Number(item.total ?? 0).toLocaleString('es-CL')"></span>
                                 <span style="margin: 0 5px;">•</span>
-                                <span x-text="item.cantidad + ' pax'"></span>
+                                <span x-text="(item.cantidad || 0) + ' pax'"></span>
                             </div>
                         </div>
                         
@@ -97,7 +97,7 @@
                             </div>
                             <div class="control-group">
                                 <label>Precio Unit:</label>
-                                <input type="text" :value="'$' + item.precio.toLocaleString('es-CL')" disabled style="background: #f1f5f9;">
+                                 <input type="text" :value="'$' + Number(item.precio ?? 0).toLocaleString('es-CL')" disabled style="background: #f1f5f9;">
                             </div>
                             <button class="btn-delete" @click="eliminarItem(carrito.indexOf(item))">
                                 <i class="fa-solid fa-trash"></i> Eliminar
