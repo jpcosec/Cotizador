@@ -1,95 +1,49 @@
 # DEPLOYMENT Documentation
 
-This folder contains everything you need to develop locally and deploy to Google Apps Script.
+Everything needed to develop locally and deploy to Google Apps Script.
 
 ---
 
-## 📚 Documentation Index
+## Guides
 
-### 🚀 **Start Here**
-- **[LOCAL_vs_GAS.md](./LOCAL_vs_GAS.md)** ⭐
-  - Quick comparison of local vs GAS
-  - Setup instructions for both
-  - Workflows and best practices
-  - Troubleshooting guide
-  - Decision matrix: when to use what
-
-### 🔧 Detailed Guides
-
-- **[gas-deployment.md](./gas-deployment.md)**
-  - Step-by-step GAS deployment checklist
-  - Pre-deployment verification
-  - Environment setup
-  - Post-deployment verification
-  - Rollback procedures
-  - Performance tuning
+- **[local-development.md](./local-development.md)** ⭐ — local server setup, how it works, deploy to GAS
+- **[LOCAL_vs_GAS.md](./LOCAL_vs_GAS.md)** — side-by-side comparison of local vs GAS runtime
+- **[gas-deployment.md](./gas-deployment.md)** — detailed GAS deployment checklist and rollback
 
 ---
 
-## 🎯 Quick Decisions
+## Quick Commands
 
-**Want to develop fast without touching Google Sheets?**
-→ Read [LOCAL_vs_GAS.md](./LOCAL_vs_GAS.md) → Local Development section
-
-**Ready to deploy to production?**
-→ Read [LOCAL_vs_GAS.md](./LOCAL_vs_GAS.md) → GAS Deployment section
-→ Then follow [gas-deployment.md](./gas-deployment.md) for detailed steps
-
-**Want to understand the differences?**
-→ [LOCAL_vs_GAS.md](./LOCAL_vs_GAS.md) → Comparison section
-
----
-
-## ⚡ Quick Commands
-
-### Local Development (No GAS Needed)
+### Local (real GAS app, no Sheets)
 ```bash
 cd /home/jp/CotizadorLodge/claps_codelab
-npm run build                              # Create bundle
-npm run serve:dist                         # Start local server (port 8082)
-# Open: http://localhost:8082
+npm run dev          # build + serve at http://localhost:8082
 ```
 
 ### Deploy to GAS
 ```bash
 cd /home/jp/CotizadorLodge/claps_codelab
-npm run build                              # Create bundle
-clasp push                                 # Deploy to Google Apps Script
-# Then run in GAS editor: initializeSheetDb()
+npm run build
+clasp push
+# Then in GAS editor: initializeSheetDb()
 ```
 
 ---
 
-## 📋 Deployment Checklist
+## Checklist
 
-### Before Local Development
-- [ ] Node.js or Python 3 installed
-- [ ] Port 8082 available
-- [ ] Code built: `npm run build`
+### Before local dev
+- [ ] `npm run build` completed
+- [ ] Port 8082 free
 
-### Before GAS Deployment
-- [ ] Local tests passing
+### Before GAS deploy
 - [ ] `clasp` installed: `npm install -g @google/clasp`
-- [ ] Google account authenticated: `clasp login`
+- [ ] Authenticated: `clasp login`
 - [ ] `.clasp.json` configured with script ID
-- [ ] Bundle built: `npm run build`
+- [ ] `npm run build` completed
 
-### After GAS Deployment
+### After GAS deploy
 - [ ] `clasp push` successful
-- [ ] `initializeSheetDb()` run in GAS editor
-- [ ] Test data added to spreadsheet
-- [ ] Extensions menu appears
+- [ ] `initializeSheetDb()` run (first deploy only)
+- [ ] Extensions menu appears in Sheets
 - [ ] Basic workflow tested
-
----
-
-## 🔗 Related Documentation
-
-- [Architecture Overview](../ARCHITECTURE/) - System design
-- [Testing Guide](../TESTING/) - Test strategies
-- [Phase 3 Frontend](../PHASE3/) - UI implementation
-- [Phase 4 Bundling](../PHASE4/) - Bundling configuration
-
----
-
-**Status:** ✅ Ready for both local and GAS development

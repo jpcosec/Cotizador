@@ -6,9 +6,9 @@
     "build": "npm run build:bundle && npm run build:gas",
     "build:bundle": "rollup -c rollup.config.mjs",
     "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
-    "dev:local": "npm run build && npm run serve:dist",
+    "dev": "npm run build && npm run serve:gas",
     "build:watch": "rollup -c rollup.config.mjs -w",
-    "serve:dist": "python3 -m http.server 8082",
+    "serve:gas": "node tools/serve-gas.mjs",
     "test:integration": "node --test bundling/tests",
     "validate:local": "npm run build && npm run test:integration"
   },

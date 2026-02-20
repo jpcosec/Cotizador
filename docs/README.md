@@ -32,7 +32,7 @@ Build, deploy, and environment documentation.
 - `README.md` — Deployment overview
 - `LOCAL_vs_GAS.md` — Differences between local and GAS environments
 - `gas-deployment.md` — Google Apps Script deployment guide
-- `local-deployment.md` — Local development server setup
+- `local-development.md` — Local server setup and GAS deploy
 
 ## Notes
 

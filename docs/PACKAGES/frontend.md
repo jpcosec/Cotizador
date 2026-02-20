@@ -26,7 +26,7 @@ Alpine.js UI layer and bridge integration with XState runtime.
 
 ```bash
 cd /home/jp/CotizadorLodge/claps_codelab
-npm run dev:local
+npm run dev
 ```
 
-Open: `http://localhost:8082/LOCAL_DEPLOYMENT.html`
+Open: `http://localhost:8082` — renders the real GAS app with local data.

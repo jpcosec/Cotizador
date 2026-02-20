@@ -24,20 +24,22 @@ npm run build
 npm run test:integration
 ```
 
-Local dev helper:
+Local preview (real GAS app, no Sheets needed):
 
 ```bash
-npm run dev:local
-# then open http://localhost:8082/LOCAL_DEPLOYMENT.html
+npm run dev          # build + serve
+# open http://localhost:8082
 ```
 
 ## Key Commands
 
-- `npm run build` - bundle + full GAS regeneration.
-- `npm run build:bundle` - rebuild IIFE only.
-- `npm run build:gas` - reset `gas/`, copy templates, regenerate runtime and `Code.gs`.
-- `npm run test:integration` - root merged integration tests.
-- `npm run validate:local` - build + integration tests.
+- `npm run build` — bundle + full GAS regeneration.
+- `npm run dev` — build then serve GAS preview locally.
+- `npm run serve:gas` — serve already-built `gas/` (no rebuild).
+- `npm run build:bundle` — rebuild IIFE only.
+- `npm run build:gas` — reset `gas/`, copy templates, regenerate runtime and `Code.gs`.
+- `npm run test:integration` — root merged integration tests.
+- `npm run validate:local` — build + integration tests.
 
 ## Sources of Truth
 
@@ -52,8 +54,8 @@ Generated on build (do not edit manually):
 
 ## Documentation Map
 
-- Current plan: `PLAN.md`
-- Deployment: `DEPLOYMENT_GUIDE.md`
+- Current plan: `plan/PLAN.md`
+- Deployment: `docs/DEPLOYMENT/local-development.md`
 - Change history: `changelog.md`
 - Full docs index: `docs/README.md`
 - Package docs:
