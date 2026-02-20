@@ -168,9 +168,12 @@ export function createSeededStore() {
     },
   ]);
 
-  // CLIENTES - Empty (users create them)
-  // Source: initializeService.js line 93
-  store.seed('CLIENTES', []);
+  // CLIENTES - Seed a few for local dev/testing (users create more in production)
+  store.seed('CLIENTES', [
+    { ID_Cliente: 'CLI_CORP', Nombre_Empresa: 'Corporación SF', RUT: '76.100.001-1', Email_Contacto: 'contacto@sf.cl', Telefono: '+56 9 1000 0001', Updated_At: now },
+    { ID_Cliente: 'CLI_DEMO', Nombre_Empresa: 'Empresa Demo SPA', RUT: '76.200.002-2', Email_Contacto: 'demo@empresa.cl', Telefono: '+56 9 2000 0002', Updated_At: now },
+    { ID_Cliente: 'CLI_TEST', Nombre_Empresa: 'Test Lodge Events', RUT: '76.300.003-3', Email_Contacto: 'eventos@testlodge.cl', Telefono: '+56 9 3000 0003', Updated_At: now },
+  ]);
 
   // COMPOSICION_KIT - Kit compositions (for testing composition expansion)
   store.seed('COMPOSICION_KIT', [

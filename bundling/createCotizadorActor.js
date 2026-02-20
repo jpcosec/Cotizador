@@ -26,5 +26,27 @@ export function createCotizadorActor(opts = {}) {
     });
   }
 
+  // Populate window.local* so Local_GAS_Shim can serve them on localhost
+  if (typeof window !== 'undefined') {
+    const store = actor.getSnapshot().context.store;
+    const all = (t) => store?.all ? store.all(t) : [];
+    window.localClientes = all('CLIENTES');
+    window.localCatalogItems = all('ITEM_CATALOGO').map(item => ({
+      itemId: item.ID_Item,
+      nombre: item.Nombre || item.ID_Item,
+      categoria: item.ID_Categoria || 'Varios',
+      precio: item.Precio_Base || 0,
+      detalle: item.Default_Glosa || '',
+      Default_Glosa: item.Default_Glosa || '',
+    }));
+    window.localPricingReferenceData = {
+      PERFILES_PRECIO: all('PERFILES_PRECIO'),
+      CATEGORIAS: all('CATEGORIAS'),
+      ITEM_CATALOGO: all('ITEM_CATALOGO'),
+      COMPOSICION_KIT: all('COMPOSICION_KIT'),
+      REGLAS_NEGOCIO: all('REGLAS_NEGOCIO'),
+    };
+  }
+
   return actor;
 }

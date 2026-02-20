@@ -126,7 +126,7 @@ export class AlpineXStateBridge {
 
         return {
           id: linea.ID_Linea || linea.id || `LINA_${idx + 1}`,
-          nombre: (linea._item && linea._item.Nombre_Item) || linea.Nombre_Item || linea.ID_Item || 'Item',
+          nombre: (linea._item && (linea._item.Nombre_Item || linea._item.Nombre)) || linea.Nombre_Item || linea.Nombre || linea.ID_Item || 'Item',
           categoria: (linea._item && linea._item.Categoria) || linea.Categoria || 'General',
           precio,
           cantidad,

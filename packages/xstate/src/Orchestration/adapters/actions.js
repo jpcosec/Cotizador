@@ -353,6 +353,7 @@ export const basketActions = {
       ID_Linea: nextId(quotation),
       ID_Cotizacion: quotation.cotizacion.ID_Cotizacion,
       ID_Item: itemId,
+      Nombre: selectedItem?.Nombre || itemId,
       Override_Pax: overrides.Override_Pax ?? null,
       Override_Cantidad: overrides.Override_Cantidad ?? null,
       Override_Duracion_Min: overrides.Override_Duracion_Min ?? null,

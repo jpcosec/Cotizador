@@ -129,7 +129,7 @@ var QuotationEngine = (function (exports) {
 
           return {
             id: linea.ID_Linea || linea.id || `LINA_${idx + 1}`,
-            nombre: (linea._item && linea._item.Nombre_Item) || linea.Nombre_Item || linea.ID_Item || 'Item',
+            nombre: (linea._item && (linea._item.Nombre_Item || linea._item.Nombre)) || linea.Nombre_Item || linea.Nombre || linea.ID_Item || 'Item',
             categoria: (linea._item && linea._item.Categoria) || linea.Categoria || 'General',
             precio,
             cantidad,
@@ -5373,6 +5373,7 @@ var QuotationEngine = (function (exports) {
         ID_Linea: nextId(quotation),
         ID_Cotizacion: quotation.cotizacion.ID_Cotizacion,
         ID_Item: itemId,
+        Nombre: selectedItem?.Nombre || itemId,
         Override_Pax: overrides.Override_Pax ?? null,
         Override_Cantidad: overrides.Override_Cantidad ?? null,
         Override_Duracion_Min: overrides.Override_Duracion_Min ?? null,
@@ -5965,9 +5966,12 @@ var QuotationEngine = (function (exports) {
       },
     ]);
 
-    // CLIENTES - Empty (users create them)
-    // Source: initializeService.js line 93
-    store.seed('CLIENTES', []);
+    // CLIENTES - Seed a few for local dev/testing (users create more in production)
+    store.seed('CLIENTES', [
+      { ID_Cliente: 'CLI_CORP', Nombre_Empresa: 'Corporación SF', RUT: '76.100.001-1', Email_Contacto: 'contacto@sf.cl', Telefono: '+56 9 1000 0001', Updated_At: now },
+      { ID_Cliente: 'CLI_DEMO', Nombre_Empresa: 'Empresa Demo SPA', RUT: '76.200.002-2', Email_Contacto: 'demo@empresa.cl', Telefono: '+56 9 2000 0002', Updated_At: now },
+      { ID_Cliente: 'CLI_TEST', Nombre_Empresa: 'Test Lodge Events', RUT: '76.300.003-3', Email_Contacto: 'eventos@testlodge.cl', Telefono: '+56 9 3000 0003', Updated_At: now },
+    ]);
 
     // COMPOSICION_KIT - Kit compositions (for testing composition expansion)
     store.seed('COMPOSICION_KIT', [
@@ -6053,6 +6057,28 @@ var QuotationEngine = (function (exports) {
         duracionDias: Number.isFinite(opts.duracionDias) ? opts.duracionDias : 1,
         cotizacionId: opts.cotizacionId || `COT_BUNDLE_${Date.now()}`,
       });
+    }
+
+    // Populate window.local* so Local_GAS_Shim can serve them on localhost
+    if (typeof window !== 'undefined') {
+      const store = actor.getSnapshot().context.store;
+      const all = (t) => store?.all ? store.all(t) : [];
+      window.localClientes = all('CLIENTES');
+      window.localCatalogItems = all('ITEM_CATALOGO').map(item => ({
+        itemId: item.ID_Item,
+        nombre: item.Nombre || item.ID_Item,
+        categoria: item.ID_Categoria || 'Varios',
+        precio: item.Precio_Base || 0,
+        detalle: item.Default_Glosa || '',
+        Default_Glosa: item.Default_Glosa || '',
+      }));
+      window.localPricingReferenceData = {
+        PERFILES_PRECIO: all('PERFILES_PRECIO'),
+        CATEGORIAS: all('CATEGORIAS'),
+        ITEM_CATALOGO: all('ITEM_CATALOGO'),
+        COMPOSICION_KIT: all('COMPOSICION_KIT'),
+        REGLAS_NEGOCIO: all('REGLAS_NEGOCIO'),
+      };
     }
 
     return actor;

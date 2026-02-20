@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-02-20 (session 4 — UI testing & fixes)
+- fix/local-seed: seeded 3 clients (CLI_CORP, CLI_DEMO, CLI_TEST) in `store_factory.js` so client search works out-of-the-box in local preview.
+- fix/local-seed: `bundling/createCotizadorActor.js` now populates `window.localClientes`, `window.localCatalogItems`, and `window.localPricingReferenceData` from the seeded store using the store's `all()` API; the GAS shim can now serve local data for client search and catalog.
+- fix/item-name: added `Nombre` field to `baseLine` in `addItem` action so the bridge can display the human-readable item name instead of the `ID_Item` string.
+- fix/bridge: updated `mapLineasToCarrito` in `AlpineXStateBridge.js` and `Bridge_AlpineXState.html` to check `linea.Nombre` as fallback before `linea.ID_Item`.
+- fix/accordion: removed `x-collapse` directive from `.accordion-body` in `Components_Timeline.html` — the Alpine collapse plugin is not loaded, causing `x-show` to never update the display; body now expands/collapses correctly on header click.
+
 ### 2026-02-20 (session 3)
 - docs: reorganized documentation into `docs/` (stable technical) and `plan/` (planning/status/roadmap); deleted 3 stale status files (`CONSOLIDATION_SUMMARY.md`, `DEPLOYMENT_STATUS.md`, `PHASE3_COMPLETION_SUMMARY.md`), moved 7 phase/planning files to `plan/`, cleaned empty `docs/PHASE3/` dir.
 - frontend/debug: added fixed-position XState debug badge to GAS sidebar (`packages/frontend/Index.html`) showing machine state path, pax, item count, and subtotal/total; green `● XState` when bridge is active, yellow `○ fallback` otherwise; click to expand details panel.
