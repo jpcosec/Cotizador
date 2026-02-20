@@ -2,120 +2,54 @@
     <div x-show="databaseViewerOpen" x-transition.opacity
          style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 99998; display: flex; align-items: center; justify-content: center; padding: 16px;">
         <div @click.away="closeDatabaseViewer()"
-             style="width: min(1100px, 100%); max-height: 90vh; overflow: hidden; background: #fff; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column;">
+             style="width: min(1200px, 100%); max-height: 90vh; overflow: hidden; background: #fff; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column;">
 
             <div style="padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
                 <div>
                     <h3 style="margin: 0; color: var(--primary);">Visor de Base de Datos</h3>
-                    <small style="color: var(--secondary);">Items, categorias, composiciones y reglas</small>
+                    <small style="color: var(--secondary);"
+                           x-text="databaseViewerTab ? databaseViewerTab + ' · ' + filteredDatabaseRows.length + ' filas' : 'Sin tabla seleccionada'"></small>
                 </div>
                 <button class="btn-small btn-secondary" @click="closeDatabaseViewer()">Cerrar</button>
             </div>
 
-            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-                <button class="btn-small" :class="databaseViewerTab === 'items' ? 'btn-primary' : 'btn-secondary'" @click="databaseViewerTab = 'items'">Items</button>
-                <button class="btn-small" :class="databaseViewerTab === 'categories' ? 'btn-primary' : 'btn-secondary'" @click="databaseViewerTab = 'categories'">Categorias</button>
-                <button class="btn-small" :class="databaseViewerTab === 'compositions' ? 'btn-primary' : 'btn-secondary'" @click="databaseViewerTab = 'compositions'">Composiciones</button>
-                <button class="btn-small" :class="databaseViewerTab === 'rules' ? 'btn-primary' : 'btn-secondary'" @click="databaseViewerTab = 'rules'">Reglas</button>
-
+            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                <template x-for="table in databaseViewerTables" :key="table">
+                    <button class="btn-small"
+                            :class="databaseViewerTab === table ? 'btn-primary' : 'btn-secondary'"
+                            @click="databaseViewerTab = table"
+                            x-text="table"></button>
+                </template>
                 <input type="text" x-model="databaseViewerSearch" placeholder="Filtrar..."
-                       style="margin-left: auto; min-width: 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;" />
+                       style="margin-left: auto; min-width: 200px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;" />
                 <button class="btn-small btn-secondary" @click="loadDatabaseViewerData()">Recargar</button>
             </div>
 
-            <div style="padding: 12px 16px; overflow: auto;">
+            <div style="padding: 12px 16px; overflow: auto; flex: 1;">
                 <div x-show="databaseViewerLoading" style="padding: 12px; color: var(--secondary);">Cargando datos...</div>
 
-                <div x-show="!databaseViewerLoading && databaseViewerTab === 'items'" style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: var(--bg-light); text-align: left;">
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">ID</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Nombre</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Categoria</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Precio Base</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Comentario</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Activo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="item in filteredDatabaseItems" :key="item.ID_Item || item.Nombre">
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.ID_Item"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Nombre"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="(categoryMap[item.ID_Categoria] && categoryMap[item.ID_Categoria].Nombre) || item.ID_Categoria || '-' "></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="formatCurrency(item.Precio_Base || 0)"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Default_Glosa || '-' "></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="item.Activo ? 'Si' : 'No'"></td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
+                <div x-show="!databaseViewerLoading && databaseViewerTables.length === 0"
+                     style="padding: 24px; text-align: center; color: var(--secondary);">Sin datos cargados.</div>
 
-                <div x-show="!databaseViewerLoading && databaseViewerTab === 'categories'" style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
+                <div x-show="!databaseViewerLoading && databaseViewerTables.length > 0 && databaseViewerColumns.length > 0"
+                     style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
                         <thead>
                             <tr style="background: var(--bg-light); text-align: left;">
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">ID</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Nombre</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Activo</th>
+                                <template x-for="col in databaseViewerColumns" :key="col">
+                                    <th style="padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;"
+                                        x-text="col"></th>
+                                </template>
                             </tr>
                         </thead>
                         <tbody>
-                            <template x-for="cat in filteredDatabaseCategories" :key="cat.ID_Categoria || cat.Nombre">
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="cat.ID_Categoria"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="cat.Nombre"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="cat.Activo ? 'Si' : 'No'"></td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div x-show="!databaseViewerLoading && databaseViewerTab === 'compositions'" style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: var(--bg-light); text-align: left;">
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Item Padre</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Item Hijo</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Cantidad</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Modo Precio</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="comp in filteredDatabaseCompositions" :key="(comp.ID_Item_Padre || '-') + ':' + (comp.ID_Item_Hijo || '-') + ':' + (comp.ID_Composicion || '')">
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="((itemMap[comp.ID_Item_Padre] && itemMap[comp.ID_Item_Padre].Nombre) || comp.ID_Item_Padre || '-')"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="((itemMap[comp.ID_Item_Hijo] && itemMap[comp.ID_Item_Hijo].Nombre) || comp.ID_Item_Hijo || '-')"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="comp.Cantidad || 1"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="comp.Modo_Precio || '-' "></td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div x-show="!databaseViewerLoading && databaseViewerTab === 'rules'" style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: var(--bg-light); text-align: left;">
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">ID</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Etapa/Hook</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Accion</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Condicion</th>
-                                <th style="padding: 8px; border-bottom: 1px solid var(--border);">Payload</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="rule in filteredDatabaseRules" :key="rule.ID_Regla || rule.ID || rule.Descripcion">
-                                <tr>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="rule.ID_Regla || '-' "></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="(rule.Etapa || '-') + ' / ' + (rule.Hook || '-')"></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);" x-text="rule.Tipo_Accion || '-' "></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code x-text="prettyJson(rule.Condicion)"></code></td>
-                                    <td style="padding: 8px; border-bottom: 1px solid var(--border);"><code x-text="prettyJson(rule.Payload)"></code></td>
+                            <template x-for="(row, idx) in filteredDatabaseRows" :key="idx">
+                                <tr :style="idx % 2 === 0 ? '' : 'background: #fafafa'">
+                                    <template x-for="col in databaseViewerColumns" :key="col">
+                                        <td style="padding: 6px 10px; border-bottom: 1px solid var(--border); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                            :title="prettyJson(row[col])"
+                                            x-text="prettyJson(row[col])"></td>
+                                    </template>
                                 </tr>
                             </template>
                         </tbody>
