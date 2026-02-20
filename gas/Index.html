@@ -49,6 +49,28 @@
         <?!= include('Components_ModalCliente'); ?>
         <?!= include('Components_ModalCotizaciones'); ?>
         <?!= include('Components_DatabaseViewer'); ?>
+
+        <!-- State machine debug badge: green = XState running, yellow = fallback -->
+        <div style="position:fixed;bottom:10px;right:10px;z-index:9999;font-family:monospace;font-size:11px;">
+            <div
+                @click="$refs.stateDetail.style.display = $refs.stateDetail.style.display === 'none' ? 'block' : 'none'"
+                :style="'cursor:pointer;padding:4px 8px;border-radius:12px;color:white;background:' + (useStateMachine ? '#10b981' : '#f59e0b')"
+                :title="machineState || 'machine not running'"
+            >
+                <span x-text="useStateMachine ? '● XState' : '○ fallback'"></span>
+            </div>
+            <div x-ref="stateDetail" style="display:none;margin-top:4px;background:#1e293b;color:#e2e8f0;padding:10px;border-radius:8px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                <div style="font-weight:bold;margin-bottom:6px;color:#94a3b8;">Machine State</div>
+                <div x-text="machineState || '—'" style="color:#67e8f9;word-break:break-all;margin-bottom:8px;"></div>
+                <div style="font-weight:bold;margin-bottom:4px;color:#94a3b8;">Context</div>
+                <div style="line-height:1.8;">
+                    <span style="color:#94a3b8;">pax:</span> <span x-text="paxGlobal"></span><br>
+                    <span style="color:#94a3b8;">items:</span> <span x-text="carrito?.length ?? 0"></span><br>
+                    <span style="color:#94a3b8;">subtotal:</span> <span x-text="'$' + (totalsSnapshot?.subtotal ?? 0).toLocaleString('es-CL')"></span><br>
+                    <span style="color:#94a3b8;">total:</span> <span x-text="'$' + (totalsSnapshot?.total ?? 0).toLocaleString('es-CL')"></span>
+                </div>
+            </div>
+        </div>
     </div>
     
     <?!= include('Bundle_Runtime'); ?>
