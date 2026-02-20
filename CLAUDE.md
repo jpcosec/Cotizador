@@ -95,6 +95,22 @@ claps_codelab (v2)           ← Architecture & planning docs (THIS REPO)
 │   └── Config/
 │       └── Config_Schema.js               # 11-table schema definition (source of truth)
 │
+├── docs/                                  # Stable technical documentation
+│   ├── README.md                          # Docs index
+│   ├── ARCHITECTURE/                      # Core design documents
+│   ├── PACKAGES/                          # Per-package reference
+│   ├── BUSINESS/                          # Domain and workflow docs
+│   └── DEPLOYMENT/                        # Build and deployment guides
+│       └── local-deployment.md            # Local dev server setup
+│
+├── plan/                                  # Planning, roadmap, phase tracking
+│   ├── README.md                          # Plan index
+│   ├── PLAN.md                            # Current implementation priorities
+│   ├── FUTURE.md                          # Post-v2 ideas
+│   ├── features.md                        # Feature backlog
+│   ├── legacy-items-rule-migration-matrix.md
+│   └── PHASE3/                            # Phase 3 task files
+│
 ├── docs/legacy/                           # v1 design documents (reference only)
 └── old/                                   # v1 implementation (reference only)
     ├── SheetDB.js                         # Micro-ORM (to be replaced by Store interface)
@@ -316,6 +332,12 @@ Legacy v1 features (for context):
 
 ### Integration Questions?
 → See **[DATAFLOW_AND_CACHING_STRATEGY.md](DATAFLOW_AND_CACHING_STRATEGY.md)**
+
+### Planning & Roadmap?
+→ See **[plan/PLAN.md](plan/PLAN.md)** for current priorities, **[plan/FUTURE.md](plan/FUTURE.md)** for post-v2 ideas
+
+### Local Deployment?
+→ See **[docs/DEPLOYMENT/local-deployment.md](docs/DEPLOYMENT/local-deployment.md)**
 
 ---
 

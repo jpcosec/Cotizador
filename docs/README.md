@@ -1,46 +1,42 @@
 # Documentation Index
 
-This folder contains active technical/business docs for the merged v2 repository.
-
-## Current Focus
-
-- Phase 3 stabilization (GAS parity, frontend/xstate integration, data-boundary cleanup).
-- Build/regeneration workflow is active (`npm run build` resets and rebuilds `gas/`).
+Stable technical documentation for the CotizadorLodge v2 codebase.
+For planning, roadmap, and phase-specific content see [`../plan/`](../plan/README.md).
 
 ## Folder Guide
 
-- `ARCHITECTURE/`
-  - `database-logic.md`
-  - `legacy-items-rule-migration-matrix.md`
-  - `ui-machine-context-sync-plan.md`
-  - `state-machine.md`
-- `PACKAGES/`
-  - `database.md`
-  - `pricing.md`
-  - `xstate.md`
-  - `frontend.md`
-- `BUSINESS/`
-  - `features.md`
-  - `quotation-workflow.md`
-- `PHASE3/`
-  - `fixes.md`
-  - `checklist.md`
-  - `components.md`
-- `DEPLOYMENT/`
-  - `README.md`
-  - `LOCAL_vs_GAS.md`
-  - `gas-deployment.md`
+### ARCHITECTURE/
+Core technical decisions and design documents.
 
-## Important Root Docs
+- `database-logic.md` — Database abstraction layer (IStore, ModelFactory)
+- `rules-engine.md` — Pluggable rules engine design
+- `state-machine.md` — XState machine design and transitions
+- `ui-machine-context-sync-plan.md` — Alpine ↔ XState synchronization (implemented)
 
-- `README.md` - repo overview and commands
-- `PLAN.md` - current implementation priorities
-- `DEPLOYMENT_GUIDE.md` - local/GAS build and deployment flow
-- `changelog.md` - major changes log
+### PACKAGES/
+Per-package technical reference.
+
+- `database.md` — `@claps/database` package guide
+- `pricing.md` — `@claps/pricing` pipeline reference
+- `xstate.md` — `@claps/xstate` orchestration reference
+- `frontend.md` — `@claps/frontend` component reference
+
+### BUSINESS/
+Domain logic and workflow documentation.
+
+- `quotation-workflow.md` — End-to-end quotation flow
+
+### DEPLOYMENT/
+Build, deploy, and environment documentation.
+
+- `README.md` — Deployment overview
+- `LOCAL_vs_GAS.md` — Differences between local and GAS environments
+- `gas-deployment.md` — Google Apps Script deployment guide
+- `local-deployment.md` — Local development server setup
 
 ## Notes
 
-- Older references in some docs may still mention previous worktree-era structure; prefer root docs above for current operational truth.
 - Generated deployment files live in `gas/` and are rebuilt from package sources on each `npm run build`.
+- Older references in some docs may still mention previous worktree-era structure; prefer root docs for current operational truth.
 
-Last updated: 2026-02-19
+Last updated: 2026-02-20
