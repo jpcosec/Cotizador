@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-02-20 (session 3)
+- docs: reorganized documentation into `docs/` (stable technical) and `plan/` (planning/status/roadmap); deleted 3 stale status files (`CONSOLIDATION_SUMMARY.md`, `DEPLOYMENT_STATUS.md`, `PHASE3_COMPLETION_SUMMARY.md`), moved 7 phase/planning files to `plan/`, cleaned empty `docs/PHASE3/` dir.
+- frontend/debug: added fixed-position XState debug badge to GAS sidebar (`packages/frontend/Index.html`) showing machine state path, pax, item count, and subtotal/total; green `● XState` when bridge is active, yellow `○ fallback` otherwise; click to expand details panel.
+- tooling: replaced custom `LOCAL_DEPLOYMENT` harness with real GAS preview server — `npm run dev` (build + serve) and `npm run serve:gas` (serve only) via `tools/serve-gas.mjs` which recursively processes `<?!= include('Name'); ?>` GAS template directives from `gas/` and serves at `http://localhost:8082`. Zero custom shim divergence from production.
+- tooling: deleted `LOCAL_DEPLOYMENT.html` and `LOCAL_DEPLOYMENT_SIMPLE.html` (custom test harnesses replaced by the real GAS preview workflow).
+- docs/deployment: created `docs/DEPLOYMENT/local-development.md` as the authoritative local dev guide; deleted stale `local-deployment.md`.
+
 ### 2026-02-20 (session 2)
 - pricing/rules: added 31 Vitest tests for `humanize.js` covering `humanizeCondition` (15 cases: all comparators, AND/OR/NOT/in, null, JSON string, fallback), `humanizePayload` (12 cases: all 9 action types + unknown + JSON string), and `humanizeRule` (3 cases: compound condition, always-true, JSON string fields).
 - pricing/rules: exported `humanizeCondition`, `humanizePayload`, `humanizeRule` from `RulesEngine.js` so consumers can import them from the same entry point.

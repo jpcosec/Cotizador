@@ -52,5 +52,5 @@ npm run test:integration
 Optional local smoke run:
 
 ```bash
-npm run dev:local
+npm run dev
 ```
