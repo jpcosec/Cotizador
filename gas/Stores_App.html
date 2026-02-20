@@ -350,6 +350,17 @@ function cotizadorApp() {
             return rows;
         },
 
+        syncQuotationSettingsToMachine() {
+            if (!this.useStateMachine || !this.bridge) return;
+            if (!this.isMachineInBasket()) return;
+            this.bridge.send('UPDATE_QUOTATION_SETTINGS', {
+                paxGlobal: this.paxGlobal,
+                fechaEvento: this.fechaInicio,
+                duracionDias: this.duracionDias,
+                recalculateExistingLines: false
+            });
+        },
+
         syncClientToMachine(cli) {
             if (!this.useStateMachine || !this.bridge || !cli) return false;
             if (this.isMachineInBasket()) return true;
@@ -571,6 +582,7 @@ function cotizadorApp() {
             }
 
             if (this.useStateMachine && this.bridge) {
+                this.syncQuotationSettingsToMachine();
                 var stateItemId = item.ID_Item || item.itemId || item.id || item.nombre;
                 if (stateItemId) {
                     var comment = this.resolveItemComment(item);
@@ -578,8 +590,8 @@ function cotizadorApp() {
                         itemId: stateItemId,
                         overrides: {
                             Override_Pax: this.paxGlobal,
-                            dia: this.diaSeleccionado,
-                            hora: this.horaInicio,
+                            Dia: this.diaSeleccionado,
+                            Hora: this.horaInicio,
                             Comentarios: comment
                         }
                     });
@@ -626,6 +638,62 @@ function cotizadorApp() {
             this.carrito[idx].total = this.carrito[idx].precio * cant;
         },
 
+        getLinePax(item) {
+            if (!item) return 1;
+            var raw = item._raw || {};
+            return Number(raw.Override_Pax ?? item.cantidad ?? 1) || 1;
+        },
+
+        getLineUnits(item) {
+            if (!item) return 0;
+            var raw = item._raw || {};
+            return Number(raw.Override_Cantidad ?? item.unidades ?? 0) || 0;
+        },
+
+        getLineDuration(item) {
+            if (!item) return 0;
+            var raw = item._raw || {};
+            return Number(raw.Override_Duracion_Min ?? item.duracionMin ?? 0) || 0;
+        },
+
+        actualizarCantidadUnidades(idx, val) {
+            var units = Math.max(0, parseInt(val, 10) || 0);
+
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('UPDATE_ITEM', {
+                        lineId: lineId,
+                        overrides: { Override_Cantidad: units }
+                    });
+                    if (sent) return;
+                }
+            }
+
+            if (!this.carrito[idx]) return;
+            this.carrito[idx].unidades = units;
+            if (this.carrito[idx]._raw) this.carrito[idx]._raw.Override_Cantidad = units;
+        },
+
+        actualizarDuracionLinea(idx, val) {
+            var minutes = Math.max(0, parseInt(val, 10) || 0);
+
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('UPDATE_ITEM', {
+                        lineId: lineId,
+                        overrides: { Override_Duracion_Min: minutes }
+                    });
+                    if (sent) return;
+                }
+            }
+
+            if (!this.carrito[idx]) return;
+            this.carrito[idx].duracionMin = minutes;
+            if (this.carrito[idx]._raw) this.carrito[idx]._raw.Override_Duracion_Min = minutes;
+        },
+
         actualizarComentario(idx, val) {
             var comentario = String(val || '');
 
@@ -645,6 +713,120 @@ function cotizadorApp() {
             this.carrito[idx].Comentarios = comentario;
         },
         
+        actualizarHora(idx, hora) {
+            var horaStr = String(hora || '');
+
+            if (this.useStateMachine && this.bridge && this.carrito[idx]) {
+                var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
+                if (lineId) {
+                    var sent = this.bridge.send('UPDATE_ITEM', {
+                        lineId: lineId,
+                        overrides: { Hora: horaStr }
+                    });
+                    if (sent) return;
+                }
+            }
+
+            if (this.carrito[idx]) this.carrito[idx].hora = horaStr;
+        },
+
+        buildLineCopyPayload(item, targetDay) {
+            if (!item) return null;
+            var raw = item._raw || {};
+            var nextDay = Math.max(1, Number(targetDay) || 1);
+            return {
+                itemId: raw.ID_Item || item.ID_Item || item.id || item.nombre,
+                overrides: {
+                    Override_Pax: Number(raw.Override_Pax ?? item.cantidad ?? this.paxGlobal) || this.paxGlobal || 1,
+                    Override_Cantidad: Number(raw.Override_Cantidad ?? item.unidades ?? 0) || 0,
+                    Override_Duracion_Min: Number(raw.Override_Duracion_Min ?? item.duracionMin ?? 0) || 0,
+                    Comentarios: item.comentarios || item.Comentarios || '',
+                    Dia: nextDay,
+                    Hora: item.hora || this.horaInicio || '09:00',
+                    dia: nextDay,
+                    hora: item.hora || this.horaInicio || '09:00'
+                }
+            };
+        },
+
+        ensureDayExists(day) {
+            if (day <= this.duracionDias) return;
+            this.duracionDias = day;
+            this.generarDias();
+        },
+
+        copiarItemAlDiaSiguiente(idx) {
+            if (!this.carrito[idx]) return;
+            var source = this.carrito[idx];
+            var nextDay = (Number(source.dia) || this.diaSeleccionado || 1) + 1;
+            this.ensureDayExists(nextDay);
+
+            var payload = this.buildLineCopyPayload(source, nextDay);
+            if (!payload || !payload.itemId) return;
+
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('ADD_ITEM', payload);
+                return;
+            }
+
+            var cloned = {
+                ...source,
+                id: 'LOCAL_COPY_' + Date.now() + '_' + idx,
+                dia: nextDay,
+                fecha: this.obtenerFechaDia(nextDay),
+                hora: payload.overrides.Hora,
+                comentarios: payload.overrides.Comentarios,
+                Comentarios: payload.overrides.Comentarios,
+                cantidad: payload.overrides.Override_Pax,
+                unidades: payload.overrides.Override_Cantidad,
+                duracionMin: payload.overrides.Override_Duracion_Min,
+                _raw: {
+                    ...(source._raw || {}),
+                    Override_Pax: payload.overrides.Override_Pax,
+                    Override_Cantidad: payload.overrides.Override_Cantidad,
+                    Override_Duracion_Min: payload.overrides.Override_Duracion_Min,
+                    Dia: nextDay,
+                    Hora: payload.overrides.Hora,
+                }
+            };
+            this.carrito.push(cloned);
+        },
+
+        duplicarItemEnDia(idx) {
+            if (!this.carrito[idx]) return;
+            var source = this.carrito[idx];
+            var sameDay = Number(source.dia) || this.diaSeleccionado || 1;
+            var payload = this.buildLineCopyPayload(source, sameDay);
+            if (!payload || !payload.itemId) return;
+
+            if (this.useStateMachine && this.bridge) {
+                this.bridge.send('ADD_ITEM', payload);
+                return;
+            }
+
+            var clone = { ...source, id: 'LOCAL_DUP_' + Date.now() + '_' + idx };
+            this.carrito.push(clone);
+        },
+
+        copiarDiaCompletoAlSiguiente() {
+            var currentDay = this.diaSeleccionado || 1;
+            var nextDay = currentDay + 1;
+            var items = (this.carrito || []).filter(function(entry) {
+                return Number(entry.dia) === Number(currentDay);
+            });
+            if (!items.length) return;
+
+            this.ensureDayExists(nextDay);
+
+            for (var i = 0; i < items.length; i += 1) {
+                var item = items[i];
+                var idx = this.carrito.indexOf(item);
+                if (idx >= 0) {
+                    this.copiarItemAlDiaSiguiente(idx);
+                }
+            }
+        },
+
         eliminarItem(idx) {
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;

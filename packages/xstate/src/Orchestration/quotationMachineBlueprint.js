@@ -78,6 +78,11 @@ export const quotationMachineBlueprint = {
             // -------- Basket (Main editing state) --------
             basket: {
               on: {
+                UPDATE_QUOTATION_SETTINGS: {
+                  target: 'basket',
+                  actions: ['updateQuotationSettings'],
+                },
+
                 ADD_ITEM: {
                   target: 'basket',
                   guard: 'canMutateBasket',
@@ -233,6 +238,7 @@ export const quotationMachineAdaptersContract = {
     'captureError',
 
     // Basket mutation actions (thin adapters)
+    'updateQuotationSettings',
     'addItem',
     'updateItem',
     'removeItem',

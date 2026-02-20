@@ -10,6 +10,8 @@ Pure pricing + rules logic. No direct persistence.
 - Rules engine: `src/RulesEngine/*`
 - Uses `json-logic-js` for condition evaluation in rules.
 
+For a detailed breakdown of how the rules system works, see [docs/ARCHITECTURE/rules-engine.md](../ARCHITECTURE/rules-engine.md).
+
 ## Architectural Boundary
 
 - Pricing must not load data from DB adapters directly.

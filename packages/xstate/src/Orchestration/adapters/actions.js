@@ -299,10 +299,46 @@ export const initActions = {
 // --- Basket Mutation Actions (Thin adapters calling pricing module) ---
 
 /**
- * Add item to basket.
- * Delegates to pricing module: expandItemCompositions → resolveItemDefaults → recalculateItemPrice → applyItemRules → aggregateBasketTotals
+ * Update quotation-level settings (paxGlobal, fechaEvento, duracionDias).
+ * Default policy: recalculateExistingLines=false (no surprise repricing of existing lines).
  */
+function applyQuotationSettingsToContext(context, event) {
+  const { paxGlobal, fechaEvento, duracionDias, recalculateExistingLines = false } = event;
+  const cotizacion = { ...context.quotation.cotizacion };
+
+  if (paxGlobal !== undefined) cotizacion.Pax_Global = paxGlobal;
+  if (fechaEvento !== undefined) cotizacion.Fecha_Evento = fechaEvento;
+  if (duracionDias !== undefined) cotizacion.Duracion_Dias = duracionDias;
+
+  const quotation = {
+    ...context.quotation,
+    cotizacion,
+    ...(paxGlobal !== undefined ? { paxGlobal } : {}),
+  };
+
+  if (!recalculateExistingLines) {
+    return { quotation };
+  }
+
+  const result = fullRecalculateBasket(context.lineas, quotation, context.store);
+  return {
+    quotation,
+    lineas: result.lineas,
+    totals: result.totals,
+    messages: [...context.messages, ...result.messages],
+    errors: result.errors,
+  };
+}
+
 export const basketActions = {
+  updateQuotationSettings: assign(({ context, event }) =>
+    applyQuotationSettingsToContext(context, event)
+  ),
+
+  /**
+   * Add item to basket.
+   * Delegates to pricing module: expandItemCompositions → resolveItemDefaults → recalculateItemPrice → applyItemRules → aggregateBasketTotals
+   */
   addItem: assign(({ context, event }) => {
     const { itemId, overrides = {} } = event;
     const { store } = context;
@@ -321,6 +357,8 @@ export const basketActions = {
       Override_Cantidad: overrides.Override_Cantidad ?? null,
       Override_Duracion_Min: overrides.Override_Duracion_Min ?? null,
       Comentarios: overrideComment !== undefined ? overrideComment : defaultComment,
+      Dia: overrides.Dia ?? null,
+      Hora: overrides.Hora ?? null,
     };
 
     // Step 1: Expand compositions
@@ -381,6 +419,8 @@ export const basketActions = {
         next.Override_Duracion_Min = overrides.Override_Duracion_Min;
       if (overrides.Comentarios !== undefined)
         next.Comentarios = overrides.Comentarios;
+      if (overrides.Dia !== undefined) next.Dia = overrides.Dia;
+      if (overrides.Hora !== undefined) next.Hora = overrides.Hora;
       return next;
     });
 

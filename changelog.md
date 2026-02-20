@@ -2,7 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-02-20 (session 2)
+- pricing/rules: added 31 Vitest tests for `humanize.js` covering `humanizeCondition` (15 cases: all comparators, AND/OR/NOT/in, null, JSON string, fallback), `humanizePayload` (12 cases: all 9 action types + unknown + JSON string), and `humanizeRule` (3 cases: compound condition, always-true, JSON string fields).
+- pricing/rules: exported `humanizeCondition`, `humanizePayload`, `humanizeRule` from `RulesEngine.js` so consumers can import them from the same entry point.
+- docs/architecture: updated `docs/ARCHITECTURE/rules-engine.md` with a new "Human-Readable Rule Display" section documenting all three humanize functions with input/output examples.
+- docs/architecture: updated `docs/ARCHITECTURE/ui-machine-context-sync-plan.md` status header from "proposal only (not implemented)" to "IMPLEMENTED (Feb 2026)" with references to the actual implementation files.
+- build: regenerated `dist/quotation-engine.iife.js` (198KB, 46.3KB gzipped); verified clean build.
+
+### 2026-02-20
+- xstate/sync-fix: added `UPDATE_QUOTATION_SETTINGS` event in `quotation.basket.on` with `updateQuotationSettings` action that persists `paxGlobal`, `Pax_Global`, `Fecha_Evento`, and `Duracion_Dias` into machine context; default policy `recalculateExistingLines=false` leaves existing line totals untouched.
+- xstate/sync-fix: extended `addItem` to store `overrides.Dia` and `overrides.Hora` on the created basket line; extended `updateItem` to accept and persist `overrides.Dia` and `overrides.Hora` without disturbing other line fields.
+- frontend/sync-fix: added `syncQuotationSettingsToMachine()` in `Stores_App.html` to emit `UPDATE_QUOTATION_SETTINGS` with current UI values; called defensively before `ADD_ITEM` and wired to `fechaInicio`/`duracionDias` `@change` in `Components_Timeline.html`.
+- frontend/sync-fix: added `actualizarHora(idx, hora)` in `Stores_App.html` and wired the timeline time input `@change` to it, routing hour edits through `UPDATE_ITEM` so line `Hora` is persisted in machine context.
+- xstate/tests: added `tests/integration/quotation_settings_sync.test.js` with 14 tests covering paxGlobal/fechaEvento/duracionDias persistence across snapshots, Dia/Hora round-trips via ADD_ITEM/UPDATE_ITEM, survival through add/remove cycles, and recalculation policy (false=stable, true=recomputed).
+
 ### 2026-02-19
+- frontend/timeline-layout: redesigned expanded timeline item body into a compact 3-column layout (controls, comments, icon-only actions), added per-line copy actions (duplicate + copy to next day), and added global "copy day to next day" action in the timeline toolbar.
+- docs/state-sync: added `docs/ARCHITECTURE/ui-machine-context-sync-plan.md` with root-cause analysis and implementation proposal to persist quotation settings (`paxGlobal`, `fechaInicio`, `duracionDias`) and line scheduling fields (`Dia`, `Hora`) into XState context.
 - frontend/ux: redesigned client selector modal with keyboard-friendly result navigation and preview panel, added dedicated quotations browser modal with filters/actions, replaced prompt-based load flow, and wired quotation list loading from machine cache/store in `Stores_App.html`.
 - database/init: updated `cleanAllTables()` to delete/recreate only schema-managed tabs (matching table names) and preserve non-schema spreadsheet tabs; keeps single-sheet safety behavior by clearing when required.
 - data/rules-migration: implemented automatic extraction in `packages/database/src/csvSeed.js` from legacy `Cotizador - Items.csv` to generated `REGLAS_NEGOCIO` seed rows (min/max pax `ERROR` constraints + hybrid price expression `WARNING` metadata), and regenerated `data/init/REGLAS_NEGOCIO.csv` with valid JSON payload/conditions.

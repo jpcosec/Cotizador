@@ -1,5 +1,6 @@
 import jsonLogic from 'json-logic-js';
 import { getActionHandler } from './actions/index.js';
+export { humanizeCondition, humanizePayload, humanizeRule } from './humanize.js';
 
 // Self-register all actions on import
 import './actions/multiply.js';

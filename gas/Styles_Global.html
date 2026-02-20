@@ -214,22 +214,104 @@
     .accordion-body {
         background: #f8fafc;
         border-top: 1px solid var(--border);
-        padding: 15px;
+        padding: 12px;
     }
-    
-    .accordion-controls {
-        display: flex; gap: 10px; align-items: flex-end;
+
+    .accordion-layout {
+        display: grid;
+        grid-template-columns: 220px 1fr 34px;
+        gap: 18px;
+        align-items: start;
     }
-    .control-group { flex: 1; }
+    .accordion-col-left,
+    .accordion-col-middle,
+    .accordion-col-actions {
+        background: transparent;
+        border: none;
+        padding: 0;
+    }
+    .accordion-col-left {
+        display: grid;
+        gap: 8px;
+    }
+    .accordion-col-middle {
+        min-width: 0;
+    }
+    .accordion-col-actions {
+        width: 34px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+    }
+    .control-group { width: 100%; }
     .control-group label { display: block; font-size: 0.75rem; color: var(--secondary); margin-bottom: 3px; }
     .control-group input { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
 
-    .btn-delete {
-        background: white; border: 1px solid #ef4444; color: #ef4444;
-        padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
-        height: 34px; 
+    .line-price-box {
+        margin-top: 2px;
+        background: var(--primary-light);
+        border: 1px solid #bfdbbe;
+        border-radius: 8px;
+        padding: 7px 8px;
     }
-    .btn-delete:hover { background: #fee2e2; }
+    .line-price-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.78rem;
+        color: var(--secondary);
+        margin-bottom: 2px;
+    }
+    .line-price-row strong {
+        color: var(--text);
+        font-size: 0.83rem;
+    }
+
+    .line-comment-input {
+        width: 100%;
+        min-height: 108px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 0.9rem;
+        resize: vertical;
+    }
+
+    .icon-action {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid #d6dee6;
+        background: white;
+        color: var(--secondary);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+    .icon-action:hover {
+        background: #f1f5f9;
+    }
+    .icon-action.danger {
+        border-color: #fecaca;
+        color: #ef4444;
+        background: #fff5f5;
+    }
+    .icon-action.danger:hover { background: #fee2e2; }
+
+    @media (max-width: 980px) {
+        .accordion-layout {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .accordion-col-actions {
+            width: auto;
+            flex-direction: row;
+            justify-content: flex-end;
+        }
+    }
 
     /* Barra de totales flotante abajo */
     .summary-bar {
