@@ -145,6 +145,28 @@
                 <div class="data-display">Initializing XState machine with InMemoryStore...</div>
             </div>
 
+            <div id="liveStatePanel" style="margin-top: 24px; border-top: 2px solid #eee; padding-top: 20px; display:none;">
+                <h3>📊 Live Machine State</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:12px;">
+                    <div>
+                        <div style="font-size:11px;color:#999;text-transform:uppercase;margin-bottom:4px;">Current State</div>
+                        <div id="liveStateValue" style="font-family:monospace;font-size:14px;font-weight:600;color:#667eea;background:#f0f0ff;padding:8px 12px;border-radius:6px;word-break:break-all;">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:#999;text-transform:uppercase;margin-bottom:4px;">Quotation</div>
+                        <div id="liveQuotationInfo" style="font-size:13px;line-height:1.8;">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:#999;text-transform:uppercase;margin-bottom:4px;">Totals</div>
+                        <div id="liveTotals" style="font-size:13px;line-height:1.8;">—</div>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;color:#999;text-transform:uppercase;margin-bottom:4px;">Items in Basket (<span id="liveItemCount">0</span>)</div>
+                        <div id="liveLineas" style="font-size:12px;font-family:monospace;max-height:120px;overflow-y:auto;">—</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="debugPanel" style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
                 <h3>🔍 Debug Controls</h3>
                 <div class="controls">
@@ -215,45 +237,48 @@ function initializeApp() {
     }
 
     // ============================================================
-    // 2. SETUP ALPINE.JS INTEGRATION
+    // 2. LIVE STATE PANEL
     // ============================================================
-    document.addEventListener('alpine:init', () => {
-        window.Alpine.data('cotizador', function() {
-            return {
-                actor: actor,
-                state: actor?.getSnapshot() || {},
-                context: actor?.getSnapshot()?.context || {},
-                lineas: [],
-                totals: { subtotal: 0, taxes: [], total: 0 },
+    function stateValueToString(value) {
+        if (typeof value === 'string') return value;
+        if (!value || typeof value !== 'object') return String(value);
+        return Object.entries(value)
+            .map(([region, child]) => `${region}: ${stateValueToString(child)}`)
+            .join('  |  ');
+    }
 
-                init() {
-                    if (!actor) return;
+    function updateLivePanel(snapshot) {
+        const ctx = snapshot.context || {};
+        const cotizacion = ctx.quotation?.cotizacion || {};
 
-                    // Subscribe to state changes
-                    actor.subscribe((snapshot) => {
-                        this.state = snapshot;
-                        this.context = snapshot.context || {};
-                        this.lineas = snapshot.context?.lineas || [];
-                        this.totals = snapshot.context?.totals || { subtotal: 0, taxes: [], total: 0 };
-                        this.updateUI();
-                    });
+        document.getElementById('liveStatePanel').style.display = 'block';
+        document.getElementById('liveStateValue').textContent = stateValueToString(snapshot.value);
 
-                    this.updateUI();
-                },
+        document.getElementById('liveQuotationInfo').innerHTML =
+            `ID: <b>${cotizacion.ID_Cotizacion || ctx.cotizacionId || '—'}</b><br>` +
+            `Cliente: <b>${cotizacion.ID_Cliente || ctx.clienteId || '—'}</b><br>` +
+            `Pax: <b>${ctx.quotation?.paxGlobal ?? ctx.paxGlobal ?? '—'}</b>`;
 
-                dispatch(event) {
-                    if (!actor) return;
-                    console.log('Dispatching:', event);
-                    actor.send(event);
-                },
+        const t = ctx.totals || {};
+        const taxes = (t.taxes || []).map(tx => `${tx.name || 'Tax'}: $${(tx.amount || 0).toLocaleString('es-CL')}`).join('<br>');
+        document.getElementById('liveTotals').innerHTML =
+            `Subtotal: <b>$${(t.subtotal || 0).toLocaleString('es-CL')}</b><br>` +
+            (taxes ? taxes + '<br>' : '') +
+            `Total: <b>$${(t.total || 0).toLocaleString('es-CL')}</b>`;
 
-                updateUI() {
-                    document.getElementById('paxCount').textContent = this.context.paxGlobal || 0;
-                    document.getElementById('cotizacionId').textContent = this.context.cotizacionId || '-';
-                }
-            };
-        });
-    });
+        const lineas = (ctx.lineas || []).filter(l => !l._removed);
+        document.getElementById('liveItemCount').textContent = lineas.length;
+        document.getElementById('liveLineas').innerHTML = lineas.length === 0
+            ? '<span style="color:#999">empty basket</span>'
+            : lineas.map(l => `• ${(l._item?.Nombre_Item || l.ID_Item || l.id || '?')} — $${(l._netoAjustado || l._netoBase || 0).toLocaleString('es-CL')}`).join('<br>');
+
+        // Also sync status bar
+        document.getElementById('paxCount').textContent = ctx.quotation?.paxGlobal ?? ctx.paxGlobal ?? '—';
+        document.getElementById('cotizacionId').textContent = cotizacion.ID_Cotizacion || ctx.cotizacionId || '—';
+    }
+
+    updateLivePanel(actor.getSnapshot());
+    actor.subscribe(updateLivePanel);
 
     // ============================================================
     // 3. EXPOSE TEST FUNCTIONS
@@ -261,7 +286,7 @@ function initializeApp() {
     window.testAddItem = async function() {
         if (!actor) { alert('Actor not initialized'); return; }
         console.log('Adding item: ITEM_CHINOOK');
-        actor.send({ type: 'ADD_ITEM_TO_BASKET', itemId: 'ITEM_CHINOOK' });
+        actor.send({ type: 'ADD_ITEM', itemId: 'ITEM_CHINOOK' });
     };
 
     window.testChangePax = async function() {
@@ -269,7 +294,7 @@ function initializeApp() {
         const newPax = prompt('Enter new pax count:', '50');
         if (!newPax) return;
         console.log('Changing pax to:', newPax);
-        actor.send({ type: 'CHANGE_PAX', paxGlobal: parseInt(newPax) });
+        actor.send({ type: 'UPDATE_QUOTATION_SETTINGS', paxGlobal: parseInt(newPax) });
     };
 
     window.testViewState = function() {
@@ -312,7 +337,7 @@ Value: ${snap.value}<br>
         const output = `
 <strong>Pricing Totals:</strong><br>
 - Subtotal: $${(totals.subtotal || 0).toLocaleString()}<br>
-- Taxes: ${(totals.taxes || []).map(t => \`\${t.name}: \${(t.amount || 0).toLocaleString()}\`).join(', ') || 'None'}<br>
+- Taxes: ${(totals.taxes || []).map(t => `${t.name}: ${(t.amount || 0).toLocaleString()}`).join(', ') || 'None'}<br>
 - Total: $${(totals.total || 0).toLocaleString()}<br>
 <br>
 <strong>Full Totals Object:</strong><br>
