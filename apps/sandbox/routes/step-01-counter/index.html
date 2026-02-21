@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Step 01 Counter</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
-  <style>
-    body { font-family: sans-serif; margin: 2rem; }
-    button { margin-right: 0.5rem; }
-  </style>
+  <link rel="stylesheet" href="/packages/components/common/styles/claps-global.css" />
 </head>
-<body>
-  <p><a href="/">Back</a></p>
-  <main id="app">Loading counter...</main>
+<body class="sandbox-page">
+  <main class="sandbox-shell">
+    <p><a class="btn btn-small btn-secondary" href="/">Back</a></p>
+    <main id="app">Loading counter...</main>
+  </main>
 
   <script type="module">
     import { mountCounterBasic } from '/packages/components/counter-basic/logic/createCounterBasicComponent.js';

@@ -4,26 +4,26 @@
   <article>
     <h3>Global</h3>
     <p>global: <strong x-text="globalCount"></strong></p>
-    <button type="button" @click="decrementGlobal()">global -1</button>
-    <button type="button" @click="incrementGlobal()">global +1</button>
-    <button type="button" @click="resetGlobal()">global reset</button>
+    <button class="btn-small btn-secondary" type="button" @click="decrementGlobal()">global -1</button>
+    <button class="btn-small btn-primary" type="button" @click="incrementGlobal()">global +1</button>
+    <button class="btn-small btn-secondary" type="button" @click="resetGlobal()">global reset</button>
   </article>
 
   <article>
     <h3>Child A</h3>
     <p>local A: <strong x-text="localA"></strong></p>
     <p>global + local A: <strong x-text="totalA"></strong></p>
-    <button type="button" @click="decrementA()">A -1</button>
-    <button type="button" @click="incrementA()">A +1</button>
-    <button type="button" @click="resetA()">A reset</button>
+    <button class="btn-small btn-secondary" type="button" @click="decrementA()">A -1</button>
+    <button class="btn-small btn-primary" type="button" @click="incrementA()">A +1</button>
+    <button class="btn-small btn-secondary" type="button" @click="resetA()">A reset</button>
   </article>
 
   <article>
     <h3>Child B</h3>
     <p>local B: <strong x-text="localB"></strong></p>
     <p>global + local B: <strong x-text="totalB"></strong></p>
-    <button type="button" @click="decrementB()">B -1</button>
-    <button type="button" @click="incrementB()">B +1</button>
-    <button type="button" @click="resetB()">B reset</button>
+    <button class="btn-small btn-secondary" type="button" @click="decrementB()">B -1</button>
+    <button class="btn-small btn-primary" type="button" @click="incrementB()">B +1</button>
+    <button class="btn-small btn-secondary" type="button" @click="resetB()">B reset</button>
   </article>
 </section>
