@@ -1,0 +1,82 @@
+<section x-data="itemStandaloneComponent()" x-init="init()">
+  <h2>Step 03 - Item Standalone (no DB)</h2>
+
+  <article>
+    <h3>Definition</h3>
+    <p><strong x-text="state.definition.name"></strong></p>
+    <p>Category: <span x-text="state.definition.category"></span></p>
+    <p x-text="state.definition.description"></p>
+    <p>Pricing profile: <strong x-text="state.pricingHuman"></strong></p>
+  </article>
+
+  <article>
+    <h3>Mode</h3>
+    <button type="button" @click="setMode('catalog')">catalog</button>
+    <button type="button" @click="setMode('basket')">basket</button>
+    <p>Current mode: <strong x-text="state.mode"></strong></p>
+  </article>
+
+  <article>
+    <h3>External context</h3>
+    <label>
+      pax global
+      <input type="number" :value="state.externalContext.paxGlobal" @input="setExternalNumber('paxGlobal', $event.target.value)" />
+    </label>
+    <label>
+      duracion global (min)
+      <input type="number" :value="state.externalContext.duracionMin" @input="setExternalNumber('duracionMin', $event.target.value)" />
+    </label>
+    <label>
+      dia
+      <input type="number" :value="state.externalContext.dia" @input="setExternalNumber('dia', $event.target.value)" />
+    </label>
+    <label>
+      hora
+      <input type="time" :value="state.externalContext.hora" @input="setExternalText('hora', $event.target.value)" />
+    </label>
+  </article>
+
+  <article>
+    <h3>Overrides</h3>
+    <label>
+      pax override
+      <input type="number" :value="state.overrides.pax ?? ''" @input="setOverrideNumber('pax', $event.target.value)" />
+    </label>
+    <label>
+      cantidad override
+      <input type="number" :value="state.overrides.cantidad ?? ''" @input="setOverrideNumber('cantidad', $event.target.value)" />
+    </label>
+    <label>
+      duracion override (min)
+      <input type="number" :value="state.overrides.duracionMin ?? ''" @input="setOverrideNumber('duracionMin', $event.target.value)" />
+    </label>
+    <label>
+      dia override
+      <input type="number" :value="state.overrides.dia ?? ''" @input="setOverrideNumber('dia', $event.target.value)" />
+    </label>
+    <label>
+      hora override
+      <input type="time" :value="state.overrides.hora ?? ''" @input="setOverrideText('hora', $event.target.value)" />
+    </label>
+    <div>
+      <button type="button" @click="resetOverrides()">reset overrides</button>
+    </div>
+  </article>
+
+  <article>
+    <h3>Resolved state</h3>
+    <p>available: <strong x-text="state.available ? 'yes' : 'no'"></strong></p>
+    <p>pax: <strong x-text="state.quantities.pax"></strong></p>
+    <p>cantidad: <strong x-text="state.quantities.cantidad"></strong></p>
+    <p>duracion: <strong x-text="state.quantities.duracionMin"></strong> min</p>
+    <p>schedule: dia <strong x-text="state.schedule.dia"></strong> - hora <strong x-text="state.schedule.hora"></strong></p>
+    <p>precio unit display: <strong x-text="state.unitDisplay"></strong></p>
+    <p>total: <strong x-text="state.total"></strong></p>
+    <p>rules: <span x-text="state.appliedRules.join(' | ') || 'none'"></span></p>
+  </article>
+
+  <article>
+    <h3>Machine snapshot</h3>
+    <pre x-text="prettyState()"></pre>
+  </article>
+</section>

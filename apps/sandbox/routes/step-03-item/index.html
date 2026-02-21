@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Step 03 Item Standalone</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    article { border: 1px solid #d0d0d0; margin-bottom: 1rem; padding: 1rem; }
+    label { display: block; margin-bottom: 0.5rem; }
+    input { margin-left: 0.5rem; }
+    pre { background: #f7f7f7; padding: 0.8rem; overflow: auto; }
+  </style>
+</head>
+<body>
+  <p><a href="/">Back</a></p>
+  <main id="app">Loading item module...</main>
+
+  <script type="module">
+    import { mountItemStandalone } from '/packages/components/item/logic/createItemStandaloneComponent.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const root = document.getElementById('app');
+      await mountItemStandalone(root);
+    });
+  </script>
+</body>
+</html>

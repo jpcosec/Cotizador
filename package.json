@@ -1,23 +1,8 @@
 {
-  "name": "claps-codelab-bundler",
+  "name": "claps-codelab-rebuild-components",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run build:bundle && npm run build:gas",
-    "build:bundle": "rollup -c rollup.config.mjs",
-    "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
-    "dev": "npm run build && npm run serve:gas",
-    "build:watch": "rollup -c rollup.config.mjs -w",
-    "serve:gas": "node tools/serve-gas.mjs",
-    "test:integration": "node --test bundling/tests",
-    "validate:local": "npm run build && npm run test:integration"
-  },
-  "dependencies": {
-    "json-logic-js": "^2.0.5"
-  },
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.0",
-    "@rollup/plugin-node-resolve": "^16.0.0",
-    "rollup": "^4.34.0"
+    "serve:sandbox": "node tools/serve-sandbox.mjs"
   }
 }

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Step 01 Counter</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    button { margin-right: 0.5rem; }
+  </style>
+</head>
+<body>
+  <p><a href="/">Back</a></p>
+  <main id="app">Loading counter...</main>
+
+  <script type="module">
+    import { mountCounterBasic } from '/packages/components/counter-basic/logic/createCounterBasicComponent.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const root = document.getElementById('app');
+      await mountCounterBasic(root);
+    });
+  </script>
+</body>
+</html>

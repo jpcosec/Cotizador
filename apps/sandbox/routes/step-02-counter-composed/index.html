@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Step 02 Counter Composed</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    article { border: 1px solid #d0d0d0; padding: 1rem; margin-bottom: 1rem; }
+    button { margin-right: 0.4rem; margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+  <p><a href="/">Back</a></p>
+  <main id="app">Loading composed counters...</main>
+
+  <script type="module">
+    import { mountCounterComposed } from '/packages/components/counter-composed/logic/createCounterComposedComponent.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const root = document.getElementById('app');
+      await mountCounterComposed(root);
+    });
+  </script>
+</body>
+</html>

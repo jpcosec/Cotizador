@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+const sandboxDir = path.join(rootDir, 'apps', 'sandbox');
+const routesDir = path.join(sandboxDir, 'routes');
+const port = Number(process.env.PORT || 8090);
+
+const mimeByExt = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8'
+};
+
+function normalizePath(rawPath) {
+  return String(rawPath || '/').split('?')[0].split('#')[0];
+}
+
+function safeJoin(base, rel) {
+  const resolved = path.normalize(path.join(base, rel));
+  if (!resolved.startsWith(base)) return null;
+  return resolved;
+}
+
+function resolveTarget(reqPath) {
+  if (reqPath === '/' || reqPath === '/index.html') {
+    return path.join(sandboxDir, 'index.html');
+  }
+
+  if (reqPath === '/step-01-counter' || reqPath === '/step-01-counter/') {
+    return path.join(routesDir, 'step-01-counter', 'index.html');
+  }
+
+  if (reqPath === '/step-02-counter-composed' || reqPath === '/step-02-counter-composed/') {
+    return path.join(routesDir, 'step-02-counter-composed', 'index.html');
+  }
+
+  if (reqPath === '/step-03-item' || reqPath === '/step-03-item/') {
+    return path.join(routesDir, 'step-03-item', 'index.html');
+  }
+
+  if (reqPath.startsWith('/packages/')) {
+    return safeJoin(rootDir, reqPath.slice(1));
+  }
+
+  return null;
+}
+
+function send(res, status, body, contentType = 'text/plain; charset=utf-8') {
+  res.writeHead(status, { 'Content-Type': contentType });
+  res.end(body);
+}
+
+const server = http.createServer((req, res) => {
+  const reqPath = normalizePath(req.url);
+  const target = resolveTarget(reqPath);
+
+  if (!target) {
+    send(res, 404, `Not found: ${reqPath}`);
+    return;
+  }
+
+  if (!fs.existsSync(target)) {
+    send(res, 404, `Missing file: ${target}`);
+    return;
+  }
+
+  const ext = path.extname(target).toLowerCase();
+  const contentType = mimeByExt[ext] || 'application/octet-stream';
+
+  fs.readFile(target, (err, data) => {
+    if (err) {
+      send(res, 500, `Read error: ${err.message}`);
+      return;
+    }
+    send(res, 200, data, contentType);
+  });
+});
+
+server.listen(port, () => {
+  console.log(`Sandbox server: http://localhost:${port}`);
+  console.log('Open /step-01-counter, /step-02-counter-composed, /step-03-item');
+});

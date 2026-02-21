@@ -1,0 +1,11 @@
+<section x-data="counterBasicComponent()" x-init="init()">
+  <h2>Step 01 - Counter Basic</h2>
+  <p>Machine state: <code x-text="state"></code></p>
+  <p>Count: <strong x-text="count"></strong></p>
+
+  <div>
+    <button type="button" @click="decrement()">-1</button>
+    <button type="button" @click="increment()">+1</button>
+    <button type="button" @click="reset()">reset</button>
+  </div>
+</section>
