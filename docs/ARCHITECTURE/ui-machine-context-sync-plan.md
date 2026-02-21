@@ -1,9 +1,17 @@
 # UI <-> Machine Context Sync Plan
 
 Status: IMPLEMENTED (Feb 2026). All events, actions, and frontend handlers complete.
-See: packages/xstate/src/Orchestration/quotationMachineBlueprint.js (UPDATE_QUOTATION_SETTINGS event)
-     packages/xstate/src/Orchestration/adapters/actions.js (updateQuotationSettings action)
-     packages/frontend/Stores_App.html (syncQuotationSettingsToMachine, actualizarHora)
+
+**Phase B & C Updates (Feb 21, 2026):** Domain model integration complete.
+- `context.catalog` and `context.basket` now available in machine context
+- `AlpineXStateBridge` reads `basket.toDisplayObject()` when available
+- Backward-compat dual-write ensures existing 79 xstate tests continue to pass
+- See: `packages/domain/src/` (553/553 tests passing), `packages/xstate/tests/` (79/79 passing)
+
+Original implementation references:
+- packages/xstate/src/Orchestration/quotationMachineBlueprint.js (UPDATE_QUOTATION_SETTINGS event)
+- packages/xstate/src/Orchestration/adapters/actions.js (updateQuotationSettings action + Phase B dual-write)
+- packages/frontend/src/Bridge/AlpineXStateBridge.js (Phase C domain basket support)
 
 ## Goal
 

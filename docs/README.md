@@ -12,6 +12,7 @@ Core technical decisions and design documents.
 - `rules-engine.md` — Pluggable rules engine design
 - `state-machine.md` — XState machine design and transitions
 - `ui-machine-context-sync-plan.md` — Alpine ↔ XState synchronization (implemented)
+- `frontend-state-ownership-audit.md` — Alpine vs XState ownership matrix and migration target
 
 ### PACKAGES/
 Per-package technical reference.
@@ -39,4 +40,4 @@ Build, deploy, and environment documentation.
 - Generated deployment files live in `gas/` and are rebuilt from package sources on each `npm run build`.
 - Older references in some docs may still mention previous worktree-era structure; prefer root docs for current operational truth.
 
-Last updated: 2026-02-20
+Last updated: 2026-02-21

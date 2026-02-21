@@ -11,6 +11,10 @@ export const quotationMachineBlueprint = {
     // Shared across all states
     previousQuotations: [],
 
+    // Domain model (Phase B)
+    catalog: null,       // Catalog instance (loaded at INIT)
+    basket: null,        // Basket instance (created/updated as quotation progresses)
+
     // Quotation context (used in quotation_workflow)
     quotation: null,
     lineas: [],
@@ -35,6 +39,7 @@ export const quotationMachineBlueprint = {
       states: {
         // -------- Browse Hub --------
         browse: {
+          entry: ['initCatalog'],
           on: {
             VIEW_PREVIOUS_QUOTATIONS: { actions: ['listPreviousQuotations'] },
             START_NEW_QUOTATION: { target: 'quotation.initialize' },

@@ -1,5 +1,7 @@
 # Rules Engine
 
+**NOTA (Feb 2026):** El Modelo de Dominio (Phase B) encapsula la ejecución de reglas dentro de `Item.evaluate Rules()` y `Basket.totals`. Ver `packages/domain/` para la nueva implementación. Este documento describe el motor subyacente que el dominio utiliza.
+
 ## Overview
 
 The Rules Engine is a data-driven, pipeline-aware system that applies business logic during quotation pricing. Rules are stored in the `REGLAS_NEGOCIO` table and are evaluated at runtime against line items and basket context. Each rule has a condition (JSON Logic), an action type, and a payload — making the system configurable without code changes.

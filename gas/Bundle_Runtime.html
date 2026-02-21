@@ -113,7 +113,14 @@ var QuotationEngine = (function (exports) {
       }
 
       if (this.opts.syncLineasAsCarrito) {
-        this.alpineStore.carrito = this.mapLineasToCarrito(context.lineas || [], context.quotation);
+        // Phase C: Use domain basket if available, otherwise fall back to pricing pipeline
+        if (context.basket && typeof context.basket.toDisplayObject === 'function') {
+          const displayObj = context.basket.toDisplayObject();
+          this.alpineStore.carrito = this.mapDaysToCarrito(displayObj.days || []);
+          this.alpineStore.totalsSnapshot = cloneValue(displayObj.totals || context.totals);
+        } else {
+          this.alpineStore.carrito = this.mapLineasToCarrito(context.lineas || [], context.quotation);
+        }
       }
     }
 
@@ -144,6 +151,34 @@ var QuotationEngine = (function (exports) {
             _raw: linea,
           };
         });
+    }
+
+    /**
+     * Maps domain basket display structure (days[] with items) to carrito format.
+     * Used by Phase C bridge when basket is available.
+     */
+    mapDaysToCarrito(days) {
+      const carrito = [];
+      for (const day of days || []) {
+        for (const item of day.items || []) {
+          carrito.push({
+            id: item.id,
+            nombre: item.nombre,
+            categoria: item.categoria || 'General',
+            precio: item.precio,
+            cantidad: item.cantidad,
+            dia: item.dia,
+            hora: item.hora,
+            comentarios: item.comentarios || '',
+            Comentarios: item.comentarios || '',
+            total: item.total,
+            lineId: item.lineId,
+            pax: item.pax,
+            available: item.available !== false,
+          });
+        }
+      }
+      return carrito;
     }
   }
 
@@ -3684,6 +3719,10 @@ var QuotationEngine = (function (exports) {
       // Shared across all states
       previousQuotations: [],
 
+      // Domain model (Phase B)
+      catalog: null,       // Catalog instance (loaded at INIT)
+      basket: null,        // Basket instance (created/updated as quotation progresses)
+
       // Quotation context (used in quotation_workflow)
       quotation: null,
       lineas: [],
@@ -3708,6 +3747,7 @@ var QuotationEngine = (function (exports) {
         states: {
           // -------- Browse Hub --------
           browse: {
+            entry: ['initCatalog'],
             on: {
               VIEW_PREVIOUS_QUOTATIONS: { actions: ['listPreviousQuotations'] },
               START_NEW_QUOTATION: { target: 'quotation.initialize' },
@@ -3950,6 +3990,1410 @@ var QuotationEngine = (function (exports) {
       context.lineas.length > 0 &&
       !context.errors.some(e => e.blocking),
   };
+
+  /**
+   * Prizable mixin — adds quantity resolution and price calculation to Item classes.
+   *
+   * Usage: class Foo extends Prizable(Base) { ... }
+   *
+   * Three user-settable quantities: pax, cantidad, duracion.
+   * Each has a paired isUserSet boolean. When isUserSet = true, the value
+   * is never overwritten by container context or item defaults.
+   *
+   * Resolution order (lowest to highest priority):
+   *   itemRuleDefault → containerRuleOutput → userValue
+   *
+   * pricingFn is injected: (profile, pax, cantidad, duracion) => number
+   * This keeps the mixin decoupled from the pricing package import.
+   */
+  function Prizable(Base) {
+    return class extends Base {
+      pax = null;
+      paxIsUserSet = false;
+      cantidad = null;
+      cantidadIsUserSet = false;
+      duracion = null;
+      duracionIsUserSet = false;
+      _profile = null;
+      _price = null;
+      _defaultPax = null;
+      _defaultCantidad = null;
+      _defaultDuracion = null;
+      _pricingFn = null;
+
+      resolveQuantities(containerContext = {}) {
+        if (!this.paxIsUserSet) {
+          this.pax = containerContext.pax ?? this._defaultPax ?? null;
+        }
+        if (!this.cantidadIsUserSet) {
+          this.cantidad = containerContext.cantidad ?? this._defaultCantidad ?? null;
+        }
+        if (!this.duracionIsUserSet) {
+          this.duracion = containerContext.duracion ?? this._defaultDuracion ?? null;
+        }
+      }
+
+      calculatePrice() {
+        if (!this._profile || !this._pricingFn) {
+          this._price = null;
+          return;
+        }
+        this._price = this._pricingFn(this._profile, this.pax, this.cantidad, this.duracion);
+      }
+
+      get displayPrice() {
+        if (this._price == null) return 0;
+        const divisor = this.pax || 1;
+        return Math.round(this._price / divisor);
+      }
+
+      get total() {
+        return this._price ?? 0;
+      }
+    };
+  }
+
+  /**
+   * Rulable mixin — adds rule evaluation to any class.
+   *
+   * Usage: class Foo extends Rulable(Base) { ... }
+   *
+   * The evaluator is injected (not imported) so this mixin stays testable
+   * without a store. Concrete classes inject the real evaluator from RulesEngine.
+   *
+   * evaluator signature: (rule, context) => result | null
+   * result must have at least { delta, description }. null = condition did not pass.
+   *
+   * Acumulable = false on a rule stops further rule processing after first match.
+   */
+  function Rulable(Base) {
+    return class extends Base {
+      _rules = [];
+      _appliedRules = [];
+      _inheritedContext = {};
+
+      receiveContext(ctx) {
+        this._inheritedContext = { ...this._inheritedContext, ...ctx };
+        return this;
+      }
+
+      evaluateRules(evaluator) {
+        this._appliedRules = [];
+        for (const rule of this._rules) {
+          if (!rule.Activo) continue;
+          const result = evaluator(rule, this._buildRuleContext());
+          if (result) {
+            this._appliedRules.push({ ruleId: rule.ID_Regla, ...result });
+            if (!rule.Acumulable) break;
+          }
+        }
+        return this._appliedRules;
+      }
+
+      // Subclasses override this to provide context for rule conditions.
+      _buildRuleContext() {
+        return { ...this._inheritedContext };
+      }
+    };
+  }
+
+  /**
+   * XStateable mixin — thin wrapper for XState actor communication.
+   *
+   * Usage: class Foo extends XStateable(Base) { ... }
+   *
+   * Domain objects can hold a reference to the XState actor ref
+   * so they can send events back to the machine when needed.
+   * The actor ref is optional — classes work fine without one.
+   */
+  function XStateable(Base) {
+    return class extends Base {
+      _actorRef = null;
+
+      setActorRef(ref) {
+        this._actorRef = ref;
+        return this;
+      }
+
+      sendEvent(type, payload = {}) {
+        if (this._actorRef && typeof this._actorRef.send === 'function') {
+          this._actorRef.send({ type, ...payload });
+        }
+      }
+
+      get hasActorRef() {
+        return this._actorRef !== null;
+      }
+    };
+  }
+
+  /**
+   * Alpineable mixin — enforces the toDisplayObject() contract for Alpine.js reactivity.
+   *
+   * Usage: class Foo extends Alpineable(Base) { ... }
+   *
+   * Subclasses MUST implement toDisplayObject() to return a plain object
+   * suitable for Alpine store assignment. The base implementation throws
+   * to catch missing implementations early.
+   */
+  function Alpineable(Base) {
+    return class extends Base {
+      toDisplayObject() {
+        throw new Error(
+          `${this.constructor.name} must implement toDisplayObject()`
+        );
+      }
+    };
+  }
+
+  /**
+   * ItemBase — abstract base for Item (leaf nodes in the domain tree).
+   *
+   * Mixins composed: Prizable + Rulable + XStateable + Alpineable
+   *
+   * Items:
+   * - Calculate their own price via calculate()
+   * - Receive context from parent container (via receiveContext from Rulable)
+   * - Can be in catalog state (ID_Linea = null) or basket state (ID_Linea set)
+   * - Never hold a store reference — all data injected at construction
+   *
+   * Mixin order matters: Prizable → Rulable → XStateable → Alpineable
+   * This ensures proper method resolution and interface satisfaction.
+   */
+  const ItemMixin = (Base) => Prizable(Rulable(XStateable(Alpineable(Base))));
+
+  class ItemBase extends ItemMixin(class {}) {
+    // ── Core identity ───────────────────────────────────────────────
+    ID_Item = null;
+    Nombre = null;
+    ID_Categoria = null;
+    Activo = true;
+    _available = true;   // rule-computed availability (separate from Activo)
+
+    // ── Basket state ────────────────────────────────────────────────
+    ID_Linea = null;     // null = catalog state
+    Dia = null;
+    Hora = null;
+    Comentarios = null;
+
+    // ── Kit support ─────────────────────────────────────────────────
+    isKit = false;
+    children = [];
+
+    // ── Rule results ────────────────────────────────────────────────
+    _userAjustes = [];   // manual user adjustments
+    _evaluator = null;   // injected evaluator
+
+    // ── Lifecycle ───────────────────────────────────────────────────
+
+    /**
+     * Full calculation: resolveQuantities → calculatePrice → evaluateRules.
+     * Called after receiveContext() has set _inheritedContext.
+     *
+     * Flow:
+     * 1. Resolve quantities from inherited context and defaults
+     * 2. Calculate price based on resolved quantities and profile
+     * 3. Evaluate rules if evaluator is set
+     * 4. Mark item as unavailable if any rule has blocking=true
+     *
+     * @returns {this} for chaining
+     */
+    calculate() {
+      this.resolveQuantities(this._inheritedContext);
+      this.calculatePrice();
+      if (this._evaluator) {
+        this.evaluateRules(this._evaluator);
+        // Check for RESTRICCION_UI errors → update _available
+        this._available = !this._appliedRules.some(r => r.blocking === true);
+      }
+      return this;
+    }
+
+    /**
+     * Creates a basket-state copy of this catalog item.
+     * Never mutates the original (catalog item stays pristine).
+     *
+     * The new instance:
+     * - Shares prototype chain with original (preserves methods)
+     * - Copies all own properties
+     * - Resets computed state (_price, _appliedRules, _userAjustes)
+     * - Sets basket identity (ID_Linea, Dia, Hora, Comentarios)
+     * - Resets user-set flags (paxIsUserSet, etc.)
+     *
+     * @param {string|number} lineId - The new line ID for this basket instance
+     * @returns {ItemBase} new basket-state copy
+     */
+    instantiate(lineId) {
+      const instance = Object.create(Object.getPrototypeOf(this));
+      // Copy all own properties
+      Object.assign(instance, this);
+      // Reset computed state
+      instance._price = null;
+      instance._appliedRules = [];
+      instance._userAjustes = [];
+      // Set basket identity
+      instance.ID_Linea = lineId;
+      instance.Dia = 1;
+      instance.Hora = '09:00';
+      instance.Comentarios = '';
+      // Reset user-set flags (will be set by overrides)
+      instance.paxIsUserSet = false;
+      instance.cantidadIsUserSet = false;
+      instance.duracionIsUserSet = false;
+      return instance;
+    }
+
+    /**
+     * Updates one or more quantities. Sets isUserSet = true for each quantity
+     * provided when isUserOverride = true. Then recalculates.
+     *
+     * Use this when:
+     * - User explicitly changes pax/cantidad/duracion in the UI
+     * - Parent container wants to override item defaults (with isUserOverride=false)
+     *
+     * @param {object} quantities - e.g. { pax: 25, duracion: 120 }
+     * @param {boolean} isUserOverride - if true, marks quantity as user-set
+     *                                    (prevents future container override)
+     * @returns {this} for chaining
+     */
+    updateQuantities(quantities = {}, isUserOverride = false) {
+      if (quantities.pax !== undefined) {
+        this.pax = quantities.pax;
+        if (isUserOverride) this.paxIsUserSet = true;
+      }
+      if (quantities.cantidad !== undefined) {
+        this.cantidad = quantities.cantidad;
+        if (isUserOverride) this.cantidadIsUserSet = true;
+      }
+      if (quantities.duracion !== undefined) {
+        this.duracion = quantities.duracion;
+        if (isUserOverride) this.duracionIsUserSet = true;
+      }
+      this.calculate();
+      return this;
+    }
+
+    // ── Getters ─────────────────────────────────────────────────────
+
+    get id() {
+      return this.ID_Item;
+    }
+
+    get name() {
+      return this.Nombre;
+    }
+
+    /**
+     * Returns true if this item is in basket state (has a truthy line ID).
+     * Checks for !== null to allow 0 and other falsy values to return false.
+     *
+     * @returns {boolean}
+     */
+    get inBasket() {
+      return this.ID_Linea != null; // null | undefined → false, anything else → true
+    }
+
+    /**
+     * Returns human-readable descriptions of all applied rules.
+     *
+     * @returns {Array<string>} Rule descriptions or IDs
+     */
+    get humanizedRules() {
+      return this._appliedRules.map(r => r.description || r.ruleId || String(r));
+    }
+
+    // ── Serialization ───────────────────────────────────────────────
+
+    /**
+     * Serializes to a plain object for Alpine.js store assignment.
+     * Called by container's toDisplayObject() → AlpineXStateBridge.
+     *
+     * @returns {Object} Flat object with display properties
+     */
+    toDisplayObject() {
+      return {
+        id: this.ID_Linea || this.ID_Item,
+        lineId: this.ID_Linea,
+        itemId: this.ID_Item,
+        nombre: this.Nombre,
+        dia: this.Dia,
+        hora: this.Hora,
+        comentarios: this.Comentarios,
+        pax: this.pax,
+        paxIsUserSet: this.paxIsUserSet,
+        cantidad: this.cantidad,
+        cantidadIsUserSet: this.cantidadIsUserSet,
+        duracion: this.duracion,
+        duracionIsUserSet: this.duracionIsUserSet,
+        precio: this.displayPrice,
+        total: this.total,
+        available: this._available,
+        isKit: this.isKit,
+        appliedRules: this.humanizedRules,
+        userAjustes: this._userAjustes,
+      };
+    }
+
+    /**
+     * Serializes to storage format (for database write).
+     * Only includes fields that differ from defaults.
+     *
+     * @returns {Object} Storage format with ID_Linea, overrides, etc.
+     */
+    toStorageObject() {
+      return {
+        ID_Linea: this.ID_Linea,
+        ID_Item: this.ID_Item,
+        Override_Pax: this.paxIsUserSet ? this.pax : null,
+        Override_Cantidad: this.cantidadIsUserSet ? this.cantidad : null,
+        Override_Duracion_Min: this.duracionIsUserSet ? this.duracion : null,
+        Dia: this.Dia,
+        Hora: this.Hora,
+        Comentarios: this.Comentarios,
+      };
+    }
+  }
+
+  /**
+   * Aggregable mixin — adds price aggregation to container classes.
+   *
+   * Usage: class Foo extends Aggregable(Base) { ... }
+   *
+   * Containers hold children in this._children (a Map).
+   * Children that have aggregate() are containers themselves (recursive).
+   * Children without aggregate() are leaf items with a _price property.
+   *
+   * Returns { subtotal, breakdown[] } where breakdown is one entry per child.
+   */
+  function Aggregable(Base) {
+    return class extends Base {
+      aggregate() {
+        const breakdown = [];
+        let subtotal = 0;
+
+        for (const child of this._children.values()) {
+          let childTotal;
+          if (typeof child.aggregate === 'function') {
+            childTotal = child.aggregate().subtotal;
+          } else {
+            childTotal = child._price ?? 0;
+          }
+          breakdown.push({
+            id: child.ID_Linea || child.ID_Item || child.id || null,
+            nombre: child.Nombre || child.nombre || null,
+            total: childTotal,
+          });
+          subtotal += childTotal;
+        }
+
+        return { subtotal, breakdown };
+      }
+    };
+  }
+
+  /**
+   * ContainerBase — abstract base for Catalog, Basket, Category, DayCategory, Kit.
+   *
+   * Mixins composed (in order): Rulable + Aggregable + XStateable + Alpineable
+   *
+   * Containers:
+   * - Hold children in _children (Map: id → child)
+   * - Evaluate their own rules and push the resulting context down to children
+   * - Aggregate children prices upward
+   * - Do NOT price themselves (no Prizable mixin)
+   *
+   * Rule inheritance flow: Basket → DayCategory → Item
+   * Price aggregation flow: Item → DayCategory → Basket
+   *
+   * Usage:
+   *   const basket = new Basket();
+   *   basket.receiveContext({ pax: 50, duracion: 8 });
+   *   basket.pushContextToChildren();  // children now have the context
+   *   const totals = basket.aggregate(); // { subtotal, breakdown[] }
+   */
+  const ContainerMixin = (Base) =>
+    Rulable(Aggregable(XStateable(Alpineable(Base))));
+
+  class ContainerBase extends ContainerMixin(class {}) {
+    constructor() {
+      super();
+      this._children = new Map();
+      this._calculationParams = {}; // e.g. { pax, duracion, fechaEvento, duracionDias }
+      this._evaluator = null; // injected: (rule, context) => result | null
+    }
+
+    // ── Context propagation ────────────────────────────────────────
+
+    /**
+     * Builds the context to be pushed down to children.
+     *
+     * Merges (in order of priority):
+     * 1. _calculationParams (lowest priority)
+     * 2. _inheritedContext (from parent)
+     * 3. Rule outputs (highest priority)
+     *
+     * Subclasses can override to add extra fields or transform the context.
+     */
+    propagateContext() {
+      const ruleOutputs = {};
+      for (const result of this._appliedRules) {
+        if (result.field && result.value !== undefined) {
+          ruleOutputs[result.field] = result.value;
+        }
+      }
+      return {
+        ...this._calculationParams,
+        ...this._inheritedContext,
+        ...ruleOutputs,
+      };
+    }
+
+    /**
+     * Pushes context down to all children.
+     *
+     * Flow:
+     * 1. If _evaluator is set, evaluate own rules (populates _appliedRules)
+     * 2. Build context from params + inherited + rule outputs
+     * 3. Call receiveContext() on each child
+     *
+     * Returns this for chaining.
+     */
+    pushContextToChildren() {
+      if (this._evaluator) {
+        this.evaluateRules(this._evaluator);
+      }
+      const ctx = this.propagateContext();
+      for (const child of this._children.values()) {
+        if (typeof child.receiveContext === 'function') {
+          child.receiveContext(ctx);
+        }
+      }
+      return this;
+    }
+
+    // ── Child management ───────────────────────────────────────────
+
+    /**
+     * Adds a child to the container.
+     *
+     * @param {string|number} id - Child identifier
+     * @param {Object} child - Child object (usually another Container or Item)
+     * @returns {this} for chaining
+     */
+    addChild(id, child) {
+      this._children.set(id, child);
+      return this;
+    }
+
+    /**
+     * Removes a child by id.
+     *
+     * @param {string|number} id - Child identifier
+     * @returns {this} for chaining
+     */
+    removeChild(id) {
+      this._children.delete(id);
+      return this;
+    }
+
+    /**
+     * Retrieves a child by id.
+     *
+     * @param {string|number} id - Child identifier
+     * @returns {Object|null} - The child, or null if not found
+     */
+    getChild(id) {
+      return this._children.get(id) || null;
+    }
+
+    /**
+     * Returns the number of children.
+     *
+     * @returns {number}
+     */
+    get childCount() {
+      return this._children.size;
+    }
+
+    /**
+     * Returns all children.
+     *
+     * @returns {IterableIterator<Object>}
+     */
+    *children() {
+      yield* this._children.values();
+    }
+
+    // ── Display for Alpine.js ──────────────────────────────────────
+
+    /**
+     * Converts the container to a plain object suitable for Alpine store assignment.
+     *
+     * Uses aggregate() from the Aggregable mixin to sum child prices.
+     * Calls toDisplayObject() on each child (Alpineable contract).
+     *
+     * @returns {Object} - { children: [], totals: { subtotal, breakdown } }
+     */
+    toDisplayObject() {
+      const children = [];
+      for (const child of this._children.values()) {
+        if (typeof child.toDisplayObject === 'function') {
+          children.push(child.toDisplayObject());
+        }
+      }
+      return {
+        children,
+        totals: this.aggregate(),
+      };
+    }
+
+    // ── Configuration ──────────────────────────────────────────────
+
+    /**
+     * Sets the calculation parameters (e.g., pax, duration, event date).
+     *
+     * @param {Object} params - Parameters to merge into _calculationParams
+     * @returns {this} for chaining
+     */
+    setCalculationParams(params) {
+      this._calculationParams = { ...this._calculationParams, ...params };
+      return this;
+    }
+
+    /**
+     * Sets the evaluator function for rule evaluation.
+     *
+     * Signature: (rule, context) => result | null
+     *
+     * @param {Function} evaluator - The rule evaluator
+     * @returns {this} for chaining
+     */
+    setEvaluator(evaluator) {
+      this._evaluator = evaluator;
+      return this;
+    }
+  }
+
+  /**
+   * Item — concrete leaf node representing a single catalog entry or basket line.
+   *
+   * Catalog state:  ID_Linea = null (pristine, never mutated)
+   * Basket state:   ID_Linea set via instantiate(lineId)
+   *
+   * The default pricing formula:
+   *   price = Costo_Base
+   *         + pax      * Costo_Unitario_Pax
+   *         + duracion * Costo_Unitario_Tiempo
+   *         + cantidad * Costo_Unitario_Item
+   *
+   * An external pricingFn may be injected to override the formula.
+   */
+  class Item extends ItemBase {
+    /**
+     * @param {Object} row - Raw ITEM_CATALOGO DB row
+     * @param {Object} opts
+     * @param {Object|null} opts.profile     - Resolved profile object
+     * @param {Array}       opts.rules       - Array of rule objects
+     * @param {Function|null} opts.evaluator - Rule evaluator fn(rule, ctx) => result|null
+     * @param {Function|null} opts.pricingFn - External pricing fn(profile, pax, cantidad, duracion) => number
+     */
+    constructor(row, { profile = null, rules = [], evaluator = null, pricingFn = null } = {}) {
+      super();
+
+      // ── DB row fields ──────────────────────────────────────────────
+      this.ID_Item    = row.ID_Item    ?? null;
+      this.Nombre     = row.Nombre     ?? null;
+      this.ID_Categoria = row.ID_Categoria ?? null;
+      this.Activo     = row.Activo     !== undefined ? Boolean(row.Activo) : true;
+
+      // Pricing coefficients
+      this.Costo_Base            = row.Costo_Base            || 0;
+      this.Costo_Unitario_Pax    = row.Costo_Unitario_Pax    || 0;
+      this.Costo_Unitario_Tiempo = row.Costo_Unitario_Tiempo || 0;
+      this.Costo_Unitario_Item   = row.Costo_Unitario_Item   || 0;
+
+      // Default quantities (read by Prizable.resolveQuantities)
+      this._defaultPax      = row.Pax_Default            ?? null;
+      this._defaultCantidad = row.Cantidad_Default        ?? null;
+      this._defaultDuracion = row.Duracion_Min_Default    ?? null;
+
+      // Kit flag
+      this.isKit = Boolean(row.Es_Kit);
+
+      // ── Injected dependencies ──────────────────────────────────────
+      this._profile   = profile;
+      this._rules     = rules;
+      this._evaluator = evaluator;
+      this._pricingFn = pricingFn ?? this._defaultPricingFn.bind(this);
+    }
+
+    /**
+     * Built-in pricing formula. Used when no external pricingFn is injected.
+     *
+     * Priority: profile coefficients (from PERFILES_PRECIO) when available,
+     * falling back to direct coefficients on the row (used in unit tests).
+     *
+     * @param {Object|null} profile
+     * @param {number|null} pax
+     * @param {number|null} cantidad
+     * @param {number|null} duracion
+     * @returns {number}
+     */
+    _defaultPricingFn(profile, pax, cantidad, duracion) {
+      const hasDirectCoefficients = this.Costo_Base || this.Costo_Unitario_Pax
+        || this.Costo_Unitario_Tiempo || this.Costo_Unitario_Item;
+
+      if (!hasDirectCoefficients && profile) {
+        return (profile.Costo_Base_Fijo          || 0)
+          + (pax      || 0) * (profile.Costo_Unitario_Pax     || 0)
+          + (duracion || 0) * (profile.Costo_Unitario_Tiempo  || 0)
+          + (cantidad || 0) * (profile.Costo_Unitario_Item    || 0);
+      }
+
+      return this.Costo_Base
+        + (pax      || 0) * this.Costo_Unitario_Pax
+        + (duracion || 0) * this.Costo_Unitario_Tiempo
+        + (cantidad || 0) * this.Costo_Unitario_Item;
+    }
+  }
+
+  /**
+   * Category — groups Items by category inside a Catalog.
+   *
+   * Extends ContainerBase (Rulable + Aggregable + XStateable + Alpineable).
+   *
+   * Catalog context only: no price aggregation subtotal is shown to the user
+   * here — items display preview prices, but the category itself has no
+   * meaningful "total" until items land in the Basket.
+   *
+   * Row shape (CATEGORIAS table):
+   *   { ID_Categoria, Nombre_Categoria, Activo }
+   */
+  class Category extends ContainerBase {
+    constructor(row, { evaluator = null } = {}) {
+      super();
+      this.ID_Categoria = row.ID_Categoria;
+      this.Nombre = row.Nombre ?? row.Nombre_Categoria;
+      this.Activo = row.Activo ?? true;
+      this._evaluator = evaluator;
+    }
+
+    get id() {
+      return this.ID_Categoria;
+    }
+
+    get name() {
+      return this.Nombre;
+    }
+
+    /**
+     * Plain object for Alpine.js consumption.
+     *
+     * Overrides ContainerBase.toDisplayObject() to return the catalog-specific
+     * shape: items array + count instead of { children, totals }.
+     *
+     * @returns {{ id, nombre, activo, items: Object[], count: number }}
+     */
+    toDisplayObject() {
+      const items = [];
+      for (const child of this._children.values()) {
+        if (typeof child.toDisplayObject === 'function') {
+          items.push(child.toDisplayObject());
+        }
+      }
+      return {
+        id: this.ID_Categoria,
+        nombre: this.Nombre,
+        activo: this.Activo,
+        items,
+        count: this.childCount,
+      };
+    }
+  }
+
+  /**
+   * Kit — a named group of items used in both Catalog and Basket contexts.
+   *
+   * Extends ContainerBase (Rulable + Aggregable + XStateable + Alpineable).
+   *
+   * Mode determines behavior:
+   *   'catalog' — items grouped for preview; aggregate() returns null (no real totals).
+   *   'basket'  — items are independent line items; aggregate() returns real totals.
+   *
+   * Row shape (ITEM_CATALOGO table, kit rows):
+   *   { ID_Item, Nombre, Activo }
+   */
+  class Kit extends ContainerBase {
+    constructor(row, { mode = 'catalog', evaluator = null } = {}) {
+      super();
+      this.ID_Kit = row.ID_Item;
+      this.Nombre = row.Nombre;
+      this.Activo = row.Activo ?? true;
+      this._mode = mode;
+      this._evaluator = evaluator;
+    }
+
+    get id() {
+      return this.ID_Kit;
+    }
+
+    get name() {
+      return this.Nombre;
+    }
+
+    get isCatalogMode() {
+      return this._mode === 'catalog';
+    }
+
+    get isBasketMode() {
+      return this._mode === 'basket';
+    }
+
+    /** Changes mode to 'basket'. Returns this for chaining. */
+    switchToBasketMode() {
+      this._mode = 'basket';
+      return this;
+    }
+
+    /**
+     * Returns null in catalog mode (no meaningful totals).
+     * Delegates to Aggregable in basket mode.
+     *
+     * @returns {null | { subtotal: number, breakdown: Array }}
+     */
+    aggregate() {
+      if (this._mode === 'catalog') return null;
+      return super.aggregate();
+    }
+
+    /**
+     * Plain object for Alpine.js consumption.
+     *
+     * @returns {{ id, nombre, activo, mode, items: Object[], totals: null | { subtotal, breakdown } }}
+     */
+    toDisplayObject() {
+      const items = [];
+      for (const child of this._children.values()) {
+        if (typeof child.toDisplayObject === 'function') {
+          items.push(child.toDisplayObject());
+        }
+      }
+      return {
+        id: this.ID_Kit,
+        nombre: this.Nombre,
+        activo: this.Activo,
+        mode: this._mode,
+        items,
+        totals: this.aggregate(),
+      };
+    }
+  }
+
+  /**
+   * Catalog — top-level collection of categories, kits, and items.
+   *
+   * Extends ContainerBase (Rulable + Aggregable + XStateable + Alpineable).
+   *
+   * Children are Category containers. Kit parent items are wrapped in Kit
+   * containers (catalog mode) and placed inside their category.
+   *
+   * Load sequence:
+   *   1. ITEM_CATALOGO     → Item instances
+   *   2. CATEGORIAS        → Category containers
+   *   3. PERFILES_PRECIO   → profile lookup map
+   *   4. COMPOSICION_KIT   → identify kit parents
+   *   5. REGLAS_NEGOCIO    → assign ITEM rules to items; CATALOGO rules to this
+   *   6. Inject profiles into items
+   *   7. Place items into categories
+   *   8. Wrap kit parents in Kit containers
+   *   9. Add categories to this._children
+   */
+  class Catalog extends ContainerBase {
+    constructor({ evaluator = null } = {}) {
+      super();
+      this._evaluator = evaluator;
+    }
+
+    // ── Public API ─────────────────────────────────────────────────
+
+    /**
+     * Loads all catalog data from the store.
+     * @param {Object} store - Store implementing .all(tableName)
+     * @returns {this} for chaining
+     */
+    load(store) {
+      const itemRows    = store.all('ITEM_CATALOGO');
+      const catRows     = store.all('CATEGORIAS');
+      const profileRows = store.all('PERFILES_PRECIO');
+      const kitCompRows = store.all('COMPOSICION_KIT');
+      const ruleRows    = store.all('REGLAS_NEGOCIO');
+
+      const profilesMap  = _buildProfilesMap(profileRows);
+      const categoriesMap = _buildCategoriesMap(catRows);
+      const kitParentIds = _buildKitParentIds(kitCompRows);
+
+      const items      = _buildItems(itemRows, profilesMap, categoriesMap);
+      const categories = _buildCategories(catRows);
+
+      // ✅ VALIDATION: Parent kits must have zero cost
+      _validateKitParentCosts(items, kitParentIds);
+
+      _assignRules(ruleRows, items, this);
+      _placeItemsInCategories(items, categories, kitParentIds, kitCompRows);
+
+      // ✅ Calculate display prices for all items in catalog mode
+      for (const item of items.values()) {
+        if (typeof item.calculate === 'function') {
+          item.calculate();
+        }
+      }
+
+      for (const [id, category] of categories) {
+        this.addChild(id, category);
+      }
+
+      return this;
+    }
+
+    /**
+     * Clears state and reloads from store.
+     * @param {Object} store
+     * @returns {this} for chaining
+     */
+    reload(store) {
+      this._children.clear();
+      this._rules = [];
+      return this.load(store);
+    }
+
+    /**
+     * Returns basket-level rules (AJUSTE_GLOBAL, IMPUESTO) stored on this catalog.
+     * Pass these to new Basket instances so they can apply totals-level rules.
+     * @returns {Array}
+     */
+    getBasketRules() {
+      return [...this._rules];
+    }
+
+    /**
+     * Retrieves an item by ID_Item, searching through all categories and kits.
+     * @param {string} itemId
+     * @returns {Item|null}
+     */
+    getItem(itemId) {
+      for (const category of this._children.values()) {
+        const direct = category.getChild(itemId);
+        if (direct) return direct;
+
+        for (const kitOrItem of category._children.values()) {
+          if (typeof kitOrItem.getChild === 'function') {
+            const nested = kitOrItem.getChild(itemId);
+            if (nested) return nested;
+          }
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Plain object for Alpine.js consumption.
+     * @returns {{ categories: Object[], itemCount: number }}
+     */
+    toDisplayObject() {
+      const categories = [];
+      let itemCount = 0;
+
+      for (const category of this._children.values()) {
+        categories.push(category.toDisplayObject());
+        itemCount += _countItemsInCategory(category);
+      }
+
+      return { categories, itemCount };
+    }
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  const ITEM_ETAPAS = new Set(['RESTRICCION_UI', 'AJUSTE_LINEA']);
+
+  function _buildProfilesMap(profileRows) {
+    const map = new Map();
+    for (const row of profileRows) {
+      map.set(row.ID_Perfil_Precio, row);
+    }
+    return map;
+  }
+
+  function _buildCategoriesMap(catRows) {
+    const map = new Map();
+    for (const row of catRows) {
+      map.set(row.ID_Categoria, row);
+    }
+    return map;
+  }
+
+  function _buildKitParentIds(kitCompRows) {
+    return new Set(kitCompRows.map(c => c.ID_Item_Padre));
+  }
+
+  function _buildItems(itemRows, profilesMap, categoriesMap) {
+    const items = new Map();
+    for (const row of itemRows) {
+      const overrideId = row.ID_Perfil_Precio_Override || null;
+      const catDefault = categoriesMap.get(row.ID_Categoria)?.ID_Perfil_Precio_Default || null;
+      const profile = profilesMap.get(overrideId || catDefault) || null;
+      items.set(row.ID_Item, new Item(row, { profile }));
+    }
+    return items;
+  }
+
+  function _buildCategories(catRows) {
+    const categories = new Map();
+    for (const row of catRows) {
+      categories.set(row.ID_Categoria, new Category(row));
+    }
+    return categories;
+  }
+
+  function _assignRules(ruleRows, items, catalog) {
+    for (const rule of ruleRows) {
+      if (ITEM_ETAPAS.has(rule.Etapa)) {
+        // Assign item-level rules to all items; conditions filter at evaluation time
+        for (const item of items.values()) {
+          item._rules.push(rule);
+        }
+      } else {
+        // AJUSTE_GLOBAL, IMPUESTO → basket-level, stored on catalog for transfer to Basket
+        catalog._rules.push(rule);
+      }
+    }
+  }
+
+  function _placeItemsInCategories(items, categories, kitParentIds, kitCompRows) {
+    for (const item of items.values()) {
+      const category = categories.get(item.ID_Categoria);
+      if (!category) continue;
+
+      if (kitParentIds.has(item.ID_Item)) {
+        const kit = _buildKit(item, items, kitCompRows);
+        category.addChild(item.ID_Item, kit);
+      } else if (!_isKitChild(item.ID_Item, kitCompRows)) {
+        category.addChild(item.ID_Item, item);
+      }
+    }
+  }
+
+  function _buildKit(kitItem, items, kitCompRows) {
+    const kit = new Kit(
+      { ID_Item: kitItem.ID_Item, Nombre: kitItem.Nombre, Activo: kitItem.Activo },
+      { mode: 'catalog' }
+    );
+    const compositions = kitCompRows.filter(c => c.ID_Item_Padre === kitItem.ID_Item);
+    for (const comp of compositions) {
+      const child = items.get(comp.ID_Item_Hijo);
+      if (child) kit.addChild(comp.ID_Item_Hijo, child);
+    }
+    return kit;
+  }
+
+  function _isKitChild(itemId, kitCompRows) {
+    return kitCompRows.some(c => c.ID_Item_Hijo === itemId);
+  }
+
+  function _countItemsInCategory(category) {
+    let count = 0;
+    for (const child of category._children.values()) {
+      if (typeof child.getChild === 'function') {
+        count += child._children ? child._children.size : 0;
+      } else {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Validates that all parent kit items have zero cost.
+   *
+   * Business Rule: Parent kits MUST have:
+   *   - Costo_Base = 0
+   *   - Costo_Unitario_Pax = 0
+   *   - Costo_Unitario_Tiempo = 0
+   *   - Costo_Unitario_Item = 0
+   *
+   * All pricing must be on children only.
+   *
+   * @param {Map<string, Item>} items - Map of items by ID_Item
+   * @param {Set<string>} kitParentIds - Set of parent item IDs
+   * @throws {Error} If any parent kit has non-zero costs
+   */
+  function _validateKitParentCosts(items, kitParentIds) {
+    for (const parentId of kitParentIds) {
+      const parent = items.get(parentId);
+      if (!parent) continue;
+
+      const hasNonZeroCost =
+        (parent.Costo_Base || 0) !== 0 ||
+        (parent.Costo_Unitario_Pax || 0) !== 0 ||
+        (parent.Costo_Unitario_Tiempo || 0) !== 0 ||
+        (parent.Costo_Unitario_Item || 0) !== 0;
+
+      if (hasNonZeroCost) {
+        throw new Error(
+          `Kit parent item "${parentId}" (${parent.Nombre}) has non-zero costs. ` +
+          `Business rule: Kit parents must have all costs = 0. ` +
+          `All pricing must be on child items only. ` +
+          `Please reset all Costo_* fields to 0 in the ITEM_CATALOGO sheet.`
+        );
+      }
+    }
+  }
+
+  /**
+   * DayCategory — groups basket Items for a single event day.
+   *
+   * Extends ContainerBase (Rulable + Aggregable + XStateable + Alpineable).
+   *
+   * Created lazily by Basket.add() when an item arrives on a day that has no
+   * existing DayCategory. Items are already instantiated (have ID_Linea) when
+   * added here.
+   *
+   * Rule inheritance flow: Basket → DayCategory → Item
+   * Price aggregation flow: Item → DayCategory → Basket
+   */
+  class DayCategory extends ContainerBase {
+    constructor(dia, { evaluator = null } = {}) {
+      super();
+      this.dia = dia;
+      this._evaluator = evaluator;
+    }
+
+    get id() {
+      return this.dia;
+    }
+
+    get name() {
+      return `Día ${this.dia}`;
+    }
+
+    /**
+     * Plain object for Alpine.js consumption.
+     *
+     * Overrides ContainerBase.toDisplayObject() to return the basket-day shape:
+     * dia + items array + daily totals from aggregate().
+     *
+     * @returns {{ dia: number, items: Object[], totals: { subtotal, breakdown } }}
+     */
+    toDisplayObject() {
+      const items = [];
+      for (const child of this._children.values()) {
+        if (typeof child.toDisplayObject === 'function') {
+          items.push(child.toDisplayObject());
+        }
+      }
+      return {
+        dia: this.dia,
+        items,
+        totals: this.aggregate(),
+      };
+    }
+  }
+
+  /**
+   * Basket — the active quotation's selected items, grouped by day.
+   *
+   * Extends ContainerBase (Rulable + Aggregable + XStateable + Alpineable).
+   *
+   * Tree structure:
+   *   Basket
+   *     └── DayCategory(dia)          one per event day, created lazily
+   *           ├── Item(ID_Linea)      regular items
+   *           └── Kit(ID_Kit)         basket-mode kit container
+   *                 └── Item(ID_Linea) kit child items
+   *
+   * Rule inheritance flow: Basket → DayCategory → Item
+   * Price aggregation flow: Item → DayCategory → Basket
+   *
+   * Basket owns basket-level rules (AJUSTE_GLOBAL, IMPUESTO) via this._rules.
+   * Pass catalog.getBasketRules() to the constructor to populate them.
+   */
+  class Basket extends ContainerBase {
+    /**
+     * @param {Object} quotation  - { ID_Cotizacion, ID_Cliente, Fecha_Evento, Duracion_Dias, paxGlobal }
+     * @param {Catalog} catalog   - Loaded Catalog instance for item lookup
+     * @param {Object} opts
+     * @param {Function|null} opts.evaluator - Rule evaluator fn(rule, ctx) => result|null
+     * @param {Array}         opts.rules     - Basket-level rules (AJUSTE_GLOBAL, IMPUESTO)
+     */
+    constructor(quotation, catalog, { evaluator = null, rules = [] } = {}) {
+      super();
+      this._quotation = quotation;
+      this._catalog   = catalog;
+      this._seq       = 0;
+      this._evaluator = evaluator;
+      this._rules     = rules;
+
+      if (quotation?.paxGlobal != null) {
+        this._calculationParams.pax = quotation.paxGlobal;
+      }
+    }
+
+    // ── Line ID generation ──────────────────────────────────────────
+
+    _nextLineId() {
+      this._seq++;
+      return `LIN_${String(this._seq).padStart(4, '0')}`;
+    }
+
+    // ── Mutations ──────────────────────────────────────────────────
+
+    /**
+     * Adds an item (or kit) from the catalog into the correct DayCategory.
+     *
+     * @param {string} itemId   - ID_Item to add
+     * @param {Object} overrides - { Dia, Hora, Comentarios, pax, cantidad, duracion }
+     * @returns {Array<Item>} Added item instances (multiple for kits)
+     */
+    add(itemId, overrides = {}) {
+      const catalogEntry = this._catalog.getItem(itemId);
+      if (!catalogEntry) throw new Error(`Item not found in catalog: ${itemId}`);
+
+      const dia = overrides.Dia ?? 1;
+      const dayCategory = this._getOrCreateDayCategory(dia);
+      const ctx = this.propagateContext();
+
+      if (catalogEntry._mode !== undefined) {
+        return this._addKit(catalogEntry, overrides, dayCategory, ctx);
+      }
+
+      return this._addItem(catalogEntry, overrides, dayCategory, ctx);
+    }
+
+    /**
+     * Removes an item by lineId, cleaning up empty containers.
+     *
+     * @param {string} lineId
+     */
+    remove(lineId) {
+      for (const [dia, dayCategory] of this._children) {
+        if (dayCategory.getChild(lineId)) {
+          dayCategory.removeChild(lineId);
+          if (dayCategory.childCount === 0) this._children.delete(dia);
+          return;
+        }
+        // Check inside Kit containers
+        for (const [kitId, child] of dayCategory._children) {
+          if (typeof child.getChild === 'function' && child.getChild(lineId)) {
+            child.removeChild(lineId);
+            if (child.childCount === 0) dayCategory.removeChild(kitId);
+            if (dayCategory.childCount === 0) this._children.delete(dia);
+            return;
+          }
+        }
+      }
+    }
+
+    /**
+     * Updates quantities or metadata on an existing basket item.
+     *
+     * @param {string} lineId
+     * @param {Object} overrides - { pax, cantidad, duracion, Hora, Comentarios }
+     * @returns {Item|null}
+     */
+    update(lineId, overrides = {}) {
+      const item = this._findByLineId(lineId);
+      if (!item) return null;
+
+      if (overrides.Hora       !== undefined) item.Hora       = overrides.Hora;
+      if (overrides.Comentarios !== undefined) item.Comentarios = overrides.Comentarios;
+
+      const quantities = {};
+      if (overrides.pax      !== undefined) quantities.pax      = overrides.pax;
+      if (overrides.cantidad !== undefined) quantities.cantidad = overrides.cantidad;
+      if (overrides.duracion !== undefined) quantities.duracion = overrides.duracion;
+
+      if (Object.keys(quantities).length > 0) {
+        item.updateQuantities(quantities, true);
+      }
+
+      return item;
+    }
+
+    /**
+     * Reprices all items when paxGlobal changes.
+     *
+     * @param {number} paxGlobal
+     */
+    reprice(paxGlobal) {
+      this._calculationParams.pax = paxGlobal;
+      const ctx = this.propagateContext();
+      for (const item of this._flatItems()) {
+        item.receiveContext(ctx);
+        item.calculate();
+      }
+    }
+
+    // ── Totals ─────────────────────────────────────────────────────
+
+    /**
+     * Aggregates item prices, applies basket-level rules, computes taxes.
+     *
+     * @returns {{ subtotal: number, taxes: Array, total: number }}
+     */
+    get totals() {
+      const { subtotal } = this.aggregate();
+      let adjustedSubtotal = subtotal;
+
+      const globalRules = this._rules.filter(r => r.Etapa === 'AJUSTE_GLOBAL' && r.Activo !== false);
+      if (this._evaluator && globalRules.length > 0) {
+        const ctx = { subtotal: adjustedSubtotal, lineas: this._flatItems().map(i => i.toDisplayObject()) };
+        for (const rule of globalRules) {
+          const result = this._evaluator(rule, ctx);
+          if (result?.delta) adjustedSubtotal += result.delta;
+        }
+      }
+
+      const taxes = [];
+      const taxRules = this._rules.filter(r => r.Etapa === 'IMPUESTO' && r.Activo !== false);
+      if (this._evaluator && taxRules.length > 0) {
+        for (const rule of taxRules) {
+          const result = this._evaluator(rule, { subtotal: adjustedSubtotal });
+          if (result) taxes.push(result);
+        }
+      }
+
+      const taxTotal = taxes.reduce((sum, t) => sum + (t.amount || 0), 0);
+      return { subtotal: adjustedSubtotal, taxes, total: adjustedSubtotal + taxTotal };
+    }
+
+    // ── Serialization ──────────────────────────────────────────────
+
+    /**
+     * Flat snapshot compatible with XState context (backward-compat for Phase B).
+     *
+     * @returns {{ cotizacion: Object, lineas: Object[], totals: Object }}
+     */
+    toSnapshot() {
+      return {
+        cotizacion: { ...this._quotation },
+        lineas: this._flatItems().map(i => i.toStorageObject()),
+        totals: this.totals,
+      };
+    }
+
+    /**
+     * Persists quotation, line items, and cache snapshot to the store.
+     *
+     * @param {Object} store
+     */
+    save(store) {
+      store.insert('COTIZACIONES', { ...this._quotation, Estado: 'Guardada' });
+      for (const item of this._flatItems()) {
+        store.insert('LINEA_DETALLE', {
+          ...item.toStorageObject(),
+          ID_Cotizacion: this._quotation.ID_Cotizacion,
+        });
+      }
+      store.insert('CACHE_COTIZACION', {
+        ID_Cotizacion: this._quotation.ID_Cotizacion,
+        Snapshot_JSON: JSON.stringify(this.toSnapshot()),
+        Updated_At:    new Date().toISOString(),
+      });
+    }
+
+    /**
+     * Display object for Alpine — days array with items and totals.
+     *
+     * @returns {{ days: Object[], totals: Object }}
+     */
+    toDisplayObject() {
+      const days = [];
+      for (const dayCategory of this._children.values()) {
+        days.push(dayCategory.toDisplayObject());
+      }
+      return { days, totals: this.totals };
+    }
+
+    // ── Private helpers ────────────────────────────────────────────
+
+    _getOrCreateDayCategory(dia) {
+      if (!this._children.has(dia)) {
+        this._children.set(dia, new DayCategory(dia, { evaluator: this._evaluator }));
+      }
+      return this._children.get(dia);
+    }
+
+    _addItem(catalogItem, overrides, dayCategory, ctx) {
+      const instance = catalogItem.instantiate(this._nextLineId());
+      if (this._evaluator) instance._evaluator = this._evaluator;
+      _applySimpleOverrides(instance, overrides);
+      _applyQuantityOverrides(instance, overrides);
+      instance.receiveContext(ctx);
+      instance.calculate();
+      dayCategory.addChild(instance.ID_Linea, instance);
+      return [instance];
+    }
+
+    _addKit(catalogKit, overrides, dayCategory, ctx) {
+      const basketKit = new Kit(
+        { ID_Item: catalogKit.ID_Kit, Nombre: catalogKit.Nombre, Activo: catalogKit.Activo },
+        { mode: 'basket', evaluator: this._evaluator }
+      );
+
+      const addedItems = [];
+      for (const catalogChild of catalogKit._children.values()) {
+        const instance = catalogChild.instantiate(this._nextLineId());
+        if (this._evaluator) instance._evaluator = this._evaluator;
+        _applySimpleOverrides(instance, overrides);
+        _applyQuantityOverrides(instance, overrides);
+        instance.receiveContext(ctx);
+        instance.calculate();
+        basketKit.addChild(instance.ID_Linea, instance);
+        addedItems.push(instance);
+      }
+
+      dayCategory.addChild(catalogKit.ID_Kit, basketKit);
+      return addedItems;
+    }
+
+    _findByLineId(lineId) {
+      for (const item of this._flatItems()) {
+        if (item.ID_Linea === lineId) return item;
+      }
+      return null;
+    }
+
+    _flatItems() {
+      const items = [];
+      for (const dayCategory of this._children.values()) {
+        for (const child of dayCategory._children.values()) {
+          if (typeof child._mode !== 'undefined') {
+            // Kit — collect its leaf items
+            for (const kitItem of child._children.values()) {
+              items.push(kitItem);
+            }
+          } else {
+            items.push(child);
+          }
+        }
+      }
+      return items;
+    }
+  }
+
+  // ── Module-level helpers ────────────────────────────────────────────────────
+
+  function _applySimpleOverrides(item, overrides) {
+    if (overrides.Dia         !== undefined) item.Dia         = overrides.Dia;
+    if (overrides.Hora        !== undefined) item.Hora        = overrides.Hora;
+    if (overrides.Comentarios !== undefined) item.Comentarios = overrides.Comentarios;
+  }
+
+  function _applyQuantityOverrides(item, overrides) {
+    if (overrides.pax      !== undefined) { item.pax      = overrides.pax;      item.paxIsUserSet      = true; }
+    if (overrides.cantidad !== undefined) { item.cantidad = overrides.cantidad; item.cantidadIsUserSet = true; }
+    if (overrides.duracion !== undefined) { item.duracion = overrides.duracion; item.duracionIsUserSet = true; }
+  }
 
   function expandCompositions(lineas, store) {
     const result = [];
@@ -5274,6 +6718,15 @@ var QuotationEngine = (function (exports) {
   // --- Initialization Actions ---
 
   const initActions = {
+    initCatalog: assign(({ context }) => {
+      if (context.catalog) return {};  // Already loaded
+      if (!context.store) return {};   // Store not yet initialized
+
+      const catalog = new Catalog();
+      catalog.load(context.store);
+      return { catalog };
+    }),
+
     initializeBasketFromLoaded: assign(({ event }) => {
       const quotation = event.data; // From loaded quotation
       return {
@@ -5285,23 +6738,34 @@ var QuotationEngine = (function (exports) {
       };
     }),
 
-    initializeEmptyBasket: assign(({ event }) => {
+    initializeEmptyBasket: assign(({ event, context }) => {
       const { paxGlobal, clienteId, fechaEvento, duracionDias, cotizacionId } =
         event;
-      return {
-        quotation: {
-          cotizacion: {
-            ID_Cotizacion: cotizacionId || `COT_${Date.now()}`,
-            ID_Cliente: clienteId,
-            Fecha_Evento: fechaEvento ?? null,
-            Duracion_Dias: duracionDias ?? null,
-            Pax_Global: paxGlobal,
-            Estado: 'Borrador',
-          },
-          paxGlobal,
-          ajustesManuales: [],
-          _lineSeq: 0,
+      const quotation = {
+        cotizacion: {
+          ID_Cotizacion: cotizacionId || `COT_${Date.now()}`,
+          ID_Cliente: clienteId,
+          Fecha_Evento: fechaEvento ?? null,
+          Duracion_Dias: duracionDias ?? null,
+          Pax_Global: paxGlobal,
+          Estado: 'Borrador',
         },
+        paxGlobal,
+        ajustesManuales: [],
+        _lineSeq: 0,
+      };
+
+      // Create basket if catalog is loaded
+      let basket = null;
+      if (context.catalog) {
+        basket = new Basket(quotation.cotizacion, context.catalog, {
+          rules: context.catalog.getBasketRules(),
+        });
+      }
+
+      return {
+        quotation,
+        basket,
         lineas: [],
         totals: { subtotal: 0, taxes: [], total: 0 },
         messages: [],
@@ -5358,10 +6822,24 @@ var QuotationEngine = (function (exports) {
 
     /**
      * Add item to basket.
-     * Delegates to pricing module: expandItemCompositions → resolveItemDefaults → recalculateItemPrice → applyItemRules → aggregateBasketTotals
+     * Phase B: Delegates to domain basket.add() when available, falls back to pricing pipeline.
      */
     addItem: assign(({ context, event }) => {
       const { itemId, overrides = {} } = event;
+
+      // If basket is available, use domain model (Phase B)
+      if (context.basket) {
+        context.basket.add(itemId, overrides);
+        const snapshot = context.basket.toSnapshot();
+        return {
+          basket: context.basket,
+          quotation: context.quotation,
+          lineas: snapshot.lineas,
+          totals: snapshot.totals,
+        };
+      }
+
+      // Fallback to pricing pipeline (backward compat)
       const { store } = context;
       const quotation = { ...context.quotation };
       const selectedItem = store.findById('ITEM_CATALOGO', 'ID_Item', itemId);
@@ -5383,7 +6861,6 @@ var QuotationEngine = (function (exports) {
         Hora: overrides.Hora ?? null,
       };
 
-      // Step 1: Expand compositions
       const expanded = expandItemCompositions(baseLine, store).map(line =>
         line === baseLine ? line : { ...line, ID_Linea: nextId(quotation) }
       );
@@ -5403,7 +6880,6 @@ var QuotationEngine = (function (exports) {
         }
       }
 
-      // Step 5: Update global totals
       const { totals, messages: globalMessages } = aggregateBasketTotals(
         [...context.lineas, ...expanded],
         quotation.ajustesManuales,
@@ -5425,9 +6901,29 @@ var QuotationEngine = (function (exports) {
      */
     updateItem: assign(({ context, event }) => {
       const { lineId, overrides = {} } = event;
-      const { store } = context;
 
-      // Find and update the line
+      // If basket is available, use domain model (Phase B)
+      if (context.basket) {
+        // Convert domain overrides to basket format (pax instead of Override_Pax)
+        const domainOverrides = {};
+        if (overrides.Override_Pax !== undefined) domainOverrides.pax = overrides.Override_Pax;
+        if (overrides.Override_Cantidad !== undefined) domainOverrides.cantidad = overrides.Override_Cantidad;
+        if (overrides.Override_Duracion_Min !== undefined) domainOverrides.duracion = overrides.Override_Duracion_Min;
+        if (overrides.Comentarios !== undefined) domainOverrides.Comentarios = overrides.Comentarios;
+        if (overrides.Dia !== undefined) domainOverrides.Dia = overrides.Dia;
+        if (overrides.Hora !== undefined) domainOverrides.Hora = overrides.Hora;
+
+        context.basket.update(lineId, domainOverrides);
+        const snapshot = context.basket.toSnapshot();
+        return {
+          basket: context.basket,
+          lineas: snapshot.lineas,
+          totals: snapshot.totals,
+        };
+      }
+
+      // Fallback to pricing pipeline
+      const { store } = context;
       const updated = context.lineas.map(linea => {
         if (linea.ID_Linea !== lineId) return linea;
         const next = { ...linea };
@@ -5443,7 +6939,6 @@ var QuotationEngine = (function (exports) {
         return next;
       });
 
-      // Re-price the updated line
       const targetLinea = updated.find(l => l.ID_Linea === lineId);
       if (targetLinea) {
         resolveItemDefaults(targetLinea, context.quotation.paxGlobal, store);
@@ -5451,7 +6946,6 @@ var QuotationEngine = (function (exports) {
         applyItemRules(targetLinea, store);
       }
 
-      // Update global totals
       const { totals, messages } = aggregateBasketTotals(
         updated,
         context.quotation.ajustesManuales,
@@ -5466,14 +6960,24 @@ var QuotationEngine = (function (exports) {
     }),
 
     /**
-     * Remove item from basket (soft delete).
-     * Marks as removed but keeps in history for replay/recovery.
-     * Delegates to pricing module: aggregateBasketTotals (with filtered display items)
+     * Remove item from basket.
+     * Phase B: Delegates to domain basket.remove() when available, falls back to pricing pipeline.
      */
     removeItem: assign(({ context, event }) => {
       const { lineId } = event;
 
-      // Mark as removed but keep in history
+      // If basket is available, use domain model (Phase B)
+      if (context.basket) {
+        context.basket.remove(lineId);
+        const snapshot = context.basket.toSnapshot();
+        return {
+          basket: context.basket,
+          lineas: snapshot.lineas,
+          totals: snapshot.totals,
+        };
+      }
+
+      // Fallback to pricing pipeline (soft delete)
       const updated = context.lineas.map(linea => {
         if (linea.ID_Linea === lineId) {
           return { ...linea, _removed: true };
@@ -5481,10 +6985,7 @@ var QuotationEngine = (function (exports) {
         return linea;
       });
 
-      // Filter out from displayed cart (but keep in history)
       const displayed = updated.filter(l => !l._removed);
-
-      // Recalc with only displayed items
       const { totals, messages } = aggregateBasketTotals(
         displayed,
         context.quotation.ajustesManuales,
@@ -5492,7 +6993,7 @@ var QuotationEngine = (function (exports) {
       );
 
       return {
-        lineas: updated, // Keep full history
+        lineas: updated,
         totals,
         messages: [...context.messages, ...messages],
       };

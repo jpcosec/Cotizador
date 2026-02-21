@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### 2026-02-21 (session — frontend state ownership audit)
+- docs/architecture: added `docs/ARCHITECTURE/frontend-state-ownership-audit.md` with a deep Alpine vs XState ownership matrix (workflow, basket, totals, catalog, quotation load/list, database region), duplication hotspots, and recommended target architecture (XState business state, Alpine UI projection).
+- docs/index: updated `docs/README.md` to include the new ownership audit document.
+
+### 2026-02-21 (session — Phase B & C domain integration + plan folder cleanup + critical issue flagged)
+- **🔴 BLOCKING ISSUE FOUND:** Parent kit items (COMPOSICION_KIT) must have zero cost; all pricing managed on children only
+  - Issue: Schema allows parent items to have non-zero `Costo_Base_Fijo` and unit costs
+  - Risk: Double-counting if both parent and children have costs during expand() stage
+  - Fix: Add validation in Catalog.load() and expand() to enforce parent = $0 invariant
+  - Estimate: 1-2 hours (validation + tests)
+  - Status: Marked as BLOCKING ISSUE #8, must fix before Phase 4 production hardening starts
+  - Added to `plan/debt.md` as top-priority blocking issue
+
+### 2026-02-21 (session — Phase B & C domain integration + plan folder cleanup)
+- domain/phase-b: created new `packages/domain/src/index.js` to export public API (Catalog, Basket, Item, Kit, Category, DayCategory, ItemBase, ContainerBase)
+- domain/implementation: implemented 553 tests (553/553 passing) across 17 test files for domain model
+  - unit tests: Catalog (23), Basket (44), Item (49), Kit (49), Category (24), DayCategory (32), ContainerBase (64), ItemBase (89)
+  - integration tests: catalog_load (15), basket_lifecycle (24), rule_inheritance (11), pricing_delegation (14)
+  - helpers: store_factory.js (test stores with pricing profiles and rules)
+- xstate/phase-b-integration: added `@claps/domain` to package.json; updated machine blueprint to include `catalog` and `basket` in context
+- xstate/phase-b-actions: implemented `initCatalog` action to load catalog at startup (entry point on browse state)
+- xstate/phase-b-actions: updated `initializeEmptyBasket` to create Basket instance when catalog is available
+- xstate/phase-b-actions: updated `addItem`, `updateItem`, `removeItem` to delegate to basket when available; fallback to pricing pipeline for backward compat (dual-write)
+- xstate/phase-b-tests: all 79 xstate tests passing (includes Phase B integration, no regressions)
+- frontend/phase-c: updated `AlpineXStateBridge.syncToAlpine()` to read from `basket.toDisplayObject()` when available
+- frontend/phase-c: added `mapDaysToCarrito()` method to convert domain day structure to carrito format
+- frontend/phase-c-tests: all 12 frontend tests passing (includes Phase C bridge support)
+- docs: updated `PLAN.md` to mark Priority 1 (Domain Model) as complete
+- docs: added Phase B & C notes to `docs/ARCHITECTURE/state-machine.md` and `docs/ARCHITECTURE/ui-machine-context-sync-plan.md`
+- docs: added Phase B & C notes to `docs/ARCHITECTURE/database-logic.md` and `docs/ARCHITECTURE/rules-engine.md`
+- memory: updated project memory to reflect Phase B & C completion and domain model integration
+- plan/cleanup: removed completed domain model planning files (`domain-model-design.md`, `domain-model-implementation-plan.md`, `domain-model-reference.md`) from `plan/` folder (no longer needed — work is in code/tests)
+- plan/cleanup: removed completed `plan/PHASE3/` directory (work archived in `docs/ARCHITECTURE/` and implementation in `packages/`)
+- plan/cleanup: moved legacy reference document `legacy-items-rule-migration-matrix.md` from `plan/` → `docs/ARCHITECTURE/legacy-rule-migration-reference.md` (stable reference, not active planning)
+- plan/structure: created `plan/debt.md` to consolidate Phase 4 near-term technical work (6-9 hours: production hardening, PDF generation, email delivery, catalog editor, GAS deployment verification)
+- plan/structure: created `plan/future.md` strategic roadmap for post-Phase-4 work (multi-user collaboration, advanced pricing, analytics, integrations, mobile, scaling to platform; includes decision framework and 2-3 year vision)
+- plan/structure: updated `plan/README.md` to explain folder organization and file purposes (active work vs stable reference vs future planning)
+
 ### 2026-02-20 (session 4 — UI testing & fixes)
 - fix/local-seed: seeded 3 clients (CLI_CORP, CLI_DEMO, CLI_TEST) in `store_factory.js` so client search works out-of-the-box in local preview.
 - fix/local-seed: `bundling/createCotizadorActor.js` now populates `window.localClientes`, `window.localCatalogItems`, and `window.localPricingReferenceData` from the seeded store using the store's `all()` API; the GAS shim can now serve local data for client search and catalog.

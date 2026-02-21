@@ -26,7 +26,7 @@
             <p style="margin-top: 0; color: var(--secondary);">Selecciona cliente y configura fecha, dias y pax para continuar.</p>
         </section>
 
-        <section x-show="!useStateMachine || isMachineInBasket()" class="container">
+        <section x-show="useStateMachine && isMachineInBasket()" class="container">
             <?!= include('Components_Sidebar'); ?>
             <?!= include('Components_Timeline'); ?>
         </section>
@@ -76,7 +76,7 @@
     <?!= include('Bundle_Runtime'); ?>
     <?!= include('Local_XState_ActorLoader'); ?>
     <?!= include('Local_GAS_Shim'); ?>
-    <?!= include('Bridge_AlpineXState'); ?>
-    <?!= include('Stores_App'); ?>
+    <?!= include('Bridge_XStateApp'); ?>
+    <?!= include('Stores_XStateApp'); ?>
 </body>
 </html>

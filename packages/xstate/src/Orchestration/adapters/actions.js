@@ -6,6 +6,7 @@
 // In the worktree phase, configure your bundler to resolve these from the pricing branch.
 
 import { assign } from 'xstate';
+import { Catalog, Basket } from '../../../../domain/src/index.js';
 import {
   expandItemCompositions,
   resolveItemDefaults,
@@ -253,6 +254,15 @@ export const browseActions = {
 // --- Initialization Actions ---
 
 export const initActions = {
+  initCatalog: assign(({ context }) => {
+    if (context.catalog) return {};  // Already loaded
+    if (!context.store) return {};   // Store not yet initialized
+
+    const catalog = new Catalog();
+    catalog.load(context.store);
+    return { catalog };
+  }),
+
   initializeBasketFromLoaded: assign(({ event }) => {
     const quotation = event.data; // From loaded quotation
     return {
@@ -264,23 +274,34 @@ export const initActions = {
     };
   }),
 
-  initializeEmptyBasket: assign(({ event }) => {
+  initializeEmptyBasket: assign(({ event, context }) => {
     const { paxGlobal, clienteId, fechaEvento, duracionDias, cotizacionId } =
       event;
-    return {
-      quotation: {
-        cotizacion: {
-          ID_Cotizacion: cotizacionId || `COT_${Date.now()}`,
-          ID_Cliente: clienteId,
-          Fecha_Evento: fechaEvento ?? null,
-          Duracion_Dias: duracionDias ?? null,
-          Pax_Global: paxGlobal,
-          Estado: 'Borrador',
-        },
-        paxGlobal,
-        ajustesManuales: [],
-        _lineSeq: 0,
+    const quotation = {
+      cotizacion: {
+        ID_Cotizacion: cotizacionId || `COT_${Date.now()}`,
+        ID_Cliente: clienteId,
+        Fecha_Evento: fechaEvento ?? null,
+        Duracion_Dias: duracionDias ?? null,
+        Pax_Global: paxGlobal,
+        Estado: 'Borrador',
       },
+      paxGlobal,
+      ajustesManuales: [],
+      _lineSeq: 0,
+    };
+
+    // Create basket if catalog is loaded
+    let basket = null;
+    if (context.catalog) {
+      basket = new Basket(quotation.cotizacion, context.catalog, {
+        rules: context.catalog.getBasketRules(),
+      });
+    }
+
+    return {
+      quotation,
+      basket,
       lineas: [],
       totals: { subtotal: 0, taxes: [], total: 0 },
       messages: [],
@@ -337,10 +358,24 @@ export const basketActions = {
 
   /**
    * Add item to basket.
-   * Delegates to pricing module: expandItemCompositions → resolveItemDefaults → recalculateItemPrice → applyItemRules → aggregateBasketTotals
+   * Phase B: Delegates to domain basket.add() when available, falls back to pricing pipeline.
    */
   addItem: assign(({ context, event }) => {
     const { itemId, overrides = {} } = event;
+
+    // If basket is available, use domain model (Phase B)
+    if (context.basket) {
+      const items = context.basket.add(itemId, overrides);
+      const snapshot = context.basket.toSnapshot();
+      return {
+        basket: context.basket,
+        quotation: context.quotation,
+        lineas: snapshot.lineas,
+        totals: snapshot.totals,
+      };
+    }
+
+    // Fallback to pricing pipeline (backward compat)
     const { store } = context;
     const quotation = { ...context.quotation };
     const selectedItem = store.findById('ITEM_CATALOGO', 'ID_Item', itemId);
@@ -362,12 +397,10 @@ export const basketActions = {
       Hora: overrides.Hora ?? null,
     };
 
-    // Step 1: Expand compositions
     const expanded = expandItemCompositions(baseLine, store).map(line =>
       line === baseLine ? line : { ...line, ID_Linea: nextId(quotation) }
     );
 
-    // Step 2-4: For each expanded line, resolve + price + apply rules
     const newMessages = [];
     const newErrors = [];
     for (const linea of expanded) {
@@ -385,7 +418,6 @@ export const basketActions = {
       }
     }
 
-    // Step 5: Update global totals
     const { totals, messages: globalMessages } = aggregateBasketTotals(
       [...context.lineas, ...expanded],
       quotation.ajustesManuales,
@@ -407,9 +439,29 @@ export const basketActions = {
    */
   updateItem: assign(({ context, event }) => {
     const { lineId, overrides = {} } = event;
-    const { store } = context;
 
-    // Find and update the line
+    // If basket is available, use domain model (Phase B)
+    if (context.basket) {
+      // Convert domain overrides to basket format (pax instead of Override_Pax)
+      const domainOverrides = {};
+      if (overrides.Override_Pax !== undefined) domainOverrides.pax = overrides.Override_Pax;
+      if (overrides.Override_Cantidad !== undefined) domainOverrides.cantidad = overrides.Override_Cantidad;
+      if (overrides.Override_Duracion_Min !== undefined) domainOverrides.duracion = overrides.Override_Duracion_Min;
+      if (overrides.Comentarios !== undefined) domainOverrides.Comentarios = overrides.Comentarios;
+      if (overrides.Dia !== undefined) domainOverrides.Dia = overrides.Dia;
+      if (overrides.Hora !== undefined) domainOverrides.Hora = overrides.Hora;
+
+      context.basket.update(lineId, domainOverrides);
+      const snapshot = context.basket.toSnapshot();
+      return {
+        basket: context.basket,
+        lineas: snapshot.lineas,
+        totals: snapshot.totals,
+      };
+    }
+
+    // Fallback to pricing pipeline
+    const { store } = context;
     const updated = context.lineas.map(linea => {
       if (linea.ID_Linea !== lineId) return linea;
       const next = { ...linea };
@@ -425,7 +477,6 @@ export const basketActions = {
       return next;
     });
 
-    // Re-price the updated line
     const targetLinea = updated.find(l => l.ID_Linea === lineId);
     if (targetLinea) {
       resolveItemDefaults(targetLinea, context.quotation.paxGlobal, store);
@@ -433,7 +484,6 @@ export const basketActions = {
       applyItemRules(targetLinea, store);
     }
 
-    // Update global totals
     const { totals, messages } = aggregateBasketTotals(
       updated,
       context.quotation.ajustesManuales,
@@ -448,14 +498,24 @@ export const basketActions = {
   }),
 
   /**
-   * Remove item from basket (soft delete).
-   * Marks as removed but keeps in history for replay/recovery.
-   * Delegates to pricing module: aggregateBasketTotals (with filtered display items)
+   * Remove item from basket.
+   * Phase B: Delegates to domain basket.remove() when available, falls back to pricing pipeline.
    */
   removeItem: assign(({ context, event }) => {
     const { lineId } = event;
 
-    // Mark as removed but keep in history
+    // If basket is available, use domain model (Phase B)
+    if (context.basket) {
+      context.basket.remove(lineId);
+      const snapshot = context.basket.toSnapshot();
+      return {
+        basket: context.basket,
+        lineas: snapshot.lineas,
+        totals: snapshot.totals,
+      };
+    }
+
+    // Fallback to pricing pipeline (soft delete)
     const updated = context.lineas.map(linea => {
       if (linea.ID_Linea === lineId) {
         return { ...linea, _removed: true };
@@ -463,10 +523,7 @@ export const basketActions = {
       return linea;
     });
 
-    // Filter out from displayed cart (but keep in history)
     const displayed = updated.filter(l => !l._removed);
-
-    // Recalc with only displayed items
     const { totals, messages } = aggregateBasketTotals(
       displayed,
       context.quotation.ajustesManuales,
@@ -474,7 +531,7 @@ export const basketActions = {
     );
 
     return {
-      lineas: updated, // Keep full history
+      lineas: updated,
       totals,
       messages: [...context.messages, ...messages],
     };

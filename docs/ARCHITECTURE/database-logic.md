@@ -1,5 +1,7 @@
 # Arquitectura y Logica de Datos: SF Lodge v3.0
 
+**NOTA (Feb 2026):** La arquitectura ha evolucionado con el Modelo de Dominio (Phase B). Ver `packages/domain/` para la nueva implementación con clases Catalog, Basket, Item que encapsulan la lógica de cálculo y herencia de reglas. Este documento describe los componentes subyacentes que el dominio utiliza.
+
 Este documento sintetiza toda la evolucion del sistema, desde la estructura de base de datos hasta el pipeline de calculo, consolidando las reglas de negocio, herencias y motores de procesamiento.
 
 ## Proposito

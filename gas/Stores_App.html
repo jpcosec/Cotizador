@@ -436,6 +436,68 @@ function cotizadorApp() {
                 self.cargando = false;
             }
 
+            function loadCatalogFromDomainModel() {
+                // Use initialized Catalog from state machine context
+                if (!self.useStateMachine || !self.bridge) return false;
+
+                var snap = self.bridge.actor.getSnapshot();
+                var catalog = snap && snap.context ? snap.context.catalog : null;
+
+                if (!catalog || typeof catalog.toDisplayObject !== 'function') {
+                    return false; // Fallback to GAS
+                }
+
+                try {
+                    // Get display object from domain Catalog
+                    var displayObj = catalog.toDisplayObject();
+
+                    // Transform to catalogoPorCategoria format
+                    var grouped = {};
+                    var busqueda = self.busquedaCatalogo.toLowerCase();
+
+                    (displayObj.categories || []).forEach(function(cat) {
+                        // Filter by search term
+                        var filteredItems = (cat.items || []).filter(function(item) {
+                            var nombre = (item.nombre || '').toLowerCase();
+                            return !busqueda || nombre.indexOf(busqueda) !== -1;
+                        });
+
+                        if (filteredItems.length > 0) {
+                            grouped[cat.nombre] = filteredItems.map(function(item) {
+                                return {
+                                    ID_Item: item.itemId,
+                                    Nombre: item.nombre,
+                                    Precio_Base: Number(item.precio || 0),
+                                    precio: Number(item.precio || 0),
+                                    Default_Glosa: item.comentarios || '',
+                                    detalle: item.comentarios || '',
+                                    _categoria: {
+                                        ID_Categoria: cat.id,
+                                        Nombre: cat.nombre
+                                    },
+                                    // Preserve other display properties
+                                    ...item
+                                };
+                            });
+                        }
+                    });
+
+                    // Flatten for compatibility with sidebar
+                    self.catalogo = [];
+                    Object.keys(grouped).forEach(function(categoria) {
+                        grouped[categoria].forEach(function(item) {
+                            self.catalogo.push(item);
+                        });
+                    });
+
+                    self.cargando = false;
+                    return true;
+                } catch (e) {
+                    console.warn('Failed to load from domain Catalog, falling back to GAS:', e);
+                    return false;
+                }
+            }
+
             function loadCatalogOnly() {
                 google.script.run
                     .withSuccessHandler(finishCatalogLoad)
@@ -447,19 +509,32 @@ function cotizadorApp() {
             }
 
             self.cargando = true;
+
+            // Try to load from domain Catalog first (state machine mode)
             if (this.useStateMachine && this.bridge) {
                 google.script.run
                     .withSuccessHandler(function(reference) {
                         self.hydrateMachineStoreFromReference(reference || {});
-                        loadCatalogOnly();
+
+                        // After hydration, try to load from domain model
+                        var loaded = loadCatalogFromDomainModel();
+                        if (!loaded) {
+                            // Fallback to GAS if domain model not available
+                            loadCatalogOnly();
+                        }
                     })
                     .withFailureHandler(function() {
-                        loadCatalogOnly();
+                        // If reference data fails, try domain model anyway
+                        var loaded = loadCatalogFromDomainModel();
+                        if (!loaded) {
+                            loadCatalogOnly();
+                        }
                     })
                     .getPricingReferenceData();
                 return;
             }
 
+            // Local mode without state machine: load from GAS
             loadCatalogOnly();
         },
         
@@ -572,6 +647,8 @@ function cotizadorApp() {
         actualizarCantidad(idx, val) {
             var cant = parseInt(val) || 1;
 
+            // When state machine is active, ONLY send to bridge
+            // Let AlpineXStateBridge sync carrito back from machine state
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
@@ -579,12 +656,15 @@ function cotizadorApp() {
                         lineId: lineId,
                         overrides: { Override_Pax: cant }
                     });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
-            this.carrito[idx].cantidad = cant;
-            this.carrito[idx].total = this.carrito[idx].precio * cant;
+            // Fallback: local mode without state machine
+            if (this.carrito[idx]) {
+                this.carrito[idx].cantidad = cant;
+                this.carrito[idx].total = this.carrito[idx].precio * cant;
+            }
         },
 
         getLinePax(item) {
@@ -608,6 +688,7 @@ function cotizadorApp() {
         actualizarCantidadUnidades(idx, val) {
             var units = Math.max(0, parseInt(val, 10) || 0);
 
+            // When state machine is active, ONLY send to bridge
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
@@ -615,10 +696,11 @@ function cotizadorApp() {
                         lineId: lineId,
                         overrides: { Override_Cantidad: units }
                     });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
+            // Fallback: local mode without state machine
             if (!this.carrito[idx]) return;
             this.carrito[idx].unidades = units;
             if (this.carrito[idx]._raw) this.carrito[idx]._raw.Override_Cantidad = units;
@@ -627,6 +709,7 @@ function cotizadorApp() {
         actualizarDuracionLinea(idx, val) {
             var minutes = Math.max(0, parseInt(val, 10) || 0);
 
+            // When state machine is active, ONLY send to bridge
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
@@ -634,10 +717,11 @@ function cotizadorApp() {
                         lineId: lineId,
                         overrides: { Override_Duracion_Min: minutes }
                     });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
+            // Fallback: local mode without state machine
             if (!this.carrito[idx]) return;
             this.carrito[idx].duracionMin = minutes;
             if (this.carrito[idx]._raw) this.carrito[idx]._raw.Override_Duracion_Min = minutes;
@@ -646,6 +730,7 @@ function cotizadorApp() {
         actualizarComentario(idx, val) {
             var comentario = String(val || '');
 
+            // When state machine is active, ONLY send to bridge
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
@@ -653,18 +738,20 @@ function cotizadorApp() {
                         lineId: lineId,
                         overrides: { Comentarios: comentario }
                     });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
+            // Fallback: local mode without state machine
             if (!this.carrito[idx]) return;
             this.carrito[idx].comentarios = comentario;
             this.carrito[idx].Comentarios = comentario;
         },
-        
+
         actualizarHora(idx, hora) {
             var horaStr = String(hora || '');
 
+            // When state machine is active, ONLY send to bridge
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
@@ -672,10 +759,11 @@ function cotizadorApp() {
                         lineId: lineId,
                         overrides: { Hora: horaStr }
                     });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
+            // Fallback: local mode without state machine
             if (this.carrito[idx]) this.carrito[idx].hora = horaStr;
         },
 
@@ -777,14 +865,16 @@ function cotizadorApp() {
         },
 
         eliminarItem(idx) {
+            // When state machine is active, ONLY send to bridge
             if (this.useStateMachine && this.bridge && this.carrito[idx]) {
                 var lineId = this.carrito[idx].lineId || this.carrito[idx].id;
                 if (lineId) {
                     var sent = this.bridge.send('REMOVE_ITEM', { lineId: lineId });
-                    if (sent) return;
+                    if (sent) return; // Don't mutate locally; wait for bridge sync
                 }
             }
 
+            // Fallback: local mode without state machine
             this.carrito.splice(idx, 1);
         },
         

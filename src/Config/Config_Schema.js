@@ -8,6 +8,8 @@
 // - No se borra data: toda modificación reescribe con Updated_At.
 // - Impuestos se aplican siempre al total, no por línea.
 
+// TODO: move to database module
+
 export const DATA_SCHEMA = {
 
   // ==========================================
@@ -79,7 +81,7 @@ export const DATA_SCHEMA = {
       { name: "ID_Item_Padre", type: "FK", ref: "ITEM_CATALOGO", desc: "Ítem comercial (pack/kit)" },
       { name: "ID_Item_Hijo", type: "FK", ref: "ITEM_CATALOGO", desc: "Ítem operativo" },
       { name: "Cantidad", type: "DECIMAL", desc: "Multiplicador" },
-      { name: "Tipo_Precio", type: "ENUM", options: ["ABSORBIDO", "SUMAR"], desc: "Cómo contribuye al precio" },
+      { name: "Tipo_Precio", type: "ENUM", options: ["ABSORBIDO", "SUMAR"], desc: "Cómo contribuye al precio" }, // TODO: DELETE THIS: all kits have no self price, their price is calculated from its childs.
       { name: "Updated_At", type: "DATETIME", desc: "Última modificación" }
     ]
   },

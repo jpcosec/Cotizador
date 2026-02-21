@@ -19,6 +19,7 @@
     "quotation"
   ],
   "dependencies": {
+    "@cotizador/domain": "2.0.0",
     "xstate": "^5.28.0"
   },
   "devDependencies": {

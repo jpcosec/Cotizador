@@ -19,21 +19,38 @@ XState is the middleware layer:
 
 Machine context is expected to hold at least:
 
-- quotation header and line items
-- calculated totals
+### Phase B Integration (Domain Model)
+- `catalog` — Loaded `Catalog` instance (contains categories, items, profiles, rules)
+- `basket` — Active `Basket` instance (manages selected items, day grouping, price calculation)
+
+### Backward-Compat Flat Fields
+- `quotation` — header and metadata
+- `lineas` — flat array of line items (synced from basket.toSnapshot())
+- `totals` — aggregate calculations (synced from basket)
 - error/messages
-- loaded reference tables (catalog, categories, profiles, rules, compositions)
-- injected `store`/service dependencies
+
+### Reference Data & Dependencies
+- loaded reference tables (now encapsulated in `catalog` object)
+- injected `store`/service dependencies for persistence
+
+## Data Flow (Phase B+)
+
+1. **Initialization** — XState loads catalog at INIT via `initCatalog` action
+2. **Basket Creation** — When quotation starts, `initializeEmptyBasket` creates `context.basket`
+3. **Item Operations** — ADD_ITEM, UPDATE_ITEM, REMOVE_ITEM delegate to `basket.add/update/remove()`
+4. **Dual-Write** — Basket methods update domain objects + sync `context.lineas` and `context.totals` for backward compat
+5. **Frontend Sync** — AlpineXStateBridge reads `basket.toDisplayObject()` when available
 
 ## Boundary Rules
 
 - Frontend sends events and renders snapshots; no direct pricing/database logic.
-- Pricing stays pure and receives data as parameters.
+- Domain basket owns item lifecycle and pricing delegation.
+- Pricing stays pure (called by domain layer, not directly by XState actions).
 - Database package owns persistence/store implementations.
 
 ## Test Snapshot
 
-- Last local run: `64/65` xstate tests passing.
+- Current: `79/79` xstate tests passing (includes Phase B domain integration).
 
 Run:
 

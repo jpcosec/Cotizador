@@ -109,7 +109,14 @@ export class AlpineXStateBridge {
     }
 
     if (this.opts.syncLineasAsCarrito) {
-      this.alpineStore.carrito = this.mapLineasToCarrito(context.lineas || [], context.quotation);
+      // Phase C: Use domain basket if available, otherwise fall back to pricing pipeline
+      if (context.basket && typeof context.basket.toDisplayObject === 'function') {
+        const displayObj = context.basket.toDisplayObject();
+        this.alpineStore.carrito = this.mapDaysToCarrito(displayObj.days || []);
+        this.alpineStore.totalsSnapshot = cloneValue(displayObj.totals || context.totals);
+      } else {
+        this.alpineStore.carrito = this.mapLineasToCarrito(context.lineas || [], context.quotation);
+      }
     }
   }
 
@@ -140,6 +147,34 @@ export class AlpineXStateBridge {
           _raw: linea,
         };
       });
+  }
+
+  /**
+   * Maps domain basket display structure (days[] with items) to carrito format.
+   * Used by Phase C bridge when basket is available.
+   */
+  mapDaysToCarrito(days) {
+    const carrito = [];
+    for (const day of days || []) {
+      for (const item of day.items || []) {
+        carrito.push({
+          id: item.id,
+          nombre: item.nombre,
+          categoria: item.categoria || 'General',
+          precio: item.precio,
+          cantidad: item.cantidad,
+          dia: item.dia,
+          hora: item.hora,
+          comentarios: item.comentarios || '',
+          Comentarios: item.comentarios || '',
+          total: item.total,
+          lineId: item.lineId,
+          pax: item.pax,
+          available: item.available !== false,
+        });
+      }
+    }
+    return carrito;
   }
 }
 

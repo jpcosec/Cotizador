@@ -41,18 +41,16 @@
 
 ---
 
-## Phase 3: In Progress ⏳ (Frontend Integration)
+## Phase 3: Complete ✅ (Frontend Integration)
 
-### TIER 1: MVP Features (1.5 hours)
-- ⏳ Validation summary before save
-- ⏳ Success confirmation screen
-- ⏳ State-aware UI views (each state shows appropriate view)
-- ⏳ Save/Cancel buttons for quotation
-
-### TIER 2: Good UX (1.5 hours)
-- ⏳ Browse previous quotations view
-- ⏳ Client selection modal
-- ⏳ Event setup form
+- ✅ Validation summary before save
+- ✅ Success confirmation screen
+- ✅ State-aware UI views (each state shows appropriate view)
+- ✅ Save/Cancel buttons for quotation
+- ✅ Browse previous quotations view
+- ✅ Client selection modal
+- ✅ Event setup form
+- ✅ Local GAS preview (exact GAS app served at localhost:8082)
 
 ---
 
@@ -150,10 +148,10 @@
 ## Technical Capabilities
 
 ### Calculation Engine
-- 5-stage pricing pipeline (pure functions)
-- 9 configurable business rule types
+- Domain model: ContainerBase / ItemBase hierarchy (Item calculates itself)
+- Rules engine with 5 pipeline stages (CANTIDAD_DEFAULT → RESTRICCION_UI → AJUSTE_LINEA → AJUSTE_GLOBAL → IMPUESTO)
 - Real-time pricing updates
-- 147 test cases (100% coverage)
+- 181 pricing test cases
 
 ### Data Storage
 - Google Sheets backend
@@ -165,13 +163,13 @@
 - 18 states covering full workflow
 - Guards preventing invalid transitions
 - Parallel database editor while quotation open
-- 65 test cases (100% coverage)
+- 79 test cases
 
 ### Architecture
 - Pure pricing functions (testable, reusable)
 - XState orchestration (deterministic)
 - Alpine.js reactive UI (lightweight)
-- Zero external dependencies (except xstate + alpinejs)
+- Three runtime dependencies: xstate, alpinejs, json-logic-js
 
 ---
 
@@ -201,13 +199,13 @@
 
 ## Roadmap Summary
 
-| Phase | Timeline | Status | Features |
-|-------|----------|--------|----------|
-| 1 | Complete | ✅ | Database abstraction |
-| 2 | Complete | ✅ | Pricing + Orchestration |
-| 3 | 2026-02-22 | ⏳ | Frontend integration (MVP + UX) |
-| 4 | 2026-02-27 | 📋 | PDF, Email, Catalog editor |
-| Production | 2026-03-05 | 🚀 | Full deployment to GAS |
+| Phase | Status | Features |
+|-------|--------|----------|
+| 1 | ✅ Complete | Database abstraction |
+| 2 | ✅ Complete | Pricing + Orchestration |
+| 3 | ✅ Complete | Frontend integration + local GAS preview |
+| Domain model | ⏳ Next | ContainerBase/ItemBase class hierarchy |
+| 4 | 📋 Planned | PDF, Email, Catalog editor, GAS deployment |
 
 ---
 
