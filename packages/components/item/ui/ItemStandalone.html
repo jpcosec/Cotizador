@@ -4,245 +4,152 @@
   <div class="item-step-layout">
     <div>
       <article>
-        <h3>Definition + Initializers</h3>
+        <h3>Definition + Mode</h3>
         <p><strong x-text="state.definition.name"></strong></p>
         <p>Category: <span x-text="state.definition.category"></span></p>
         <p x-text="state.definition.description"></p>
-        <p>Pricing profile (catalog): <strong x-text="state.pricingHuman"></strong></p>
+        <p>Pricing profile: <strong x-text="state.pricingHuman"></strong></p>
         <p>Mode: <strong x-text="state.mode"></strong></p>
+        <p>Total: <strong x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong></p>
         <div>
-          <button class="btn-small btn-secondary" type="button" @click="setMode('catalog')">catalog</button>
-          <button class="btn-small btn-primary" type="button" @click="setMode('basket')">basket</button>
-          <button class="btn-small btn-secondary" type="button" @click="resetOverrides()">reset line overrides</button>
+          <button class="btn-small btn-primary" type="button"
+                  x-show="state.mode === 'catalog'"
+                  @click="addToBasket()">Add to basket</button>
+          <button class="btn-small btn-secondary" type="button"
+                  x-show="state.mode === 'basket'"
+                  @click="removeFromBasket()">Remove from basket</button>
+          <button class="btn-small btn-secondary" type="button"
+                  x-show="state.mode === 'basket'"
+                  @click="resetOverrides()">Reset overrides</button>
         </div>
       </article>
 
       <article>
-        <h3>Global context</h3>
+        <h3>Global Context</h3>
         <div class="form-group">
           <label>Pax Global</label>
-          <input type="number" :value="state.externalContext.paxGlobal" @input="setExternalNumber('paxGlobal', $event.target.value)">
+          <input type="number" :value="state.externalContext.paxGlobal"
+                 @input="setContext('paxGlobal', $event.target.value)">
         </div>
         <div class="form-group">
           <label>Duracion Global (min)</label>
-          <input type="number" :value="state.externalContext.duracionMin" @input="setExternalNumber('duracionMin', $event.target.value)">
+          <input type="number" :value="state.externalContext.duracionMin"
+                 @input="setContext('duracionMin', $event.target.value)">
         </div>
         <div class="form-group">
           <label>Dia Global</label>
-          <input type="number" :value="state.externalContext.dia" @input="setExternalNumber('dia', $event.target.value)">
+          <input type="number" :value="state.externalContext.dia"
+                 @input="setContext('dia', $event.target.value)">
         </div>
         <div class="form-group mb-0">
           <label>Hora Global</label>
-          <input type="time" :value="state.externalContext.hora" @input="setExternalText('hora', $event.target.value)">
+          <input type="time" :value="state.externalContext.hora"
+                 @input="setContext('hora', $event.target.value)">
         </div>
-      </article>
-
-      <article>
-        <h3>State Debug</h3>
-        <pre x-text="prettyState()"></pre>
       </article>
     </div>
 
     <div>
       <article>
-        <h3>Pricing + Default Initialization</h3>
-        <div class="item-top-config-grid">
-          <div>
-            <h4 style="margin:0 0 8px 0;">Pricing profile</h4>
-            <div class="form-group">
-              <label>Base fijo</label>
-              <input type="number" :value="state.definition.pricingProfile.baseFijo ?? 0" @input="setProfileNumber('baseFijo', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Por persona</label>
-              <input type="number" :value="state.definition.pricingProfile.porPersona ?? 0" @input="setProfileNumber('porPersona', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Por unidad</label>
-              <input type="number" :value="state.definition.pricingProfile.porUnidad ?? 0" @input="setProfileNumber('porUnidad', $event.target.value)">
-            </div>
-            <div class="form-group mb-0">
-              <label>Por minuto</label>
-              <input type="number" :value="state.definition.pricingProfile.porMinuto ?? 0" @input="setProfileNumber('porMinuto', $event.target.value)">
-            </div>
-            <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">
-              Preview: <strong x-text="state.pricingHuman"></strong>
-            </p>
-          </div>
-
-          <div>
-            <h4 style="margin:0 0 8px 0;">Default initialization logic</h4>
-            <div class="form-group">
-              <label>Pax default</label>
-              <input type="number" :value="state.definition.defaultQuantities.pax ?? ''" @input="setDefaultQuantityNumber('pax', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Cantidad fija default</label>
-              <input type="number" :value="state.definition.defaultQuantities.cantidad ?? ''" @input="setDefaultQuantityNumber('cantidad', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Duracion fija default (min)</label>
-              <input type="number" :value="state.definition.defaultQuantities.duracionMin ?? ''" @input="setDefaultQuantityNumber('duracionMin', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Unidades por usuario</label>
-              <input type="number" :value="state.definition.defaultQuantities.unidadesPorUsuario ?? ''" @input="setDefaultQuantityNumber('unidadesPorUsuario', $event.target.value)">
-            </div>
-            <div class="form-group">
-              <label>Unidades por hora</label>
-              <input type="number" :value="state.definition.defaultQuantities.unidadesPorHora ?? ''" @input="setDefaultQuantityNumber('unidadesPorHora', $event.target.value)">
-            </div>
-            <div class="form-group mb-0">
-              <label>Minutos por usuario</label>
-              <input type="number" :value="state.definition.defaultQuantities.minutosPorUsuario ?? ''" @input="setDefaultQuantityNumber('minutosPorUsuario', $event.target.value)">
-            </div>
-          </div>
+        <h3>Pricing Profile</h3>
+        <div class="form-group">
+          <label>Base fijo</label>
+          <input type="number" :value="state.definition.pricingProfile.baseFijo ?? 0"
+                 @input="setProfileValue('baseFijo', $event.target.value)">
         </div>
+        <div class="form-group">
+          <label>Por persona</label>
+          <input type="number" :value="state.definition.pricingProfile.porPersona ?? 0"
+                 @input="setProfileValue('porPersona', $event.target.value)">
+        </div>
+        <div class="form-group">
+          <label>Por unidad</label>
+          <input type="number" :value="state.definition.pricingProfile.porUnidad ?? 0"
+                 @input="setProfileValue('porUnidad', $event.target.value)">
+        </div>
+        <div class="form-group mb-0">
+          <label>Por minuto</label>
+          <input type="number" :value="state.definition.pricingProfile.porMinuto ?? 0"
+                 @input="setProfileValue('porMinuto', $event.target.value)">
+        </div>
+        <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">
+          Preview: <strong x-text="state.pricingHuman"></strong>
+        </p>
       </article>
 
-      <div x-show="state.mode === 'catalog'" class="timeline-container">
-        <div class="search-fixed">
-          <div class="form-group mb-0">
-            <label>Buscar item</label>
-            <input type="text" x-model="busquedaCatalogo" placeholder="Buscar por nombre...">
-          </div>
+      <article>
+        <h3>Default Initialization</h3>
+        <div class="form-group">
+          <label>Pax default</label>
+          <input type="number" :value="state.definition.defaultQuantities.pax ?? ''"
+                 @input="setDefaultQuantity('pax', $event.target.value)">
         </div>
-
-        <div class="accordion-area">
-          <div x-show="cargando" style="padding: 10px; color: #64748b;">Cargando catalogo...</div>
-
-          <div x-show="!cargando && Object.keys(catalogoPorCategoria).length === 0"
-               style="padding: 20px; text-align: center; color: #94a3b8;">
-            No se encontraron items con ese nombre.
-          </div>
-
-          <template x-for="(items, categoria) in catalogoPorCategoria" :key="categoria">
-            <details class="cat-group" :open="busquedaCatalogo.length > 0">
-              <summary class="cat-header">
-                <span x-text="categoria"></span>
-                <span style="font-size: 0.75rem; color: #94a3b8; float: right;" x-text="Array.isArray(items) ? items.length : 0"></span>
-              </summary>
-              <div class="cat-items">
-                <template x-for="item in (Array.isArray(items) ? items : [])" :key="item.ID_Item || item.itemId || item.id || item.Nombre || item.nombre">
-                  <div class="mini-card" @click="agregarItem(item)" :title="item.detalle || item.Default_Glosa || item.Comentarios || item.Nombre || item.nombre || ''">
-                    <div>
-                      <h5 x-text="item.Nombre || item.nombre || 'Item'"></h5>
-                      <span x-text="item.Precio_Calculado_Default || item.Precio_Base || item.CatalogFormulaHuman || item.Precio_Por_Cantidad || item.pricingHuman || '$0'"></span>
-                      <small class="catalog-init-hint" x-text="item.Precio_Por_Cantidad || item.pricingHuman || ''"></small>
-                      <small class="catalog-init-hint catalog-init-hint-muted" x-text="item.InitPolicyHuman || ''"></small>
-                    </div>
-                    <i class="fa-solid fa-plus add-icon"></i>
-                  </div>
-                </template>
-              </div>
-            </details>
-          </template>
+        <div class="form-group">
+          <label>Cantidad fija default</label>
+          <input type="number" :value="state.definition.defaultQuantities.cantidad ?? ''"
+                 @input="setDefaultQuantity('cantidad', $event.target.value)">
         </div>
-      </div>
+        <div class="form-group">
+          <label>Duracion fija default (min)</label>
+          <input type="number" :value="state.definition.defaultQuantities.duracionMin ?? ''"
+                 @input="setDefaultQuantity('duracionMin', $event.target.value)">
+        </div>
+        <div class="form-group">
+          <label>Unidades por usuario</label>
+          <input type="number" :value="state.definition.defaultQuantities.unidadesPorUsuario ?? ''"
+                 @input="setDefaultQuantity('unidadesPorUsuario', $event.target.value)">
+        </div>
+        <div class="form-group">
+          <label>Unidades por hora</label>
+          <input type="number" :value="state.definition.defaultQuantities.unidadesPorHora ?? ''"
+                 @input="setDefaultQuantity('unidadesPorHora', $event.target.value)">
+        </div>
+        <div class="form-group mb-0">
+          <label>Minutos por usuario</label>
+          <input type="number" :value="state.definition.defaultQuantities.minutosPorUsuario ?? ''"
+                 @input="setDefaultQuantity('minutosPorUsuario', $event.target.value)">
+        </div>
+        <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">
+          Kind: <strong x-text="state.pricingKind"></strong>
+          | Mode: <strong x-text="state.initializationMode"></strong>
+          <span x-show="state.initPolicyHuman"> | <span x-text="state.initPolicyHuman"></span></span>
+        </p>
+      </article>
 
-      <div class="timeline-container" x-show="state.mode === 'basket' && carritoFiltrado.length > 0">
-        <template x-for="(item, index) in (Array.isArray(carritoFiltrado) ? carritoFiltrado : [])" :key="item.lineId || item.id || (item.itemId ? item.itemId + '_' + index : index)">
-          <div class="accordion-item" x-data="{ expanded: true }" :class="{ 'line-overridden': item.isOverridden }">
-            <div class="accordion-header" @click="expanded = !expanded">
-              <div class="acc-time">
-                <input type="time"
-                       x-model="item.hora"
-                       @click.stop
-                       @change="actualizarHora(index, $event.target.value)"
-                       class="time-input-small"
-                       title="Cambiar hora">
-              </div>
-
-              <div class="acc-info">
-                <div class="acc-title">
-                  <span x-text="item.nombre || 'Item'"></span>
-                  <span class="override-badge" x-show="item.isOverridden">override</span>
-                </div>
-                <div class="acc-subtitle">
-                  <span x-text="item.basketLegend || ('$' + Number(item.total ?? 0).toLocaleString('es-CL'))"></span>
-                </div>
-              </div>
-
-              <div class="acc-toggle">
-                <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-              </div>
-            </div>
-
-            <div class="accordion-body" x-show="expanded">
-              <div class="accordion-layout">
-                <div class="accordion-col-left">
-                  <div class="control-group" x-show="item.showPaxControl">
-                    <label>Pax</label>
-                    <input type="number"
-                           :value="getLinePax(item)"
-                           @change="actualizarCantidad(index, $event.target.value)"
-                           min="1">
-                  </div>
-                  <div class="control-group" x-show="item.showUnitsControl">
-                    <label>Unidades</label>
-                    <input type="number"
-                           :value="getLineUnits(item)"
-                           @change="actualizarCantidadUnidades(index, $event.target.value)"
-                           min="0">
-                  </div>
-                  <div class="control-group" x-show="item.showTimeControl">
-                    <label>Duracion (min)</label>
-                    <input type="number"
-                           :value="getLineDuration(item)"
-                           @change="actualizarDuracionLinea(index, $event.target.value)"
-                           min="0" step="15">
-                  </div>
-
-                  <div class="line-price-box">
-                    <div class="line-price-row" x-show="Number(item.baseFijo ?? 0) > 0">
-                      <span>Base fijo</span>
-                      <strong x-text="'$' + Number(item.baseFijo ?? 0).toLocaleString('es-CL')"></strong>
-                    </div>
-                    <div class="line-price-row" x-show="Number(item.rateValue ?? 0) > 0">
-                      <span x-text="(item.rateLabel || 'Cantidad') + ' x tarifa'"></span>
-                      <strong x-text="'$' + Number(item.rateSubtotal ?? 0).toLocaleString('es-CL')"></strong>
-                    </div>
-                    <div class="line-price-row"><span>Total</span><strong x-text="'$' + Number(item.total ?? 0).toLocaleString('es-CL')"></strong></div>
-                  </div>
-                </div>
-
-                <div class="accordion-col-middle">
-                  <div class="form-group mb-0">
-                    <label>Comentario</label>
-                    <textarea class="line-comment-input"
-                              :value="item.comentarios || ''"
-                              @change="actualizarComentario(index, $event.target.value)"
-                              rows="5"
-                              placeholder="Comentario de la linea"></textarea>
-                  </div>
-                  <p style="margin-top:8px; font-size:0.8rem; color:#64748b;" x-text="state.appliedRules.join(' | ') || 'Sin reglas activas'"></p>
-                </div>
-
-                <div class="accordion-col-actions">
-                  <button class="icon-action danger" @click="eliminarItem(index)" title="Eliminar item" aria-label="Eliminar item">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                  <button class="icon-action" @click="copiarItemAlDiaSiguiente(index)" title="Copiar al dia siguiente" aria-label="Copiar al dia siguiente">
-                    <i class="fa-solid fa-forward-step"></i>
-                  </button>
-                  <button class="icon-action" @click="duplicarItemEnDia(index)" title="Duplicar en este dia" aria-label="Duplicar en este dia">
-                    <i class="fa-solid fa-copy"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <div class="timeline-empty" x-show="state.mode === 'basket' && carritoFiltrado.length === 0">
-        <p>Sin item visible en timeline</p>
-        <button class="btn-small btn-secondary" type="button" @click="restaurarItem()">restaurar item</button>
-      </div>
+      <article x-show="state.mode === 'basket'">
+        <h3>Basket Overrides</h3>
+        <p x-text="state.basketLegend"></p>
+        <div class="form-group" x-show="state.showPaxControl">
+          <label>Override Pax</label>
+          <input type="number" :value="state.quantities.pax"
+                 @input="setOverride('pax', Number($event.target.value))">
+        </div>
+        <div class="form-group" x-show="state.showUnitsControl">
+          <label>Override Unidades</label>
+          <input type="number" :value="state.quantities.cantidad"
+                 @input="setOverride('cantidad', Number($event.target.value))">
+        </div>
+        <div class="form-group" x-show="state.showTimeControl">
+          <label>Override Duracion (min)</label>
+          <input type="number" :value="state.quantities.duracionMin"
+                 @input="setOverride('duracionMin', Number($event.target.value))">
+        </div>
+        <p x-show="state.isOverridden" style="color: #f59e0b; font-size: 0.85rem;">
+          Quantity is overridden
+        </p>
+        <p style="font-size:0.8rem; color:#64748b;" x-text="state.appliedRules.join(' | ') || 'No active rules'"></p>
+      </article>
 
       <article x-show="lastAction">
-        <strong>Accion:</strong>
-        <span x-text="lastAction"></span>
+        <strong>Action:</strong> <span x-text="lastAction"></span>
+      </article>
+
+      <article>
+        <h3>State Debug</h3>
+        <details>
+          <summary>Show JSON</summary>
+          <pre style="max-height: 400px; overflow: auto; font-size: 0.75rem;" x-text="prettyState()"></pre>
+        </details>
       </article>
     </div>
   </div>

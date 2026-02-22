@@ -17,5 +17,4 @@ From-scratch sequence agreed for the new worktree.
 
 ## Current focus
 
-- Pricing/initialization abstraction is now class-based (`ItemLogic` + XState interaction adapter).
-- Next implementation target: Step 4 (`db-viewer` standalone), then Step 5 (`item + db`).
+- Item refactored to one-actor-per-item architecture. Next: Step 4 (db-viewer standalone).
