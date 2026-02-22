@@ -59,18 +59,21 @@
             <!-- Left: quantity controls + price breakdown -->
             <div class="accordion-col-left">
               <div class="control-group" x-show="state.showPaxControl">
-                <label>Pax</label>
+                <label>Pax <span class="override-badge" x-show="state.isUserSetPax">manual</span></label>
                 <input type="number" :value="state.quantities.pax"
+                       :style="state.isUserSetPax ? 'border-color:#f59e0b' : ''"
                        @input="setOverride('pax', Number($event.target.value))" min="0">
               </div>
               <div class="control-group" x-show="state.showUnitsControl">
-                <label>Unidades</label>
+                <label>Unidades <span class="override-badge" x-show="state.isUserSetCantidad">manual</span></label>
                 <input type="number" :value="state.quantities.cantidad"
+                       :style="state.isUserSetCantidad ? 'border-color:#f59e0b' : ''"
                        @input="setOverride('cantidad', Number($event.target.value))" min="0">
               </div>
               <div class="control-group" x-show="state.showTimeControl">
-                <label>Duración (min)</label>
+                <label>Duración (min) <span class="override-badge" x-show="state.isUserSetDuracion">manual</span></label>
                 <input type="number" :value="state.quantities.duracionMin"
+                       :style="state.isUserSetDuracion ? 'border-color:#f59e0b' : ''"
                        @input="setOverride('duracionMin', Number($event.target.value))" min="0" step="15">
               </div>
 

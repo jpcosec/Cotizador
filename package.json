@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "serve:sandbox": "node tools/serve-sandbox.mjs"
+    "serve:sandbox": "node tools/serve-sandbox.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
   }
 }

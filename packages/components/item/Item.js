@@ -52,6 +52,7 @@ export class Item {
   #definition;
   #externalContext;
   #overrides;
+  #userSetFields;
   #derived;
 
   /**
@@ -112,7 +113,8 @@ export class Item {
     mode = 'catalog',
     definition = {},
     externalContext = {},
-    overrides = {}
+    overrides = {},
+    userSetFields = []
   } = {}) {
     this.#mode = mode;
     this.#definition = {
@@ -123,6 +125,7 @@ export class Item {
     };
     this.#externalContext = { ...(externalContext || {}) };
     this.#overrides = { ...(overrides || {}) };
+    this.#userSetFields = new Set(userSetFields || []);
     return this.calculate();
   }
 
@@ -210,7 +213,11 @@ export class Item {
       comentarios: this.#overrides.comentarios ?? '',
       showPaxControl: kind === PricingKind.PAX,
       showUnitsControl: kind === PricingKind.UNITS,
-      showTimeControl: kind === PricingKind.TIME
+      showTimeControl: kind === PricingKind.TIME,
+      userSetFields: [...this.#userSetFields],
+      isUserSetPax: this.#userSetFields.has('pax'),
+      isUserSetCantidad: this.#userSetFields.has('cantidad'),
+      isUserSetDuracion: this.#userSetFields.has('duracionMin')
     };
 
     return this;
@@ -257,6 +264,10 @@ export class Item {
       ...this.#overrides,
       [key]: value
     };
+    // Track quantity fields as user-set (not comments or schedule)
+    if (['pax', 'cantidad', 'duracionMin'].includes(key)) {
+      this.#userSetFields.add(key);
+    }
     return this.calculate();
   }
 
@@ -270,6 +281,7 @@ export class Item {
     const next = { ...this.#overrides };
     delete next[key];
     this.#overrides = next;
+    this.#userSetFields.delete(key);
     return this.calculate();
   }
 
@@ -280,6 +292,7 @@ export class Item {
    */
   resetOverrides() {
     this.#overrides = {};
+    this.#userSetFields = new Set();
     return this.calculate();
   }
 
@@ -510,7 +523,11 @@ export class Item {
       showUnitsControl: this.#derived.showUnitsControl,
       showTimeControl: this.#derived.showTimeControl,
       available: this.#derived.available,
-      appliedRules: this.#derived.appliedRules
+      appliedRules: this.#derived.appliedRules,
+      userSetFields: this.#derived.userSetFields,
+      isUserSetPax: this.#derived.isUserSetPax,
+      isUserSetCantidad: this.#derived.isUserSetCantidad,
+      isUserSetDuracion: this.#derived.isUserSetDuracion
     };
   }
 
@@ -525,7 +542,8 @@ export class Item {
       mode: this.#mode,
       definition: this.#definition,
       externalContext: this.#externalContext,
-      overrides: this.#overrides
+      overrides: this.#overrides,
+      userSetFields: [...this.#userSetFields]
     };
   }
 }
