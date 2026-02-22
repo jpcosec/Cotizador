@@ -1,5 +1,11 @@
 import { createCounterActor } from '../machine/counterMachine.js';
 
+/**
+ * Mount the basic counter component into a DOM element.
+ * Fetches the HTML template, creates an XState actor, and registers
+ * an Alpine.js component (`counterBasicComponent`) on `window`.
+ * @param {HTMLElement|null} root - Container element to mount into. No-op if null.
+ */
 export async function mountCounterBasic(root) {
   if (!root) return;
 

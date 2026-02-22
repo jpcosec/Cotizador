@@ -117,3 +117,22 @@ Examples:
 - Basket total changes with global context only for non-overridden lines.
 - Override marker appears/disappears correctly.
 - Collapsed basket legend matches expanded breakdown math.
+
+## 11) Boundary of responsibility
+
+To avoid business logic leakage into UI glue code:
+
+- `packages/pricing/src/ItemLogic.js`
+  - owns all item business rules and derived state
+  - owns projections: `toCatalogCard()`, `toBasketLine()`, `toMachineContext()`
+
+- `packages/xstate/src/interactions/ItemXStateInteraction.js`
+  - only adapts events to `ItemLogic` methods
+  - no pricing math or initialization logic
+
+- `packages/components/item/logic/createItemStandaloneComponent.js`
+  - only UI orchestration concerns:
+    - bind inputs to events
+    - local UI state (`expanded`, search text, visibility toggles)
+    - filtering/grouping for presentation only
+  - must not compute quantities, totals, profile formulas, or override semantics

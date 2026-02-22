@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * @file Lightweight development server for the sandbox application.
+ * Serves HTML routes and package assets with correct MIME types.
+ * Usage: `node tools/serve-sandbox.mjs` (default port 8090, override with PORT env).
+ */
+
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +17,7 @@ const sandboxDir = path.join(rootDir, 'apps', 'sandbox');
 const routesDir = path.join(sandboxDir, 'routes');
 const port = Number(process.env.PORT || 8090);
 
+/** @type {Record<string, string>} Extension-to-MIME mapping for served files. */
 const mimeByExt = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -19,16 +26,34 @@ const mimeByExt = {
   '.json': 'application/json; charset=utf-8'
 };
 
+/**
+ * Strip query string and hash fragment from a URL path.
+ * @param {string} rawPath
+ * @returns {string}
+ */
 function normalizePath(rawPath) {
   return String(rawPath || '/').split('?')[0].split('#')[0];
 }
 
+/**
+ * Safely join a base directory and a relative path, preventing directory traversal.
+ * @param {string} base - Absolute base directory.
+ * @param {string} rel - Relative path to join.
+ * @returns {string|null} Resolved path, or null if it escapes the base.
+ */
 function safeJoin(base, rel) {
   const resolved = path.normalize(path.join(base, rel));
   if (!resolved.startsWith(base)) return null;
   return resolved;
 }
 
+/**
+ * Map a request path to a filesystem target.
+ * Known routes resolve to their index.html; `/packages/` paths resolve
+ * against the project root.
+ * @param {string} reqPath - Normalized request path.
+ * @returns {string|null} Absolute file path, or null if no route matches.
+ */
 function resolveTarget(reqPath) {
   if (reqPath === '/' || reqPath === '/index.html') {
     return path.join(sandboxDir, 'index.html');
@@ -53,6 +78,13 @@ function resolveTarget(reqPath) {
   return null;
 }
 
+/**
+ * Send an HTTP response with the given status, body, and content type.
+ * @param {http.ServerResponse} res
+ * @param {number} status
+ * @param {string|Buffer} body
+ * @param {string} [contentType='text/plain; charset=utf-8']
+ */
 function send(res, status, body, contentType = 'text/plain; charset=utf-8') {
   res.writeHead(status, { 'Content-Type': contentType });
   res.end(body);

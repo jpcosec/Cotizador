@@ -2,6 +2,10 @@
 
 This worktree starts from scratch for component-by-component reconstruction.
 
+Roadmap:
+
+- See `ROADMAP.md` for the agreed 10-step sequence and current progress.
+
 Current step:
 
 - Step 01: standalone `counter-basic` (XState + Alpine)

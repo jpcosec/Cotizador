@@ -1,5 +1,12 @@
 import { createComposedActors } from '../machine/composedCounterMachine.js';
 
+/**
+ * Mount the composed counter component into a DOM element.
+ * Demonstrates the global + local actor pattern: one shared counter
+ * and two child counters whose totals combine with the global value.
+ * Registers `counterComposedComponent` on `window` for Alpine.js.
+ * @param {HTMLElement|null} root - Container element to mount into. No-op if null.
+ */
 export async function mountCounterComposed(root) {
   if (!root) return;
 

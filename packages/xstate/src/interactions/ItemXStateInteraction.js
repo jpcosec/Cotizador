@@ -2,94 +2,50 @@ import { ItemLogic } from '../../../pricing/src/ItemLogic.js';
 import { XStateInteractionBase } from './XStateInteractionBase.js';
 
 export class ItemXStateInteraction extends XStateInteractionBase {
+  /**
+   * @param {import('../../../pricing/src/ItemLogic.js').ItemLogic} [logic]
+   */
   constructor(logic = new ItemLogic()) {
     super(logic);
   }
 
-  project(context) {
-    const view = this.logic.evaluate({
-      definition: context.definition,
-      externalContext: context.externalContext,
-      overrides: context.overrides,
-      mode: context.mode
-    });
-
-    return {
-      ...context,
-      profile: view.profile,
-      quantities: view.quantities,
-      schedule: view.schedule,
-      comentarios: view.comentarios,
-      pricingKind: view.pricingKind,
-      initializationMode: view.initializationMode,
-      pricingHuman: view.pricingHuman,
-      pricingPerQuantityHuman: view.catalogDisaggregated,
-      total: view.total,
-      catalogPriceDisaggregated: view.catalogDisaggregated,
-      catalogFormulaHuman: view.catalogDisaggregated,
-      initPolicyHuman: view.policyHint,
-      basketLegend: view.basketLegend,
-      isOverridden: view.isOverridden,
-      lineRateLabel: view.lineRateLabel,
-      lineRateValue: view.rate,
-      lineRateSubtotal: view.lineRateSubtotal,
-      lineBaseValue: view.base,
-      unitDisplay: view.unitDisplay,
-      showPaxControl: view.showPaxControl,
-      showUnitsControl: view.showUnitsControl,
-      showTimeControl: view.showTimeControl,
-      available: view.available,
-      appliedRules: view.appliedRules
-    };
+  /**
+   * Convert an XState context into a stateful ItemLogic instance.
+   * @param {Object} context
+   * @returns {ItemLogic}
+   */
+  asItem(context) {
+    return ItemLogic.fromContext(context);
   }
 
+  /**
+   * Project context into UI/XState-consumable derived state.
+   * @param {Object} context
+   * @returns {Object}
+   */
+  project(context) {
+    return this.asItem(context).toMachineContext();
+  }
+
+  /**
+   * Reduce one event by delegating to ItemLogic mutators.
+   * @param {Object} context
+   * @param {Object} event
+   * @returns {Object}
+   */
   reduce(context, event) {
-    if (!event || !event.type) return this.project(context);
+    const item = this.asItem(context);
+    if (!event || !event.type) return item.toMachineContext();
 
-    if (event.type === 'SET_MODE') {
-      return this.project(this.patchContext(context, { mode: event.mode || 'catalog' }));
-    }
+    if (event.type === 'SET_MODE') return item.setMode(event.mode || 'catalog').toMachineContext();
+    if (event.type === 'SET_EXTERNAL_CONTEXT') return item.setExternalContext(event.externalContext || {}).toMachineContext();
+    if (event.type === 'SET_PROFILE_VALUE') return item.setProfileValue(event.key, event.value).toMachineContext();
+    if (event.type === 'SET_DEFAULT_QUANTITY_VALUE') return item.setDefaultInitializationValue(event.key, event.value).toMachineContext();
+    if (event.type === 'CLEAR_DEFAULT_QUANTITY_VALUE') return item.clearDefaultInitializationValue(event.key).toMachineContext();
+    if (event.type === 'SET_OVERRIDE') return item.setOverride(event.key, event.value).toMachineContext();
+    if (event.type === 'CLEAR_OVERRIDE') return item.clearOverride(event.key).toMachineContext();
+    if (event.type === 'RESET_OVERRIDES') return item.resetOverrides().toMachineContext();
 
-    if (event.type === 'SET_EXTERNAL_CONTEXT') {
-      return this.project(this.patchExternalContext(context, event.externalContext || {}));
-    }
-
-    if (event.type === 'SET_PROFILE_VALUE') {
-      const definition = context.definition || {};
-      const pricingProfile = {
-        ...(definition.pricingProfile || {}),
-        [event.key]: Number.isFinite(Number(event.value)) ? Number(event.value) : 0
-      };
-      return this.project(this.patchDefinition(context, { pricingProfile }));
-    }
-
-    if (event.type === 'SET_DEFAULT_QUANTITY_VALUE') {
-      const defaults = this.logic.applyExclusiveDefaultMode(
-        context.definition?.defaultQuantities || {},
-        event.key,
-        event.value
-      );
-      return this.project(this.patchDefinition(context, { defaultQuantities: defaults }));
-    }
-
-    if (event.type === 'CLEAR_DEFAULT_QUANTITY_VALUE') {
-      const defaults = { ...(context.definition?.defaultQuantities || {}) };
-      delete defaults[event.key];
-      return this.project(this.patchDefinition(context, { defaultQuantities: defaults }));
-    }
-
-    if (event.type === 'SET_OVERRIDE') {
-      return this.project(this.patchOverrides(context, { [event.key]: event.value }));
-    }
-
-    if (event.type === 'CLEAR_OVERRIDE') {
-      return this.project(this.removeOverride(context, event.key));
-    }
-
-    if (event.type === 'RESET_OVERRIDES') {
-      return this.project(this.patchContext(context, { overrides: {} }));
-    }
-
-    return this.project(context);
+    return item.toMachineContext();
   }
 }

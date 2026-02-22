@@ -1,11 +1,23 @@
 import { createItemActor } from '../machine/itemMachine.js';
 
+/**
+ * Parse a user input value into a finite number, or null if invalid/empty.
+ * @param {string|number|null|undefined} value - Raw input value.
+ * @returns {number|null}
+ */
 function numberFromInput(value) {
   if (value === '' || value == null) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Mount the standalone item component into a DOM element.
+ * Creates an XState item actor and registers `itemStandaloneComponent` on `window`
+ * for Alpine.js. The component exposes catalog/basket views, override controls,
+ * and quantity/schedule editing methods.
+ * @param {HTMLElement|null} root - Container element to mount into. No-op if null.
+ */
 export async function mountItemStandalone(root) {
   if (!root) return;
 
@@ -25,53 +37,9 @@ export async function mountItemStandalone(root) {
       lastAction: '',
       _subscription: null,
 
-      toLineItem(state) {
-        const lineId = state.mode === 'basket' ? 'LIN_DEMO_001' : null;
-        return {
-          id: lineId || 'ITEM_DEMO',
-          lineId,
-          nombre: state.definition.name,
-          descripcion: state.definition.description,
-          categoria: state.definition.category,
-          hora: state.schedule.hora,
-          dia: state.schedule.dia,
-          comentarios: state.comentarios || '',
-          pax: state.quantities.pax,
-          cantidad: state.quantities.cantidad,
-          duracionMin: state.quantities.duracionMin,
-          precio: state.unitDisplay,
-          baseFijo: Number(state.lineBaseValue ?? 0),
-          rateLabel: state.lineRateLabel,
-          rateValue: Number(state.lineRateValue ?? 0),
-          rateSubtotal: Number(state.lineRateSubtotal ?? 0),
-          pricingKind: state.pricingKind,
-          basketLegend: state.basketLegend,
-          isOverridden: !!state.isOverridden,
-          showPaxControl: !!state.showPaxControl,
-          showUnitsControl: !!state.showUnitsControl,
-          showTimeControl: !!state.showTimeControl,
-          total: state.total,
-          available: state.available
-        };
-      },
-
-      toCatalogItem(state) {
-        return {
-          ID_Item: 'ITEM_DEMO',
-          Nombre: state.definition.name,
-          Precio_Base: state.catalogFormulaHuman,
-          Precio_Calculado_Default: state.catalogFormulaHuman,
-          CatalogFormulaHuman: state.catalogFormulaHuman,
-          Precio_Por_Cantidad: state.pricingHuman,
-          InitPolicyHuman: state.initPolicyHuman,
-          detalle: `${state.definition.description}\n${state.catalogFormulaHuman}`,
-          pricingHuman: state.pricingHuman,
-          categoria: state.definition.category
-        };
-      },
-
       get catalogoPorCategoria() {
-        const item = this.toCatalogItem(this.state);
+        const item = this.state?.catalogCard || null;
+        if (!item) return {};
         const category = item.categoria || 'Sin categoria';
         const query = String(this.busquedaCatalogo || '').trim().toLowerCase();
 
@@ -86,7 +54,7 @@ export async function mountItemStandalone(root) {
 
       get carritoFiltrado() {
         if (!this.lineVisible) return [];
-        return [this.toLineItem(this.state)];
+        return this.state?.basketLine ? [this.state.basketLine] : [];
       },
 
       get carrito() {

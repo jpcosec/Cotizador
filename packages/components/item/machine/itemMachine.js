@@ -1,51 +1,32 @@
 import { assign, createActor, createMachine } from 'https://esm.sh/xstate@5.28.0';
 import { ItemXStateInteraction } from '../../../xstate/src/interactions/ItemXStateInteraction.js';
+import {
+  createDefaultItemSeed,
+  defaultItemDefinition
+} from '../../../pricing/src/ItemLogic.js';
 
+/** @type {ItemXStateInteraction} Shared interaction adapter for reducing events. */
 const interaction = new ItemXStateInteraction();
 
-export const defaultItemDefinition = {
-  name: 'Coffee Break Intermedio',
-  category: 'Coffee',
-  description: 'Servicio de coffee break para eventos corporativos.',
-  pricingProfile: {
-    baseFijo: 400,
-    porPersona: 0,
-    porUnidad: 1,
-    porMinuto: 0
-  },
-  defaultQuantities: {
-    unidadesPorUsuario: 3,
-    unidadesPorHora: 0,
-    minutosPorUsuario: 0
-  },
-  rules: [
-    { id: 'R1', type: 'MAX_PAX', value: 500, label: 'Maximo 500 pax', active: true, blocking: true },
-    {
-      id: 'R2',
-      type: 'ONLY_HOUR_RANGE',
-      min: '07:00',
-      max: '22:00',
-      label: 'Disponible entre 07:00 y 22:00',
-      active: true,
-      blocking: true
-    }
-  ]
-};
+/** @type {Object} Projected initial context derived from the default definition. */
+const initialContext = interaction.project(createDefaultItemSeed());
 
-const initialContext = interaction.project({
-  mode: 'catalog',
-  definition: defaultItemDefinition,
-  externalContext: {
-    paxGlobal: 20,
-    duracionMin: 120,
-    dia: 1,
-    hora: '09:00'
-  },
-  overrides: {}
-});
+/** Re-export default definition from pricing module for consumers/tests. */
+export { defaultItemDefinition };
 
+/** @type {import('xstate').ActionFunction} XState assign action that delegates to the interaction reducer. */
 const reduceEvent = assign(({ context, event }) => interaction.reduce(context, event));
 
+/**
+ * XState machine for a standalone item.
+ * All events are handled by a single `reduceEvent` action that delegates
+ * to {@link ItemXStateInteraction#reduce} for immutable context updates.
+ *
+ * Events: SET_MODE, SET_EXTERNAL_CONTEXT, SET_PROFILE_VALUE,
+ * SET_DEFAULT_QUANTITY_VALUE, CLEAR_DEFAULT_QUANTITY_VALUE,
+ * SET_OVERRIDE, CLEAR_OVERRIDE, RESET_OVERRIDES.
+ * @type {import('xstate').StateMachine}
+ */
 export const itemMachine = createMachine({
   id: 'itemStandalone',
   initial: 'ready',
@@ -66,6 +47,10 @@ export const itemMachine = createMachine({
   }
 });
 
+/**
+ * Create and start an item actor from the item machine.
+ * @returns {import('xstate').Actor} A running actor with item context.
+ */
 export function createItemActor() {
   const actor = createActor(itemMachine);
   actor.start();
