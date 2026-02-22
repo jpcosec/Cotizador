@@ -1,154 +1,258 @@
 <section x-data="itemStandaloneComponent()" x-init="init()">
-  <h2>Step 03 - Item Standalone (no DB)</h2>
+  <h2>Step 03 - Item Standalone</h2>
 
   <div class="item-step-layout">
+    <!-- ========== LEFT: THE ITEM (visual representation) ========== -->
     <div>
-      <article>
-        <h3>Definition + Mode</h3>
-        <p><strong x-text="state.definition.name"></strong></p>
-        <p>Category: <span x-text="state.definition.category"></span></p>
-        <p x-text="state.definition.description"></p>
-        <p>Pricing profile: <strong x-text="state.pricingHuman"></strong></p>
-        <p>Mode: <strong x-text="state.mode"></strong></p>
-        <p>Total: <strong x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong></p>
-        <div>
-          <button class="btn-small btn-primary" type="button"
-                  x-show="state.mode === 'catalog'"
-                  @click="addToBasket()">Add to basket</button>
-          <button class="btn-small btn-secondary" type="button"
-                  x-show="state.mode === 'basket'"
-                  @click="removeFromBasket()">Remove from basket</button>
-          <button class="btn-small btn-secondary" type="button"
-                  x-show="state.mode === 'basket'"
-                  @click="resetOverrides()">Reset overrides</button>
+      <!-- CATALOG CARD (visible in catalog mode) -->
+      <article x-show="state.mode === 'catalog'" style="padding:0; overflow:hidden;">
+        <div style="padding:10px 14px; background:var(--primary-light); border-bottom:1px solid #bfdbbe;">
+          <strong style="font-size:0.9rem;">
+            <i class="fa-solid fa-mug-saucer" style="margin-right:4px; color:var(--primary);"></i>
+            <span x-text="state.definition.category || 'Sin categoría'"></span>
+          </strong>
+        </div>
+        <div class="mini-card" @click="addToBasket()" style="border-bottom:none; padding:12px 14px;">
+          <div>
+            <h5 x-text="state.definition.name || 'Item'"></h5>
+            <span x-text="state.catalogFormulaHuman || ''"></span>
+            <span class="catalog-init-hint" x-show="state.initPolicyHuman"
+                  x-text="state.initPolicyHuman"></span>
+          </div>
+          <i class="fa-solid fa-plus add-icon" style="opacity:1; font-size:1.1rem;"></i>
+        </div>
+        <div style="padding:8px 14px; border-top:1px solid var(--border); font-size:0.8rem; color:var(--secondary);">
+          <span x-text="state.definition.description || ''"></span>
         </div>
       </article>
 
+      <!-- BASKET LINE (visible in basket mode) -->
+      <article x-show="state.mode === 'basket'" style="padding:0; overflow:hidden;"
+               :class="state.isOverridden ? 'line-overridden' : ''">
+        <!-- Accordion header -->
+        <div class="accordion-header" @click="expanded = !expanded">
+          <div class="acc-time">
+            <input type="time" :value="state.schedule.hora || ''"
+                   @click.stop
+                   @input="setOverride('hora', $event.target.value)"
+                   class="time-input-small" title="Hora">
+          </div>
+          <div class="acc-info">
+            <div class="acc-title">
+              <span x-text="state.definition.name || 'Item'"></span>
+              <span class="override-badge" x-show="state.isOverridden">override</span>
+            </div>
+            <div class="acc-subtitle">
+              <span x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></span>
+              <span style="margin:0 5px;">&bull;</span>
+              <span x-text="state.basketLegend || ''"></span>
+            </div>
+          </div>
+          <div class="acc-toggle">
+            <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+          </div>
+        </div>
+
+        <!-- Accordion body -->
+        <div class="accordion-body" x-show="expanded" x-transition>
+          <div class="accordion-layout">
+            <!-- Left: quantity controls + price breakdown -->
+            <div class="accordion-col-left">
+              <div class="control-group" x-show="state.showPaxControl">
+                <label>Pax</label>
+                <input type="number" :value="state.quantities.pax"
+                       @input="setOverride('pax', Number($event.target.value))" min="0">
+              </div>
+              <div class="control-group" x-show="state.showUnitsControl">
+                <label>Unidades</label>
+                <input type="number" :value="state.quantities.cantidad"
+                       @input="setOverride('cantidad', Number($event.target.value))" min="0">
+              </div>
+              <div class="control-group" x-show="state.showTimeControl">
+                <label>Duración (min)</label>
+                <input type="number" :value="state.quantities.duracionMin"
+                       @input="setOverride('duracionMin', Number($event.target.value))" min="0" step="15">
+              </div>
+
+              <div class="line-price-box">
+                <div class="line-price-row">
+                  <span>Base fijo</span>
+                  <strong x-text="'$' + Number(state.lineBaseValue ?? 0).toLocaleString('es-CL')"></strong>
+                </div>
+                <div class="line-price-row" x-show="state.lineRateLabel">
+                  <span x-text="state.lineRateLabel"></span>
+                  <strong x-text="'$' + Number(state.lineRateValue ?? 0).toLocaleString('es-CL') + ' x ' + (state.quantities.pax || state.quantities.cantidad || state.quantities.duracionMin || 0)"></strong>
+                </div>
+                <div class="line-price-row" x-show="state.lineRateSubtotal">
+                  <span>Subtotal variable</span>
+                  <strong x-text="'$' + Number(state.lineRateSubtotal ?? 0).toLocaleString('es-CL')"></strong>
+                </div>
+                <div class="line-price-row" style="border-top:1px solid #bfdbbe; padding-top:4px; margin-top:2px;">
+                  <span style="font-weight:600;">Total</span>
+                  <strong style="font-size:0.95rem; color:var(--primary);"
+                          x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Middle: comments -->
+            <div class="accordion-col-middle">
+              <div class="form-group mb-0">
+                <label>Comentario</label>
+                <textarea class="line-comment-input"
+                          :value="state.comentarios || ''"
+                          @input="setOverride('comentarios', $event.target.value)"
+                          rows="5"
+                          placeholder="Comentario de la línea"></textarea>
+              </div>
+            </div>
+
+            <!-- Right: actions -->
+            <div class="accordion-col-actions">
+              <button class="icon-action danger" @click="removeFromBasket()" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              <button class="icon-action" @click="resetOverrides()" title="Resetear overrides">
+                <i class="fa-solid fa-rotate-left"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Rules & availability -->
+      <article x-show="state.appliedRules && state.appliedRules.length > 0"
+               style="padding:8px 14px; margin-top:0; border-top:none;">
+        <p style="font-size:0.8rem; color:#64748b; margin:0;">
+          <i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>
+          <span x-text="state.appliedRules.join(' | ')"></span>
+        </p>
+      </article>
+
+      <!-- Not available warning -->
+      <div x-show="state.available === false"
+           style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; margin-top:8px;">
+        <p style="margin:0; color:#dc2626; font-size:0.85rem;">
+          <i class="fa-solid fa-ban" style="margin-right:4px;"></i>
+          Item no disponible (bloqueado por regla)
+        </p>
+      </div>
+    </div>
+
+    <!-- ========== RIGHT: SANDBOX CONTROLS ========== -->
+    <div>
+      <!-- Mock container context -->
       <article>
-        <h3>Global Context</h3>
+        <h3><i class="fa-solid fa-arrow-down" style="margin-right:4px; color:var(--accent);"></i> Container Context (mock)</h3>
+        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
+          In production, these values come from the container (quotation header / day).
+        </p>
         <div class="form-group">
           <label>Pax Global</label>
           <input type="number" :value="state.externalContext.paxGlobal"
                  @input="setContext('paxGlobal', $event.target.value)">
         </div>
         <div class="form-group">
-          <label>Duracion Global (min)</label>
-          <input type="number" :value="state.externalContext.duracionMin"
-                 @input="setContext('duracionMin', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Dia Global</label>
+          <label>Dia</label>
           <input type="number" :value="state.externalContext.dia"
                  @input="setContext('dia', $event.target.value)">
         </div>
         <div class="form-group mb-0">
-          <label>Hora Global</label>
+          <label>Hora</label>
           <input type="time" :value="state.externalContext.hora"
                  @input="setContext('hora', $event.target.value)">
         </div>
       </article>
-    </div>
 
-    <div>
+      <!-- Intrinsic: Pricing Profile -->
       <article>
-        <h3>Pricing Profile</h3>
-        <div class="form-group">
-          <label>Base fijo</label>
-          <input type="number" :value="state.definition.pricingProfile.baseFijo ?? 0"
-                 @input="setProfileValue('baseFijo', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Por persona</label>
-          <input type="number" :value="state.definition.pricingProfile.porPersona ?? 0"
-                 @input="setProfileValue('porPersona', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Por unidad</label>
-          <input type="number" :value="state.definition.pricingProfile.porUnidad ?? 0"
-                 @input="setProfileValue('porUnidad', $event.target.value)">
-        </div>
-        <div class="form-group mb-0">
-          <label>Por minuto</label>
-          <input type="number" :value="state.definition.pricingProfile.porMinuto ?? 0"
-                 @input="setProfileValue('porMinuto', $event.target.value)">
-        </div>
-        <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">
-          Preview: <strong x-text="state.pricingHuman"></strong>
+        <h3><i class="fa-solid fa-tag" style="margin-right:4px; color:var(--primary);"></i> Pricing Profile (intrinsic)</h3>
+        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
+          In production, this comes from the database or category inheritance.
         </p>
-      </article>
-
-      <article>
-        <h3>Default Initialization</h3>
-        <div class="form-group">
-          <label>Pax default</label>
-          <input type="number" :value="state.definition.defaultQuantities.pax ?? ''"
-                 @input="setDefaultQuantity('pax', $event.target.value)">
+        <div class="item-top-config-grid">
+          <div class="form-group mb-0">
+            <label>Base fijo</label>
+            <input type="number" :value="state.definition.pricingProfile.baseFijo ?? 0"
+                   @input="setProfileValue('baseFijo', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Por persona</label>
+            <input type="number" :value="state.definition.pricingProfile.porPersona ?? 0"
+                   @input="setProfileValue('porPersona', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Por unidad</label>
+            <input type="number" :value="state.definition.pricingProfile.porUnidad ?? 0"
+                   @input="setProfileValue('porUnidad', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Por minuto</label>
+            <input type="number" :value="state.definition.pricingProfile.porMinuto ?? 0"
+                   @input="setProfileValue('porMinuto', $event.target.value)">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Cantidad fija default</label>
-          <input type="number" :value="state.definition.defaultQuantities.cantidad ?? ''"
-                 @input="setDefaultQuantity('cantidad', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Duracion fija default (min)</label>
-          <input type="number" :value="state.definition.defaultQuantities.duracionMin ?? ''"
-                 @input="setDefaultQuantity('duracionMin', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Unidades por usuario</label>
-          <input type="number" :value="state.definition.defaultQuantities.unidadesPorUsuario ?? ''"
-                 @input="setDefaultQuantity('unidadesPorUsuario', $event.target.value)">
-        </div>
-        <div class="form-group">
-          <label>Unidades por hora</label>
-          <input type="number" :value="state.definition.defaultQuantities.unidadesPorHora ?? ''"
-                 @input="setDefaultQuantity('unidadesPorHora', $event.target.value)">
-        </div>
-        <div class="form-group mb-0">
-          <label>Minutos por usuario</label>
-          <input type="number" :value="state.definition.defaultQuantities.minutosPorUsuario ?? ''"
-                 @input="setDefaultQuantity('minutosPorUsuario', $event.target.value)">
-        </div>
-        <p style="margin-top:8px; font-size:0.85rem; color:#64748b;">
+        <p style="margin-top:8px; font-size:0.8rem; color:#64748b;">
           Kind: <strong x-text="state.pricingKind"></strong>
-          | Mode: <strong x-text="state.initializationMode"></strong>
-          <span x-show="state.initPolicyHuman"> | <span x-text="state.initPolicyHuman"></span></span>
+          &mdash; <span x-text="state.pricingHuman"></span>
         </p>
       </article>
 
-      <article x-show="state.mode === 'basket'">
-        <h3>Basket Overrides</h3>
-        <p x-text="state.basketLegend"></p>
-        <div class="form-group" x-show="state.showPaxControl">
-          <label>Override Pax</label>
-          <input type="number" :value="state.quantities.pax"
-                 @input="setOverride('pax', Number($event.target.value))">
-        </div>
-        <div class="form-group" x-show="state.showUnitsControl">
-          <label>Override Unidades</label>
-          <input type="number" :value="state.quantities.cantidad"
-                 @input="setOverride('cantidad', Number($event.target.value))">
-        </div>
-        <div class="form-group" x-show="state.showTimeControl">
-          <label>Override Duracion (min)</label>
-          <input type="number" :value="state.quantities.duracionMin"
-                 @input="setOverride('duracionMin', Number($event.target.value))">
-        </div>
-        <p x-show="state.isOverridden" style="color: #f59e0b; font-size: 0.85rem;">
-          Quantity is overridden
-        </p>
-        <p style="font-size:0.8rem; color:#64748b;" x-text="state.appliedRules.join(' | ') || 'No active rules'"></p>
-      </article>
-
-      <article x-show="lastAction">
-        <strong>Action:</strong> <span x-text="lastAction"></span>
-      </article>
-
+      <!-- Intrinsic: Default Initialization -->
       <article>
-        <h3>State Debug</h3>
+        <h3><i class="fa-solid fa-sliders" style="margin-right:4px; color:var(--primary);"></i> Default Initialization (intrinsic)</h3>
+        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
+          How quantities are auto-calculated when no override is set.
+        </p>
+        <div class="item-top-config-grid">
+          <div class="form-group mb-0">
+            <label>Pax default</label>
+            <input type="number" :value="state.definition.defaultQuantities.pax ?? ''"
+                   @input="setDefaultQuantity('pax', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Cantidad fija</label>
+            <input type="number" :value="state.definition.defaultQuantities.cantidad ?? ''"
+                   @input="setDefaultQuantity('cantidad', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Duracion fija (min)</label>
+            <input type="number" :value="state.definition.defaultQuantities.duracionMin ?? ''"
+                   @input="setDefaultQuantity('duracionMin', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Und/usuario</label>
+            <input type="number" :value="state.definition.defaultQuantities.unidadesPorUsuario ?? ''"
+                   @input="setDefaultQuantity('unidadesPorUsuario', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Und/hora</label>
+            <input type="number" :value="state.definition.defaultQuantities.unidadesPorHora ?? ''"
+                   @input="setDefaultQuantity('unidadesPorHora', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Min/usuario</label>
+            <input type="number" :value="state.definition.defaultQuantities.minutosPorUsuario ?? ''"
+                   @input="setDefaultQuantity('minutosPorUsuario', $event.target.value)">
+          </div>
+        </div>
+        <p style="margin-top:8px; font-size:0.8rem; color:#64748b;">
+          Mode: <strong x-text="state.initializationMode"></strong>
+          <span x-show="state.initPolicyHuman"> &mdash; <span x-text="state.initPolicyHuman"></span></span>
+        </p>
+      </article>
+
+      <!-- Action log -->
+      <article x-show="lastAction" style="padding:8px 14px;">
+        <strong style="font-size:0.8rem;">Last:</strong>
+        <span style="font-size:0.8rem;" x-text="lastAction"></span>
+      </article>
+
+      <!-- State Debug -->
+      <article>
         <details>
-          <summary>Show JSON</summary>
-          <pre style="max-height: 400px; overflow: auto; font-size: 0.75rem;" x-text="prettyState()"></pre>
+          <summary style="cursor:pointer; font-weight:600; font-size:0.85rem;">State Debug (JSON)</summary>
+          <pre style="max-height:400px; overflow:auto; font-size:0.72rem; margin-top:8px;" x-text="prettyState()"></pre>
         </details>
       </article>
     </div>
