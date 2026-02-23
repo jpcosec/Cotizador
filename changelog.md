@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-02-22 (step-03.1 catalog card + basket line UI)
+- Rewrote `ItemStandalone.html` with actual item visual representation:
+  - **Catalog mode:** Shows mini-card with category badge, item name, pricing formula, policy hint, description, clickable add-to-basket
+  - **Basket mode:** Shows full accordion with time input, quantity controls (pax/units/duration), price breakdown (base + rate subtotal = total), comments, delete/reset buttons
+  - Right sidebar: Mock container context (paxGlobal, dia, hora) + intrinsic property editors (pricing profile, default initialization)
+- Tested with Puppeteer: Both modes render correctly, mode transitions work, calculations accurate
+
+### 2026-02-22 (step-03.2 user override protection with isUserSet tracking)
+- Added per-field user-set tracking for quantities (pax, cantidad, duracionMin):
+  - `Item.js`: Add `#userSetFields` Set, track in `setOverride()`, clear in `clearOverride()`/`resetOverrides()`
+  - Expose `userSetFields`, `isUserSetPax`, `isUserSetCantidad`, `isUserSetDuracion` in `toDisplayObject()` and `toSeed()` for persistence
+  - `ItemStandalone.html`: Add per-field badges and orange border highlights
+- Added comprehensive test suite (363 tests, 100% passing):
+  - `pricing.test.js`: 82 tests (enums, type conversion, kind/mode detection, utilities)
+  - `quantity.test.js`: 80 tests (context resolution, override precedence, exclusive defaults)
+  - `rules.test.js`: 44 tests (rule evaluation, blocking behavior, multiple rules)
+  - `formatting.test.js`: 69 tests (display string generation for all kinds/modes)
+  - `Item.test.js`: 88 tests (factories, modes, calculations, context, overrides, NEW userSetFields tracking, projections, serialization)
+- Installed vitest, configured `npm test` and `npm run test:watch` scripts
+
 ### 2026-02-21 (step-01 minimal reset)
 - reset worktree to minimal files only for Step 01.
 - added standalone sandbox server (`tools/serve-sandbox.mjs`).

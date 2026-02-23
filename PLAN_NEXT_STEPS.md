@@ -102,10 +102,10 @@ Item._price (calculated)
 
 ## Implementation Plan (One Step at a Time)
 
-### Step 3.1: Fix Standalone UI Layout
-**Goal:** Show the item visually, separate concerns in the sandbox.
+### ✅ Step 3.1: Fix Standalone UI Layout (COMPLETE)
+**Goal:** Show the item visually, separate concerns in the sandbox. ✅ DONE
 
-**Layout:**
+**Layout implemented:**
 ```
 ┌───────────────────────────┬────────────────────────────┐
 │  THE ITEM (left)          │  SANDBOX CONTROLS (right)  │
@@ -126,17 +126,26 @@ Item._price (calculated)
 └───────────────────────────┴────────────────────────────┘
 ```
 
-**Files:** Only `ItemStandalone.html` changes. No logic changes.
+**Files changed:** `ItemStandalone.html` rewritten with proper visual hierarchy.
+**Status:** Tested with Puppeteer, both modes render and interact correctly.
 
-### Step 3.2: User Override Protection (`isUserSet`)
-**Goal:** Once user overrides pax/cantidad/duracion, it sticks.
+### ✅ Step 3.2: User Override Protection (`isUserSet`) (COMPLETE)
+**Goal:** Once user overrides pax/cantidad/duracion, it sticks. ✅ DONE
 
-Currently `setOverride(key, value)` stores in overrides, and `receiveContext()` can change externalContext. But the override is a separate object so it already takes precedence in `resolveBasketQuantity()`. We need to add:
-- `isUserSet` tracking per quantity field (pax, cantidad, duracionMin)
-- `receiveContext()` should NOT overwrite user-set quantities
-- Visual indicator when a quantity is user-overridden
+**Implementation:**
+- `Item.js`: Add `#userSetFields` Set, track in `setOverride()`, clear in `clearOverride()`/`resetOverrides()`
+- Expose `userSetFields`, `isUserSetPax`, `isUserSetCantidad`, `isUserSetDuracion` in `toDisplayObject()` and `toSeed()`
+- `ItemStandalone.html`: Show per-field "manual" badges and orange border highlights
 
-**Files:** `Item.js` (add `isUserSet` to derived state), `quantity.js` (already returns `isOverridden`).
+**Files changed:** `Item.js`, `ItemStandalone.html`
+**Test suite added:** 363 tests (100% passing)
+- `pricing.test.js`: 82 tests
+- `quantity.test.js`: 80 tests
+- `rules.test.js`: 44 tests
+- `formatting.test.js`: 69 tests
+- `Item.test.js`: 88 tests (includes NEW userSetFields tracking)
+
+**Status:** All tests passing, vitest configured, `npm test` working.
 
 ### Step 3.3: Enhanced Rules (JSON-Logic)
 **Goal:** Replace hardcoded rule types with the pluggable rules engine.
