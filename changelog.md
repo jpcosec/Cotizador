@@ -13,6 +13,11 @@
 - Removed self-import cycle risk in `packages/components/quotation/logic/createQuotationFlowComponent.js` by importing from `modals/index.js` and `views/index.js` directly.
 - Added migration/readiness notes in `apps/quotation/components/README.md`, `packages/components/quotation/modals/README.md`, and `packages/components/quotation/views/README.md` to clearly mark template stubs vs live mounted flow.
 
+### 2026-02-25 (app state unification)
+- Merged app-level and package-level quotation state logic by upgrading `packages/components/quotation/modals/AppState.js` with `send()` + `getState()` state-machine behavior used by the legacy app tests.
+- Replaced `apps/quotation/state/AppStateMachine.js` implementation with a compatibility export that now delegates to `createAppState()` from the package layer.
+- Preserved the existing app-state transition contract (`BROWSE -> CLIENT_SELECTOR -> INITIALIZE -> QUOTATION -> VALIDATION -> COMPLETED`) while keeping package-first ownership of state context.
+
 ### 2026-02-24 (item-playground route loading fix)
 - Fixed `apps/sandbox/routes/item-playground/index.html` so selecting a featured item now mounts a live component into `#component-root`.
 - Added dynamic import + mount flow in `selectItem(item)` and proper cleanup in `resetPlayground()` to avoid stale mounted state between selections.
