@@ -76,6 +76,10 @@ function resolveTarget(reqPath) {
     return path.join(routesDir, 'step-03b', 'index.html');
   }
 
+  if (reqPath === '/step-04-quotation' || reqPath === '/step-04-quotation/') {
+    return path.join(routesDir, 'step-04-quotation', 'index.html');
+  }
+
   if (reqPath === '/item-playground' || reqPath === '/item-playground/') {
     return path.join(routesDir, 'item-playground', 'index.html');
   }
@@ -136,5 +140,6 @@ server.listen(port, () => {
   console.log('  /step-02-counter-composed');
   console.log('  /step-03-item');
   console.log('  /step-03b (multi-item view)');
+  console.log('  /step-04-quotation');
   console.log('  /item-playground');
 });

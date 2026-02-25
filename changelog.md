@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-02-25 (step-04 quotation flow route wiring)
+- Added live quotation flow mount logic at `packages/components/quotation/logic/createQuotationFlowComponent.js` wiring `AppState`, modal components, and quotation view components into one Alpine runtime.
+- Added demo template `packages/components/quotation/ui/QuotationFlowDemo.html` to exercise Home -> Client Selector -> Initializer -> Quotation flow with live basket + totals updates.
+- Added sandbox route `apps/sandbox/routes/step-04-quotation/index.html`, updated `apps/sandbox/index.html` navigation, and extended `tools/serve-sandbox.mjs` route resolution/logging for `/step-04-quotation`.
+- Exported `mountQuotationFlow` from `packages/components/quotation/index.js` for package-level integration.
+
 ### 2026-02-24 (item-playground route loading fix)
 - Fixed `apps/sandbox/routes/item-playground/index.html` so selecting a featured item now mounts a live component into `#component-root`.
 - Added dynamic import + mount flow in `selectItem(item)` and proper cleanup in `resetPlayground()` to avoid stale mounted state between selections.

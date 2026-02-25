@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Step 04 Quotation Flow</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/packages/components/common/styles/claps-global.css" />
+</head>
+<body class="sandbox-page">
+  <main class="sandbox-shell" style="max-width: 980px;">
+    <p><a class="btn btn-small btn-secondary" href="/">Back</a></p>
+    <main id="app">Loading quotation flow...</main>
+  </main>
+
+  <script type="module">
+    import { mountQuotationFlow } from '/packages/components/quotation/logic/createQuotationFlowComponent.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const root = document.getElementById('app');
+      await mountQuotationFlow(root);
+    });
+  </script>
+</body>
+</html>
