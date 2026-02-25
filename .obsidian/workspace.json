@@ -1,0 +1,219 @@
+{
+  "main": {
+    "id": "8e27ef85b6610fc3",
+    "type": "split",
+    "children": [
+      {
+        "id": "97130637b218c6cf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "45095c54ef28d8d9",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "Nueva pestaña"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "1687b61e09f07e4c",
+    "type": "split",
+    "children": [
+      {
+        "id": "bb4f6248f167ebe5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "42a0de674133c5e4",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de archivos"
+            }
+          },
+          {
+            "id": "fde43ed686a36c4b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Buscar"
+            }
+          },
+          {
+            "id": "85f638302897ef40",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "fe5d95ddb0235f8b",
+    "type": "split",
+    "children": [
+      {
+        "id": "400a7bc7807bd518",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b9c10d94717a8ebc",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Enlaces entrantes"
+            }
+          },
+          {
+            "id": "1190d2787e435656",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Enlaces salientes"
+            }
+          },
+          {
+            "id": "4075af0ffaed5a94",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "26e82f311e1c27bf",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas las propiedades"
+            }
+          },
+          {
+            "id": "1e30e70b9de99bd2",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Esquema"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir selector rápido": false,
+      "graph:Abrir vista gráfica": false,
+      "canvas:Crear nuevo lienzo": false,
+      "daily-notes:Abrir la nota de hoy": false,
+      "templates:Insertar plantilla": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Crear nueva base": false
+    }
+  },
+  "active": "45095c54ef28d8d9",
+  "lastOpenFiles": [
+    "claps_codelab_rebuild_components/packages/pricing/src/ItemLogic.js",
+    "claps_codelab_rebuild_components/packages/components/item/machine/itemMachine.js",
+    "claps_codelab_rebuild_components/packages/xstate/README.md",
+    "claps_codelab_rebuild_components/packages/xstate/src/interactions/ItemXStateInteraction.js",
+    "claps_codelab_rebuild_components/packages/xstate/src/interactions/XStateInteractionBase.js",
+    "claps_codelab_rebuild_components/packages/xstate/src/interactions",
+    "claps_codelab_rebuild_components/packages/xstate/src",
+    "claps_codelab_rebuild_components/packages/xstate",
+    "claps_codelab_rebuild_components/packages/pricing/src/itemPricingPolicy.js",
+    "claps_codelab_rebuild_components/packages/pricing/README.md",
+    "claps_codelab_rebuild_components/packages/pricing/src",
+    "claps_codelab_rebuild_components/packages/pricing",
+    "claps_codelab_rebuild_components/packages/components/item/LOGIC.md",
+    "claps_codelab_rebuild_components/packages/components/common/styles/claps-global.css",
+    "claps_codelab_rebuild_components/packages/components/item/README.md",
+    "claps_codelab_rebuild_components/packages/components/item/tests/README.md",
+    "claps_codelab_rebuild_components/packages/components/counter-composed/README.md",
+    "claps_codelab_rebuild_components/packages/components/counter-basic/README.md",
+    "claps_codelab_rebuild_components/packages/components/counter-composed/tests/README.md",
+    "claps_codelab_rebuild_components/packages/components/README.md",
+    "claps_codelab_rebuild_components/packages/components/counter-basic/tests/README.md",
+    "claps_codelab_rebuild_components/changelog.md",
+    "claps_codelab_rebuild_components/README.md",
+    "claps_codelab_rebuild_components/packages/components/db-viewer/README.md",
+    "claps_codelab_rebuild_components/packages/components/common/README.md",
+    "claps_codelab_rebuild_components/plan/future.md",
+    "claps_codelab_rebuild_components/plan/features.md",
+    "claps_codelab_rebuild_components/plan/debt.md",
+    "claps_codelab_rebuild_components/plan/README.md",
+    "claps_codelab_rebuild_components/plan/PLAN.md",
+    "claps_codelab_rebuild_components/plan/FRONTEND_AUDIT.md",
+    "claps_codelab_rebuild_components/packages/xstate/src/Orchestration/README.md",
+    "claps_codelab_rebuild_components/docs/PACKAGES/xstate.md",
+    "claps_codelab_rebuild_components/docs/PACKAGES/pricing.md",
+    "claps_codelab_rebuild_components/docs/PACKAGES/frontend.md",
+    "claps_codelab_rebuild_components/docs/PACKAGES/database.md",
+    "claps_codelab/packages/pricing/node_modules/json-logic-js/jsonlogic.png"
+  ]
+}
