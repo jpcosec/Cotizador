@@ -8,6 +8,11 @@
 - Added sandbox route `apps/sandbox/routes/step-04-quotation/index.html`, updated `apps/sandbox/index.html` navigation, and extended `tools/serve-sandbox.mjs` route resolution/logging for `/step-04-quotation`.
 - Exported `mountQuotationFlow` from `packages/components/quotation/index.js` for package-level integration.
 
+### 2026-02-25 (quotation path consolidation cleanup)
+- Refactored `apps/quotation/components/HomePage.js` and `apps/quotation/components/ClientSelector.js` into compatibility wrappers over `packages/components/quotation/*` to avoid duplicated behavior.
+- Removed self-import cycle risk in `packages/components/quotation/logic/createQuotationFlowComponent.js` by importing from `modals/index.js` and `views/index.js` directly.
+- Added migration/readiness notes in `apps/quotation/components/README.md`, `packages/components/quotation/modals/README.md`, and `packages/components/quotation/views/README.md` to clearly mark template stubs vs live mounted flow.
+
 ### 2026-02-24 (item-playground route loading fix)
 - Fixed `apps/sandbox/routes/item-playground/index.html` so selecting a featured item now mounts a live component into `#component-root`.
 - Added dynamic import + mount flow in `selectItem(item)` and proper cleanup in `resetPlayground()` to avoid stale mounted state between selections.

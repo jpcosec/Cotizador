@@ -2,13 +2,15 @@ import {
   createAppState,
   createHomePage,
   createClientSelector,
-  createQuotationInitializer,
+  createQuotationInitializer
+} from '../modals/index.js';
+import {
   createQuotationView,
   createSidebar,
   createBasket,
   createQuotationHeader,
   createQuotationTotals
-} from '../index.js';
+} from '../views/index.js';
 
 const DEMO_CLIENTS = [
   { id: 'C-001', nombre: 'Empresa Andina', rut: '76.123.456-7', email: 'eventos@andina.cl' },

@@ -1,120 +1,67 @@
+import { createClientSelector } from '../../../packages/components/quotation/modals/ClientSelector.js';
+
 /**
- * ClientSelector Controller
- * 
- * Manages client search, filtering, selection, and keyboard navigation
- * for the client selection modal.
+ * Legacy compatibility wrapper.
+ * Preserves the old app-level API while delegating core logic
+ * to the package implementation in `packages/components/quotation`.
  */
-
 export function createClientSelectorController(clients = []) {
-  let searchTerm = '';
-  let focusedIndex = 0;
-  const listeners = new Map();
-
-  // Normalize clients to a consistent shape
-  const normalizedClients = clients.map(c => ({
-    id: c.id || c.ID_Cliente,
-    nombre: c.nombre || c.Nombre_Empresa,
-    rut: c.rut || c.RUT,
-    email: c.email || c.Email,
-    telefono: c.telefono || c.Telefono,
-    contacto: c.contacto || null,
-    ...c
+  const normalizedClients = clients.map((client) => ({
+    id: client.id || client.ID_Cliente,
+    nombre: client.nombre || client.Nombre_Empresa,
+    rut: client.rut || client.RUT,
+    email: client.email || client.Email,
+    telefono: client.telefono || client.Telefono,
+    contacto: client.contacto || null,
+    ...client
   }));
 
-  function getSearchTerm() {
-    return searchTerm;
-  }
-
-  function search(term) {
-    searchTerm = term.toLowerCase().trim();
-    focusedIndex = 0; // Reset focus when search changes
-  }
-
-  function getFilteredClients() {
-    if (!searchTerm) {
-      return normalizedClients;
-    }
-
-    return normalizedClients.filter(client => {
-      const nombre = (client.nombre || '').toLowerCase();
-      const rut = (client.rut || '').toLowerCase();
-      const email = (client.email || '').toLowerCase();
-
-      return (
-        nombre.includes(searchTerm) ||
-        rut.includes(searchTerm) ||
-        email.includes(searchTerm)
-      );
-    });
-  }
-
-  function selectClient(clientId) {
-    const client = normalizedClients.find(c => c.id === clientId);
-    if (client) {
-      emit('CLIENT_SELECTED', client);
-    }
-  }
-
-  function getFocusedClientIndex() {
-    return focusedIndex;
-  }
-
-  function getFocusedClient() {
-    const filtered = getFilteredClients();
-    if (focusedIndex >= 0 && focusedIndex < filtered.length) {
-      return filtered[focusedIndex];
-    }
-    return null;
-  }
-
-  function keyboardNavigate(direction) {
-    const filtered = getFilteredClients();
-    if (filtered.length === 0) return;
-
-    if (direction === 'DOWN') {
-      if (focusedIndex < filtered.length - 1) {
-        focusedIndex++;
-      }
-    } else if (direction === 'UP') {
-      if (focusedIndex > 0) {
-        focusedIndex--;
-      }
-    }
-  }
-
-  function cancel() {
-    emit('CANCEL');
-  }
-
-  function on(eventName, callback) {
-    if (!listeners.has(eventName)) {
-      listeners.set(eventName, []);
-    }
-    listeners.get(eventName).push(callback);
-  }
-
-  function emit(eventName, data) {
-    if (listeners.has(eventName)) {
-      listeners.get(eventName).forEach(callback => {
-        callback(data);
-      });
-    }
-  }
-
-  function getAllClients() {
-    return normalizedClients;
-  }
+  const selector = createClientSelector(normalizedClients);
 
   return {
-    getSearchTerm,
-    search,
-    getFilteredClients,
-    selectClient,
-    getFocusedClientIndex,
-    getFocusedClient,
-    keyboardNavigate,
-    cancel,
-    on,
-    getAllClients
+    getSearchTerm() {
+      return selector.getSearchTerm();
+    },
+
+    search(term) {
+      selector.search(term);
+    },
+
+    getFilteredClients() {
+      return selector.getFilteredClients();
+    },
+
+    selectClient(clientId) {
+      selector.selectClient(clientId);
+    },
+
+    getFocusedClientIndex() {
+      return selector.getFocusedClientIndex();
+    },
+
+    getFocusedClient() {
+      const filtered = selector.getFilteredClients();
+      return filtered[selector.getFocusedClientIndex()] ?? null;
+    },
+
+    keyboardNavigate(direction) {
+      selector.keyboardNavigate(direction);
+    },
+
+    cancel() {
+      selector.cancel();
+    },
+
+    on(eventName, callback) {
+      selector.on(eventName, callback);
+    },
+
+    off(eventName, callback) {
+      selector.off(eventName, callback);
+    },
+
+    getAllClients() {
+      return [...normalizedClients];
+    }
   };
 }
