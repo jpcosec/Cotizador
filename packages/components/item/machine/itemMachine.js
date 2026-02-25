@@ -10,7 +10,6 @@
 
 import { assign, createActor, createMachine } from 'https://esm.sh/xstate@5.28.0';
 import { Item } from '../Item.js';
-import { createDefaultItemSeed, defaultItemDefinition } from '../seeds.js';
 
 /**
  * Create an XState machine for a single item.
@@ -111,16 +110,11 @@ export function createItemMachine(seed) {
 /**
  * Create and start an item actor from a seed.
  *
- * @param {Object} [seed=createDefaultItemSeed()] - Item seed
+ * @param {Object} seed - Item seed (mode, definition, externalContext, overrides)
  * @returns {import('xstate').Actor} A running actor with item context
  */
-export function createItemActor(seed = createDefaultItemSeed()) {
+export function createItemActor(seed) {
   const actor = createActor(createItemMachine(seed));
   actor.start();
   return actor;
 }
-
-/**
- * Re-export default item definition and seed factory for consumers.
- */
-export { defaultItemDefinition } from '../seeds.js';

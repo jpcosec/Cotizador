@@ -1,0 +1,272 @@
+<template x-teleport="body">
+  <div class="modal-overlay"
+       x-show="isOpen"
+       x-transition.opacity
+       @click.away="handleCancel()">
+
+    <div class="modal modal-lg" style="max-width: 800px;">
+      <!-- Modal Header -->
+      <div class="modal-header-row">
+        <h3 style="margin: 0;">Seleccionar Cliente</h3>
+        <button class="btn-small btn-secondary" @click="handleCancel()">Cerrar</button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="form-group">
+        <label>Buscar por nombre, RUT o email</label>
+        <input
+          type="text"
+          x-model="searchTerm"
+          @input="handleSearch()"
+          @keydown.arrow-down.prevent="handleKeyDown()"
+          @keydown.arrow-up.prevent="handleKeyUp()"
+          @keydown.enter.prevent="handleSelectFocused()"
+          placeholder="Ej: Empresa SPA, 76.123.456-7 o contacto@empresa.cl"
+          autofocus
+        >
+        <small style="color: var(--secondary);" x-show="searchTerm.length < 2">
+          Escribe al menos 2 caracteres.
+        </small>
+        <small style="color: var(--secondary);" x-show="searchTerm.length >= 2">
+          <span x-text="filteredClients.length"></span> resultados.
+        </small>
+      </div>
+
+      <!-- Two-Column Layout -->
+      <div class="modal-two-col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">
+        
+        <!-- Left: Client List -->
+        <div class="client-results-list" style="border: 1px solid var(--border); border-radius: 4px; max-height: 300px; overflow-y: auto;">
+          <template x-for="(client, idx) in filteredClients" :key="client.id">
+            <button
+              class="client-result-row"
+              :class="{ 'active': idx === focusedIndex }"
+              @mouseenter="focusedIndex = idx"
+              @click="handleSelectClient(client)"
+              style="
+                display: block;
+                width: 100%;
+                padding: 12px;
+                text-align: left;
+                border: none;
+                border-bottom: 1px solid var(--border);
+                background: transparent;
+                cursor: pointer;
+                transition: background-color 0.2s;
+              "
+              :style="{
+                'background-color': idx === focusedIndex ? 'var(--highlight-bg)' : 'transparent'
+              }">
+              <strong x-text="client.nombre || '-'"></strong>
+              <small style="display: block; color: var(--secondary); margin-top: 4px;">
+                <span x-text="client.rut || '-'"></span>
+                <template x-if="client.email">
+                  <span> · <span x-text="client.email"></span></span>
+                </template>
+              </small>
+            </button>
+          </template>
+          
+          <div x-show="filteredClients.length === 0 && searchTerm.length >= 2" 
+               style="padding: 12px; color: var(--secondary); text-align: center;">
+            No se encontraron clientes.
+          </div>
+        </div>
+
+        <!-- Right: Preview Card -->
+        <div class="client-preview-card" style="border: 1px solid var(--border); border-radius: 4px; padding: 12px;">
+          <h4 style="margin: 0 0 8px 0;">Vista previa</h4>
+          <template x-if="focusedClient">
+            <div style="font-size: 14px; line-height: 1.6;">
+              <div>
+                <strong x-text="focusedClient.nombre || '-'"></strong>
+              </div>
+              <div style="margin-top: 8px;">
+                <div><strong>RUT:</strong> <span x-text="focusedClient.rut || '-'"></span></div>
+                <div x-show="focusedClient.email"><strong>Email:</strong> <span x-text="focusedClient.email || '-'"></span></div>
+                <div x-show="focusedClient.telefono"><strong>Teléfono:</strong> <span x-text="focusedClient.telefono || '-'"></span></div>
+                <div x-show="focusedClient.contacto"><strong>Contacto:</strong> <span x-text="focusedClient.contacto || '-'"></span></div>
+              </div>
+            </div>
+          </template>
+          <template x-if="!focusedClient">
+            <div style="color: var(--secondary); text-align: center;">
+              Selecciona un cliente para revisar su detalle.
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Create New Client Section (Optional) -->
+      <details class="inline-toggle" style="margin-top: 16px;">
+        <summary style="cursor: pointer; color: var(--primary); font-weight: 500;">
+          + Crear cliente nuevo
+        </summary>
+        <div style="margin-top: 10px; padding: 12px; background: var(--bg-secondary); border-radius: 4px;">
+          <div class="form-group">
+            <label>Nombre Empresa *</label>
+            <input type="text" x-model="newClient.nombre" placeholder="Ej: Empresa SPA">
+          </div>
+          <div class="form-group">
+            <label>RUT *</label>
+            <input type="text" x-model="newClient.rut" placeholder="76.123.456-7">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" x-model="newClient.email" placeholder="contacto@empresa.cl">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" x-model="newClient.telefono" placeholder="+569...">
+          </div>
+          <div class="form-group">
+            <label>Nombre Contacto</label>
+            <input type="text" x-model="newClient.contacto" placeholder="Persona a cargo">
+          </div>
+          <div style="text-align: right;">
+            <button class="btn-small btn-primary" @click="handleCreateClient()">
+              Guardar y Usar
+            </button>
+          </div>
+        </div>
+      </details>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer-row" style="display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <button class="btn-small btn-secondary" @click="handleCancel()">
+          Cancelar
+        </button>
+        <button class="btn-small btn-primary" 
+                @click="handleSelectFocused()"
+                :disabled="!focusedClient">
+          Usar Selección
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 800px;
+  width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header-row h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: white;
+}
+
+.btn-secondary:hover {
+  opacity: 0.8;
+}
+
+.client-result-row.active {
+  background-color: #f0f4ff;
+}
+
+.inline-toggle summary {
+  list-style: none;
+}
+
+.inline-toggle summary::-webkit-details-marker {
+  display: none;
+}
+
+.modal-footer-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .modal-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

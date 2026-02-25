@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItemComponent Playground</title>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  
+  <!-- JSON Logic -->
+  <script src="/node_modules/json-logic-js/logic.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "json-logic-js": "/packages/components/item/domain/rulesEngine/json-logic-esm.js"
+    }
+  }
+  </script>
+  
+  <style>
+    /* ITEMCOMPONENT PLAYGROUND */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --color-navy: #1a1f3a;
+      --color-navy-light: #2d3561;
+      --color-gold: #d4af37;
+      --color-gold-light: #e8d4a8;
+      --color-white: #fafafa;
+      --color-gray-50: #f8f8f8;
+      --color-gray-100: #f0f0f0;
+      --color-gray-200: #e8e8e8;
+      --color-gray-300: #d0d0d0;
+      --color-gray-500: #808080;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-danger: #ef4444;
+      
+      --font-display: 'Playfair Display', serif;
+      --font-body: 'Outfit', sans-serif;
+      --font-mono: 'Courier New', monospace;
+      
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      font-family: var(--font-body);
+      background: var(--color-white);
+      color: var(--color-navy);
+    }
+
+    .playground-wrapper {
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--color-white) 0%, var(--color-gray-50) 100%);
+    }
+
+    .playground-header {
+      background: var(--color-navy);
+      color: var(--color-white);
+      padding: 48px 32px;
+      border-bottom: 3px solid var(--color-gold);
+      text-align: center;
+    }
+
+    .header-back {
+      display: inline-block;
+      margin-bottom: 24px;
+    }
+
+    .header-back a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-gold);
+      text-decoration: none;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .header-back a:hover {
+      color: var(--color-gold-light);
+      transform: translateX(-4px);
+    }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -1px;
+    }
+
+    .header-subtitle {
+      font-size: 1.1rem;
+      color: rgba(255, 255, 255, 0.8);
+      font-weight: 400;
+    }
+
+    .playground-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 32px;
+    }
+
+    .intro-section {
+      background: var(--color-white);
+      border: 2px solid var(--color-gold);
+      border-radius: 12px;
+      padding: 40px;
+      margin-bottom: 48px;
+      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.1);
+    }
+
+    .intro-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--color-navy);
+      margin-bottom: 16px;
+    }
+
+    .intro-text {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: var(--color-gray-500);
+      margin-bottom: 24px;
+    }
+
+    .intro-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 175, 55, 0.1);
+      border-radius: 8px;
+      color: var(--color-gold);
+      flex-shrink: 0;
+      font-size: 1.2rem;
+    }
+
+    .feature-text {
+      flex: 1;
+    }
+
+    .feature-text strong {
+      display: block;
+      color: var(--color-navy);
+      margin-bottom: 4px;
+    }
+
+    .feature-text span {
+      font-size: 0.9rem;
+      color: var(--color-gray-500);
+    }
+
+    .examples-section {
+      margin-bottom: 48px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--color-gold);
+    }
+
+    .section-header h2 {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--color-navy);
+      margin: 0;
+    }
+
+    .section-header .icon {
+      font-size: 1.8rem;
+      color: var(--color-gold);
+    }
+
+    .examples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .example-card {
+      background: var(--color-white);
+      border: 1px solid var(--color-gray-200);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .example-card:hover {
+      border-color: var(--color-gold);
+      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.15);
+      transform: translateY(-4px);
+    }
+
+    .example-header {
+      background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%);
+      color: var(--color-white);
+      padding: 24px;
+      border-bottom: 2px solid var(--color-gold);
+    }
+
+    .example-name {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .example-category {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .example-body {
+      padding: 24px;
+    }
+
+    .example-price {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--color-gray-200);
+    }
+
+    .price-label {
+      font-size: 0.9rem;
+      color: var(--color-gray-500);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .price-value {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--color-gold);
+    }
+
+    .example-details {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--color-gray-500);
+      margin-bottom: 20px;
+    }
+
+    .example-button {
+      width: 100%;
+      padding: 12px 20px;
+      background: var(--color-gold);
+      color: var(--color-navy);
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .example-button:hover {
+      background: var(--color-gold-light);
+      transform: translateY(-2px);
+    }
+
+    .component-section {
+      background: var(--color-white);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      margin-top: 48px;
+    }
+
+    .component-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--color-gold);
+    }
+
+    .component-title {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      color: var(--color-navy);
+      margin: 0;
+    }
+
+    .component-close {
+      padding: 8px 16px;
+      background: var(--color-gray-100);
+      border: 1px solid var(--color-gray-200);
+      border-radius: 6px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      color: var(--color-navy);
+    }
+
+    .component-close:hover {
+      background: var(--color-gray-200);
+    }
+
+    .fab-group {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1000;
+    }
+
+    .fab {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--color-gold);
+      color: var(--color-navy);
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+      transition: var(--transition);
+    }
+
+    .fab:hover {
+      transform: scale(1.1) translateY(-4px);
+      box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
+    }
+
+    [x-cloak] { display: none; }
+
+    @media (max-width: 768px) {
+      .playground-header {
+        padding: 32px 16px;
+      }
+      .header-title {
+        font-size: 2rem;
+      }
+      .playground-content {
+        padding: 32px 16px;
+      }
+      .intro-section,
+      .component-section {
+        padding: 24px;
+      }
+      .examples-grid {
+        grid-template-columns: 1fr;
+      }
+      .fab-group {
+        bottom: 16px;
+        right: 16px;
+      }
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .intro-section,
+    .examples-grid > * {
+      animation: slideInUp 0.5s ease-out;
+    }
+
+    .examples-grid > :nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    .examples-grid > :nth-child(3) {
+      animation-delay: 0.2s;
+    }
+
+    .examples-grid > :nth-child(4) {
+      animation-delay: 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="playground-wrapper" x-cloak x-data="itemPlayground()">
+    <!-- HEADER -->
+    <header class="playground-header">
+      <div class="header-back">
+        <a href="/">
+          <i class="fas fa-arrow-left"></i>
+          Back to Sandbox
+        </a>
+      </div>
+      <h1 class="header-title">ItemComponent Playground</h1>
+      <p class="header-subtitle">Interactive showcase of the professional item configurator</p>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <div class="playground-content">
+      <!-- INTRO SECTION -->
+      <section class="intro-section" x-show="!selectedItem">
+        <h2 class="intro-title">Welcome to ItemComponent Showcase</h2>
+        <p class="intro-text">
+          Explore the full capabilities of ItemComponent with real-world examples. Click any item to see it in action,
+          adjust pricing, test business rules, and experience the professional luxury aesthetic.
+        </p>
+        
+        <div class="intro-features">
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-tag"></i></div>
+            <div class="feature-text">
+              <strong>Dual View Modes</strong>
+              <span>Switch between catalog card and basket accordion</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-calculator"></i></div>
+            <div class="feature-text">
+              <strong>Real-Time Pricing</strong>
+              <span>Automatic calculations with breakdown display</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-user-check"></i></div>
+            <div class="feature-text">
+              <strong>Override Tracking</strong>
+              <span>See which values were manually set vs auto</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+            <div class="feature-text">
+              <strong>Business Rules</strong>
+              <span>JSON-Logic conditions with readable descriptions</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
+            <div class="feature-text">
+              <strong>Fully Responsive</strong>
+              <span>Desktop, tablet, and mobile optimized</span>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon"><i class="fas fa-palette"></i></div>
+            <div class="feature-text">
+              <strong>Professional Design</strong>
+              <span>Luxury minimalism with CSS variable customization</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EXAMPLES GRID -->
+      <section class="examples-section" x-show="!selectedItem">
+        <div class="section-header">
+          <i class="icon fas fa-star"></i>
+          <h2>Featured Examples</h2>
+        </div>
+        <div class="examples-grid">
+          <template x-for="item in exampleItems" :key="item.id">
+            <div class="example-card" @click="selectItem(item)">
+              <div class="example-header">
+                <div class="example-name" x-text="item.name"></div>
+                <div class="example-category" x-text="item.category"></div>
+              </div>
+              <div class="example-body">
+                <div class="example-price">
+                  <span class="price-label">Est. Price:</span>
+                  <span class="price-value" x-text="formatPrice(item.pricingProfile.baseFijo + item.pricingProfile.porPersona * 100)"></span>
+                </div>
+                <div class="example-details" x-text="item.description"></div>
+                <button class="example-button">
+                  <i class="fas fa-play"></i>
+                  Launch Item
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- COMPONENT DISPLAY -->
+      <section class="component-section" x-show="selectedItem">
+        <div class="component-header">
+          <h2 class="component-title" x-text="selectedItem?.name + ' - Live Demo'"></h2>
+          <button class="component-close" @click="selectedItem = null">← Back to Examples</button>
+        </div>
+        <div id="component-root" style="min-height: 600px;"></div>
+      </section>
+    </div>
+
+    <!-- FLOATING ACTION BUTTONS -->
+    <div class="fab-group">
+      <button class="fab" title="Reset" @click="resetPlayground()" x-show="selectedItem">
+        <i class="fas fa-redo"></i>
+      </button>
+      <button class="fab" title="Documentation" @click="openDocs()">
+        <i class="fas fa-book"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Define Alpine data BEFORE loading Alpine -->
+  <script>
+    // Define the function BEFORE Alpine loads
+    window.itemPlaygroundData = function() {
+      return {
+        selectedItem: null,
+        unmountCurrent: null,
+        exampleItems: [
+          {
+            id: 'ITEM_001',
+            name: 'Plated Dinner',
+            category: 'Catering',
+            description: 'Multi-course gourmet plated dinner with professional service',
+            pricingProfile: { baseFijo: 0, porPersona: 85000, porUnidad: 0, porMinuto: 0 },
+            defaultQuantities: { unidadesPorUsuario: 1 },
+            rules: []
+          },
+          {
+            id: 'ITEM_002',
+            name: 'Premium Bar Service',
+            category: 'Beverages',
+            description: 'Full open bar service with professional mixologists',
+            pricingProfile: { baseFijo: 500000, porPersona: 15000, porUnidad: 0, porMinuto: 0 },
+            defaultQuantities: {},
+            rules: []
+          },
+          {
+            id: 'ITEM_003',
+            name: 'Dance Floor with Lights',
+            category: 'Venue',
+            description: 'Premium LED dance floor with professional lighting system',
+            pricingProfile: { baseFijo: 2500000, porPersona: 0, porUnidad: 0, porMinuto: 8000 },
+            defaultQuantities: { unidadesPorHora: 60 },
+            rules: []
+          },
+          {
+            id: 'ITEM_004',
+            name: 'Exclusive Wine Selection',
+            category: 'Beverages',
+            description: 'Curated wine pairing with sommelier consultation',
+            pricingProfile: { baseFijo: 1000000, porPersona: 50000, porUnidad: 0, porMinuto: 0 },
+            defaultQuantities: { unidadesPorUsuario: 1 },
+            rules: []
+          }
+        ],
+
+        formatPrice(amount) {
+          return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount);
+        },
+
+        async selectItem(item) {
+          this.selectedItem = item;
+          await this.$nextTick();
+
+          const root = document.getElementById('component-root');
+          if (!root) return;
+
+          if (typeof this.unmountCurrent === 'function') {
+            this.unmountCurrent();
+            this.unmountCurrent = null;
+          }
+
+          root.innerHTML = '<p style="color:#64748b;">Loading component...</p>';
+
+          try {
+            const { mountItemStandalone } = await import('/packages/components/item/logic/createItemStandaloneComponent.js');
+            this.unmountCurrent = await mountItemStandalone(root, {
+              seed: {
+                mode: 'catalog',
+                definition: {
+                  ...item,
+                  rules: item.rules || []
+                },
+                externalContext: {
+                  paxGlobal: 120,
+                  duracionMin: 180,
+                  dia: 6,
+                  hora: '19:00'
+                },
+                overrides: {}
+              }
+            });
+          } catch (error) {
+            console.error('Failed to mount item playground component:', error);
+            root.innerHTML = '<p style="color:#ef4444;">Could not load component. Check browser console for details.</p>';
+          }
+        },
+
+        resetPlayground() {
+          if (typeof this.unmountCurrent === 'function') {
+            this.unmountCurrent();
+            this.unmountCurrent = null;
+          }
+          this.selectedItem = null;
+          const root = document.getElementById('component-root');
+          if (root) root.innerHTML = '';
+        },
+
+        openDocs() {
+          window.open('/packages/components/item/ITEMCOMPONENT_README.md', '_blank');
+        }
+      };
+    };
+
+    // Alias for Alpine
+    window.itemPlayground = window.itemPlaygroundData;
+  </script>
+
+  <!-- THEN load Alpine -->
+  <script defer src="https://unpkg.com/alpinejs@3.12.0/dist/cdn.min.js"></script>
+</body>
+</html>

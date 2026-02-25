@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-02-24 (item-playground route loading fix)
+- Fixed `apps/sandbox/routes/item-playground/index.html` so selecting a featured item now mounts a live component into `#component-root`.
+- Added dynamic import + mount flow in `selectItem(item)` and proper cleanup in `resetPlayground()` to avoid stale mounted state between selections.
+- Added an import map for `json-logic-js` on the playground page so rules engine module imports resolve correctly in browser.
+- Updated `packages/components/item/logic/createItemStandaloneComponent.js` to accept optional seed overrides, enabling per-example item definitions from the playground.
+- Added mount cleanup handling in `createItemStandaloneComponent` to unsubscribe actor listeners and support safe remounts.
+
 ### 2026-02-22 (step-03.1 catalog card + basket line UI)
 - Rewrote `ItemStandalone.html` with actual item visual representation:
   - **Catalog mode:** Shows mini-card with category badge, item name, pricing formula, policy hint, description, clickable add-to-basket

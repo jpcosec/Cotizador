@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const sandboxDir = path.join(rootDir, 'apps', 'sandbox');
+const demoDir = path.join(rootDir, 'apps', 'demo');
 const routesDir = path.join(sandboxDir, 'routes');
 const port = Number(process.env.PORT || 8090);
 
@@ -71,7 +72,19 @@ function resolveTarget(reqPath) {
     return path.join(routesDir, 'step-03-item', 'index.html');
   }
 
+  if (reqPath === '/step-03b' || reqPath === '/step-03b/') {
+    return path.join(routesDir, 'step-03b', 'index.html');
+  }
+
+  if (reqPath === '/item-playground' || reqPath === '/item-playground/') {
+    return path.join(routesDir, 'item-playground', 'index.html');
+  }
+
   if (reqPath.startsWith('/packages/')) {
+    return safeJoin(rootDir, reqPath.slice(1));
+  }
+
+  if (reqPath.startsWith('/node_modules/')) {
     return safeJoin(rootDir, reqPath.slice(1));
   }
 
@@ -118,5 +131,10 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, () => {
   console.log(`Sandbox server: http://localhost:${port}`);
-  console.log('Open /step-01-counter, /step-02-counter-composed, /step-03-item');
+  console.log('Routes:');
+  console.log('  /step-01-counter');
+  console.log('  /step-02-counter-composed');
+  console.log('  /step-03-item');
+  console.log('  /step-03b (multi-item view)');
+  console.log('  /item-playground');
 });

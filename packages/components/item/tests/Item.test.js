@@ -1,7 +1,38 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Item } from '../Item.js';
-import { createDefaultItemSeed, defaultItemDefinition } from '../seeds.js';
 import { PricingKind, InitializationMode } from '../domain/pricing.js';
+
+const defaultItemDefinition = {
+  name: 'Coffee Break Intermedio',
+  category: 'Coffee',
+  description: 'Servicio de coffee break para eventos corporativos.',
+  pricingProfile: {
+    baseFijo: 400,
+    porPersona: 0,
+    porUnidad: 1,
+    porMinuto: 0
+  },
+  defaultQuantities: {
+    unidadesPorUsuario: 3,
+    unidadesPorHora: 0,
+    minutosPorUsuario: 0
+  },
+  rules: []
+};
+
+function createDefaultItemSeed() {
+  return {
+    mode: 'catalog',
+    definition: defaultItemDefinition,
+    externalContext: {
+      paxGlobal: 20,
+      duracionMin: 120,
+      dia: 1,
+      hora: '09:00'
+    },
+    overrides: {}
+  };
+}
 
 describe('Item', () => {
   let defaultSeed;
@@ -653,13 +684,6 @@ describe('Item', () => {
         expect(line.hora).toBeDefined();
       });
 
-      it('should include availability status', () => {
-        const item = Item.fromSeed(defaultSeed);
-        const line = item.basketLine;
-
-        expect(typeof line.available).toBe('boolean');
-      });
-
       it('should include override status', () => {
         const item = Item.fromSeed(defaultSeed);
         expect(item.basketLine.isOverridden).toBe(false);
@@ -701,7 +725,6 @@ describe('Item', () => {
         expect(display.total).toBe(460);
         expect(display.quantities).toBeDefined();
         expect(display.schedule).toBeDefined();
-        expect(display.available).toBeDefined();
       });
 
       it('should include user-set tracking fields', () => {
@@ -972,11 +995,6 @@ describe('Item', () => {
 
       item.setOverride('cantidad', 100);
       expect(item.isOverridden).toBe(true);
-    });
-
-    it('should expose isAvailable getter', () => {
-      const item = Item.fromSeed(defaultSeed);
-      expect(typeof item.isAvailable).toBe('boolean');
     });
 
     it('should expose quantities getter', () => {

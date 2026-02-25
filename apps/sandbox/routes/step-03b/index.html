@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Step 03 Item Standalone</title>
+  <title>Step 03b Item Multi View</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="/packages/components/common/styles/claps-global.css" />
   <!-- Load json-logic-js as a UMD global for use by coordinator -->
@@ -20,15 +20,15 @@
 <body class="sandbox-page">
   <main class="sandbox-shell">
     <p><a class="btn btn-small btn-secondary" href="/">Back</a></p>
-    <main id="app">Loading item module...</main>
+    <main id="app">Loading item multi module...</main>
   </main>
 
   <script type="module">
-    import { mountItemStandalone } from '/packages/components/item/logic/createItemStandaloneComponent.js';
+    import { mountItemMulti } from '/packages/components/item/logic/createItemMultiComponent.js';
 
     window.addEventListener('DOMContentLoaded', async () => {
       const root = document.getElementById('app');
-      await mountItemStandalone(root);
+      await mountItemMulti(root);
     });
   </script>
 </body>

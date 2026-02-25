@@ -32,7 +32,6 @@ import {
   resolveBasketQuantity,
   applyExclusiveDefaultMode
 } from './domain/quantity.js';
-import { evaluateRules } from './domain/rules.js';
 import {
   money,
   formatCatalogTerms,
@@ -42,6 +41,7 @@ import {
   lineRateLabel
 } from './domain/formatting.js';
 import { resolveSchedule } from './domain/schedule.js';
+import { RulesCoordinator } from './domain/rulesEngine/coordinator.js';
 
 /**
  * Refactored Item class using domain functions.
@@ -54,6 +54,8 @@ export class Item {
   #overrides;
   #userSetFields;
   #derived;
+  #rulesCoordinator;
+  #ruleResult;
 
   /**
    * Private constructor. Use static factories instead.
@@ -126,6 +128,11 @@ export class Item {
     this.#externalContext = { ...(externalContext || {}) };
     this.#overrides = { ...(overrides || {}) };
     this.#userSetFields = new Set(userSetFields || []);
+
+    // Initialize RulesCoordinator for ITEM-scoped rules (Step 3.3)
+    // Rules will be evaluated in calculate() with full context available
+    this.#rulesCoordinator = new RulesCoordinator('ITEM', this.#definition.rules || []);
+
     return this.calculate();
   }
 
@@ -170,9 +177,17 @@ export class Item {
     };
 
     const schedule = resolveSchedule(this.#externalContext, this.#overrides);
-    const ruleResult = evaluateRules(this.#definition.rules || [], {
-      quantities,
-      schedule
+
+    // Evaluate rules using RulesCoordinator (Step 3.3)
+    // Invalidate cache to force re-evaluation with new context
+    this.#rulesCoordinator.invalidateCache();
+    this.#ruleResult = this.#rulesCoordinator.evaluate({
+      itemId: this.#definition.id,
+      pax: quantities.pax,
+      cantidad: quantities.cantidad,
+      duracionMin: quantities.duracionMin,
+      hora: schedule.hora,
+      dia: schedule.dia
     });
 
     const catalogDisaggregated = formatCatalogTerms(
@@ -206,8 +221,6 @@ export class Item {
       pricingHumanText,
       quantities,
       schedule,
-      available: ruleResult.available,
-      appliedRules: ruleResult.appliedRules,
       lineRateLabel: lineRateLabelText,
       lineRateSubtotal: quantity * rate,
       comentarios: this.#overrides.comentarios ?? '',
@@ -401,13 +414,6 @@ export class Item {
     return this.#derived.isOverridden;
   }
 
-  /**
-   * Get whether the item is available (not blocked by rules).
-   * @returns {boolean}
-   */
-  get isAvailable() {
-    return this.#derived.available;
-  }
 
   /**
    * Get quantities object with pax, cantidad, duracionMin.
@@ -423,6 +429,46 @@ export class Item {
    */
   get schedule() {
     return this.#derived.schedule;
+  }
+
+  /**
+   * Get the rules array for this item.
+   * Rules evaluation is NOT YET IMPLEMENTED at Item level (Step 3.3).
+   *
+   * Rule structure (from REGLAS_NEGOCIO.csv):
+   * {
+   *   ID_Regla: string,
+   *   Nombre: string,
+   *   Etapa: string,              // (not used in Step 3.3)
+   *   Scope: string,              // ITEM, CATEGORY, KIT, CONTAINER, BASKET
+   *   Tipo_Accion: string,        // ERROR, WARNING, MULTIPLY, ADD_FIXED, SET_VALUE, SET_TAX, SET_DEFAULT, ADD_ITEM, INVALIDATE_BASKET
+   *   Condicion_JSON: string|obj, // json-logic-js expression (business logic only, no ID matching)
+   *   Payload_JSON: string|obj,   // action-specific payload
+   *   Prioridad: number,
+   *   Acumulable: boolean,
+   *   Activo: boolean,
+   *   Updated_At: string
+   * }
+   *
+   * When implemented (Step 3.3):
+   * - Filter rules at construction: r.Scope === 'ITEM' && r.ID_Item === itemId && r.Activo === true
+   * - Sort by Prioridad (ascending)
+   * - Evaluate each condition (Condicion_JSON) against: { pax, cantidad, duracionMin, hora, dia }
+   * - Execute matching action handlers (ERROR/WARNING have effects, others are no-op for now)
+   * - Cache results (no re-evaluation on quantity changes)
+   * - Use humanize.js for readable condition/action formatting
+   * - Re-evaluate on externalContext changes (re-filter + re-evaluate)
+   *
+   * Key insight: Component ID matching (ID_Item) happens in the FILTER, not the condition.
+   * This keeps conditions pure and reusable across CATEGORY, KIT, CONTAINER, BASKET later.
+   *
+   * See: packages/components/item/domain/rulesEngine/README.md (filtering strategy)
+   * See: claps_codelab/packages/pricing/src/RulesEngine/ (implementation reference)
+   *
+   * @returns {Array}
+   */
+  get rules() {
+    return this.#definition.rules || [];
   }
 
   // ---- Projections ----
@@ -476,8 +522,7 @@ export class Item {
       showPaxControl: this.#derived.showPaxControl,
       showUnitsControl: this.#derived.showUnitsControl,
       showTimeControl: this.#derived.showTimeControl,
-      total: this.#derived.total,
-      available: this.#derived.available
+      total: this.#derived.total
     };
   }
 
@@ -522,12 +567,14 @@ export class Item {
       showPaxControl: this.#derived.showPaxControl,
       showUnitsControl: this.#derived.showUnitsControl,
       showTimeControl: this.#derived.showTimeControl,
-      available: this.#derived.available,
-      appliedRules: this.#derived.appliedRules,
       userSetFields: this.#derived.userSetFields,
       isUserSetPax: this.#derived.isUserSetPax,
       isUserSetCantidad: this.#derived.isUserSetCantidad,
-      isUserSetDuracion: this.#derived.isUserSetDuracion
+      isUserSetDuracion: this.#derived.isUserSetDuracion,
+      appliedRules: this.#ruleResult?.appliedRules || [],
+      ruleErrors: this.#ruleResult?.errors || [],
+      ruleWarnings: this.#ruleResult?.warnings || [],
+      available: this.#ruleResult?.available ?? true
     };
   }
 

@@ -1,263 +1,1351 @@
-<section x-data="itemStandaloneComponent()" x-init="init()">
-  <h2>Step 03 - Item Standalone</h2>
+<section x-data="itemStandaloneComponent()" x-init="init()" class="item-standalone">
+  <div style="padding: 20px; background: white; margin-bottom: 20px;">
+    <a href="/" style="text-decoration: none; color: #0066cc; font-weight: 500;">← Back</a>
+  </div>
 
-  <div class="item-step-layout">
-    <!-- ========== LEFT: THE ITEM (visual representation) ========== -->
-    <div>
-      <!-- CATALOG CARD (visible in catalog mode) -->
-      <article x-show="state.mode === 'catalog'" style="padding:0; overflow:hidden;">
-        <div style="padding:10px 14px; background:var(--primary-light); border-bottom:1px solid #bfdbbe;">
-          <strong style="font-size:0.9rem;">
-            <i class="fa-solid fa-mug-saucer" style="margin-right:4px; color:var(--primary);"></i>
-            <span x-text="state.definition.category || 'Sin categoría'"></span>
-          </strong>
+  <main class="main">
+    <!-- Config Panel (Top Controls) -->
+    <div class="config-panel">
+      <div class="config-row">
+        <h2 style="margin: 0; color: #2d5a27; font-size: 1.1rem;">
+          <i class="fa-solid fa-sliders"></i> Configuración
+        </h2>
+        <div style="display: flex; gap: 8px;">
+          <button @click="addToBasket()" x-show="state.mode === 'catalog'" class="btn-small btn-primary">
+            <i class="fa-solid fa-plus"></i> Add to Basket
+          </button>
+          <button @click="removeFromBasket()" x-show="state.mode === 'basket'" class="btn-small btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Back to Catalog
+          </button>
         </div>
-        <div class="mini-card" @click="addToBasket()" style="border-bottom:none; padding:12px 14px;">
-          <div>
-            <h5 x-text="state.definition.name || 'Item'"></h5>
-            <span x-text="state.catalogFormulaHuman || ''"></span>
-            <span class="catalog-init-hint" x-show="state.initPolicyHuman"
-                  x-text="state.initPolicyHuman"></span>
-          </div>
-          <i class="fa-solid fa-plus add-icon" style="opacity:1; font-size:1.1rem;"></i>
-        </div>
-        <div style="padding:8px 14px; border-top:1px solid var(--border); font-size:0.8rem; color:var(--secondary);">
-          <span x-text="state.definition.description || ''"></span>
-        </div>
-      </article>
-
-      <!-- BASKET LINE (visible in basket mode) -->
-      <article x-show="state.mode === 'basket'" style="padding:0; overflow:hidden;"
-               :class="state.isOverridden ? 'line-overridden' : ''">
-        <!-- Accordion header -->
-        <div class="accordion-header" @click="expanded = !expanded">
-          <div class="acc-time">
-            <input type="time" :value="state.schedule.hora || ''"
-                   @click.stop
-                   @input="setOverride('hora', $event.target.value)"
-                   class="time-input-small" title="Hora">
-          </div>
-          <div class="acc-info">
-            <div class="acc-title">
-              <span x-text="state.definition.name || 'Item'"></span>
-              <span class="override-badge" x-show="state.isOverridden">override</span>
-            </div>
-            <div class="acc-subtitle">
-              <span x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></span>
-              <span style="margin:0 5px;">&bull;</span>
-              <span x-text="state.basketLegend || ''"></span>
-            </div>
-          </div>
-          <div class="acc-toggle">
-            <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-          </div>
-        </div>
-
-        <!-- Accordion body -->
-        <div class="accordion-body" x-show="expanded" x-transition>
-          <div class="accordion-layout">
-            <!-- Left: quantity controls + price breakdown -->
-            <div class="accordion-col-left">
-              <div class="control-group" x-show="state.showPaxControl">
-                <label>Pax <span class="override-badge" x-show="state.isUserSetPax">manual</span></label>
-                <input type="number" :value="state.quantities.pax"
-                       :style="state.isUserSetPax ? 'border-color:#f59e0b' : ''"
-                       @input="setOverride('pax', Number($event.target.value))" min="0">
-              </div>
-              <div class="control-group" x-show="state.showUnitsControl">
-                <label>Unidades <span class="override-badge" x-show="state.isUserSetCantidad">manual</span></label>
-                <input type="number" :value="state.quantities.cantidad"
-                       :style="state.isUserSetCantidad ? 'border-color:#f59e0b' : ''"
-                       @input="setOverride('cantidad', Number($event.target.value))" min="0">
-              </div>
-              <div class="control-group" x-show="state.showTimeControl">
-                <label>Duración (min) <span class="override-badge" x-show="state.isUserSetDuracion">manual</span></label>
-                <input type="number" :value="state.quantities.duracionMin"
-                       :style="state.isUserSetDuracion ? 'border-color:#f59e0b' : ''"
-                       @input="setOverride('duracionMin', Number($event.target.value))" min="0" step="15">
-              </div>
-
-              <div class="line-price-box">
-                <div class="line-price-row">
-                  <span>Base fijo</span>
-                  <strong x-text="'$' + Number(state.lineBaseValue ?? 0).toLocaleString('es-CL')"></strong>
-                </div>
-                <div class="line-price-row" x-show="state.lineRateLabel">
-                  <span x-text="state.lineRateLabel"></span>
-                  <strong x-text="'$' + Number(state.lineRateValue ?? 0).toLocaleString('es-CL') + ' x ' + (state.quantities.pax || state.quantities.cantidad || state.quantities.duracionMin || 0)"></strong>
-                </div>
-                <div class="line-price-row" x-show="state.lineRateSubtotal">
-                  <span>Subtotal variable</span>
-                  <strong x-text="'$' + Number(state.lineRateSubtotal ?? 0).toLocaleString('es-CL')"></strong>
-                </div>
-                <div class="line-price-row" style="border-top:1px solid #bfdbbe; padding-top:4px; margin-top:2px;">
-                  <span style="font-weight:600;">Total</span>
-                  <strong style="font-size:0.95rem; color:var(--primary);"
-                          x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong>
-                </div>
-              </div>
-            </div>
-
-            <!-- Middle: comments -->
-            <div class="accordion-col-middle">
-              <div class="form-group mb-0">
-                <label>Comentario</label>
-                <textarea class="line-comment-input"
-                          :value="state.comentarios || ''"
-                          @input="setOverride('comentarios', $event.target.value)"
-                          rows="5"
-                          placeholder="Comentario de la línea"></textarea>
-              </div>
-            </div>
-
-            <!-- Right: actions -->
-            <div class="accordion-col-actions">
-              <button class="icon-action danger" @click="removeFromBasket()" title="Eliminar">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-              <button class="icon-action" @click="resetOverrides()" title="Resetear overrides">
-                <i class="fa-solid fa-rotate-left"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Rules & availability -->
-      <article x-show="state.appliedRules && state.appliedRules.length > 0"
-               style="padding:8px 14px; margin-top:0; border-top:none;">
-        <p style="font-size:0.8rem; color:#64748b; margin:0;">
-          <i class="fa-solid fa-shield-halved" style="margin-right:4px;"></i>
-          <span x-text="state.appliedRules.join(' | ')"></span>
-        </p>
-      </article>
-
-      <!-- Not available warning -->
-      <div x-show="state.available === false"
-           style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; margin-top:8px;">
-        <p style="margin:0; color:#dc2626; font-size:0.85rem;">
-          <i class="fa-solid fa-ban" style="margin-right:4px;"></i>
-          Item no disponible (bloqueado por regla)
-        </p>
       </div>
-    </div>
 
-    <!-- ========== RIGHT: SANDBOX CONTROLS ========== -->
-    <div>
-      <!-- Mock container context -->
-      <article>
-        <h3><i class="fa-solid fa-arrow-down" style="margin-right:4px; color:var(--accent);"></i> Container Context (mock)</h3>
-        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
-          In production, these values come from the container (quotation header / day).
-        </p>
-        <div class="form-group">
-          <label>Pax Global</label>
-          <input type="number" :value="state.externalContext.paxGlobal"
+      <div class="config-grid">
+        <div class="form-group mb-0">
+          <label>PAX Global</label>
+          <input type="number" :value="state.externalContext.paxGlobal || 0"
                  @input="setContext('paxGlobal', $event.target.value)">
         </div>
-        <div class="form-group">
-          <label>Dia</label>
-          <input type="number" :value="state.externalContext.dia"
-                 @input="setContext('dia', $event.target.value)">
+        <div class="form-group mb-0">
+          <label>Duración (min)</label>
+          <input type="number" :value="state.externalContext.duracionMin || 0"
+                 @input="setContext('duracionMin', $event.target.value)">
         </div>
         <div class="form-group mb-0">
           <label>Hora</label>
-          <input type="time" :value="state.externalContext.hora"
+          <input type="time" :value="state.externalContext.hora || '09:00'"
                  @input="setContext('hora', $event.target.value)">
         </div>
-      </article>
+      </div>
 
-      <!-- Intrinsic: Pricing Profile -->
-      <article>
-        <h3><i class="fa-solid fa-tag" style="margin-right:4px; color:var(--primary);"></i> Pricing Profile (intrinsic)</h3>
-        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
-          In production, this comes from the database or category inheritance.
-        </p>
-        <div class="item-top-config-grid">
+      <!-- Pricing Profile & Default Quantities (Collapsible) -->
+      <details style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+        <summary style="cursor: pointer; font-weight: 600; color: #1a1a2e; margin-bottom: 12px;">
+          💰 Pricing Profile & Defaults
+        </summary>
+        <div class="config-grid" style="margin-top: 12px;">
           <div class="form-group mb-0">
-            <label>Base fijo</label>
-            <input type="number" :value="state.definition.pricingProfile.baseFijo ?? 0"
+            <label>Base Fijo</label>
+            <input type="number" :value="state.profile?.baseFijo || 0"
                    @input="setProfileValue('baseFijo', $event.target.value)">
           </div>
           <div class="form-group mb-0">
-            <label>Por persona</label>
-            <input type="number" :value="state.definition.pricingProfile.porPersona ?? 0"
+            <label>Por Persona</label>
+            <input type="number" :value="state.profile?.porPersona || 0"
                    @input="setProfileValue('porPersona', $event.target.value)">
           </div>
           <div class="form-group mb-0">
-            <label>Por unidad</label>
-            <input type="number" :value="state.definition.pricingProfile.porUnidad ?? 0"
+            <label>Por Unidad</label>
+            <input type="number" :value="state.profile?.porUnidad || 0"
                    @input="setProfileValue('porUnidad', $event.target.value)">
           </div>
           <div class="form-group mb-0">
-            <label>Por minuto</label>
-            <input type="number" :value="state.definition.pricingProfile.porMinuto ?? 0"
+            <label>Por Minuto</label>
+            <input type="number" :value="state.profile?.porMinuto || 0"
                    @input="setProfileValue('porMinuto', $event.target.value)">
           </div>
-        </div>
-        <p style="margin-top:8px; font-size:0.8rem; color:#64748b;">
-          Kind: <strong x-text="state.pricingKind"></strong>
-          &mdash; <span x-text="state.pricingHuman"></span>
-        </p>
-      </article>
-
-      <!-- Intrinsic: Default Initialization -->
-      <article>
-        <h3><i class="fa-solid fa-sliders" style="margin-right:4px; color:var(--primary);"></i> Default Initialization (intrinsic)</h3>
-        <p style="font-size:0.75rem; color:var(--secondary); margin-top:-8px;">
-          How quantities are auto-calculated when no override is set.
-        </p>
-        <div class="item-top-config-grid">
           <div class="form-group mb-0">
-            <label>Pax default</label>
-            <input type="number" :value="state.definition.defaultQuantities.pax ?? ''"
-                   @input="setDefaultQuantity('pax', $event.target.value)">
-          </div>
-          <div class="form-group mb-0">
-            <label>Cantidad fija</label>
-            <input type="number" :value="state.definition.defaultQuantities.cantidad ?? ''"
-                   @input="setDefaultQuantity('cantidad', $event.target.value)">
-          </div>
-          <div class="form-group mb-0">
-            <label>Duracion fija (min)</label>
-            <input type="number" :value="state.definition.defaultQuantities.duracionMin ?? ''"
-                   @input="setDefaultQuantity('duracionMin', $event.target.value)">
-          </div>
-          <div class="form-group mb-0">
-            <label>Und/usuario</label>
-            <input type="number" :value="state.definition.defaultQuantities.unidadesPorUsuario ?? ''"
+            <label>Unidades/Usuario</label>
+            <input type="number" :value="state.externalContext.unidadesPorUsuario || 0"
                    @input="setDefaultQuantity('unidadesPorUsuario', $event.target.value)">
           </div>
           <div class="form-group mb-0">
-            <label>Und/hora</label>
-            <input type="number" :value="state.definition.defaultQuantities.unidadesPorHora ?? ''"
+            <label>Unidades/Hora</label>
+            <input type="number" :value="state.externalContext.unidadesPorHora || 0"
                    @input="setDefaultQuantity('unidadesPorHora', $event.target.value)">
           </div>
-          <div class="form-group mb-0">
-            <label>Min/usuario</label>
-            <input type="number" :value="state.definition.defaultQuantities.minutosPorUsuario ?? ''"
-                   @input="setDefaultQuantity('minutosPorUsuario', $event.target.value)">
+        </div>
+      </details>
+    </div>
+
+    <!-- Item Display Area -->
+    <div style="padding-top: 15px;">
+      <!-- CATALOG VIEW -->
+      <template x-if="state.mode === 'catalog'">
+        <div class="timeline-container" style="max-width: 500px;">
+          <div class="mini-card" @click="addToBasket()">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span class="category-badge" x-text="state.definition.category || 'Uncategorized'"></span>
+              </div>
+              <h5 x-text="state.definition.name || 'Item'"></h5>
+              <p style="margin: 6px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                <span x-text="state.catalogFormulaHuman || 'Base: $' + Number(state.profile?.baseFijo ?? 0).toLocaleString('es-CL')"></span>
+              </p>
+            </div>
+            <i class="fa-solid fa-plus add-icon"></i>
           </div>
         </div>
-        <p style="margin-top:8px; font-size:0.8rem; color:#64748b;">
-          Mode: <strong x-text="state.initializationMode"></strong>
-          <span x-show="state.initPolicyHuman"> &mdash; <span x-text="state.initPolicyHuman"></span></span>
-        </p>
-      </article>
+      </template>
 
-      <!-- Action log -->
-      <article x-show="lastAction" style="padding:8px 14px;">
-        <strong style="font-size:0.8rem;">Last:</strong>
-        <span style="font-size:0.8rem;" x-text="lastAction"></span>
-      </article>
+      <!-- BASKET VIEW -->
+      <template x-if="state.mode === 'basket'">
+        <div class="timeline-container">
+          <div class="accordion-item" x-data="{ expanded: false }">
+            <div class="accordion-header" @click="expanded = !expanded">
+              <div class="acc-time">
+                <input type="time"
+                       :value="state.externalContext.hora || '09:00'"
+                       @click.stop
+                       @change="setContext('hora', $event.target.value)"
+                       class="time-input-small">
+              </div>
 
-      <!-- State Debug -->
-      <article>
-        <details>
-          <summary style="cursor:pointer; font-weight:600; font-size:0.85rem;">State Debug (JSON)</summary>
-          <pre style="max-height:400px; overflow:auto; font-size:0.72rem; margin-top:8px;" x-text="prettyState()"></pre>
-        </details>
-      </article>
+              <div class="acc-info">
+                <div class="acc-title" x-text="state.definition.name || 'Item'"></div>
+                <div class="acc-subtitle">
+                  <span x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></span>
+                  <span style="margin: 0 5px;">•</span>
+                  <span x-text="(state.quantities?.cantidad || 0) + ' pax'"></span>
+                </div>
+              </div>
+
+              <div class="acc-toggle">
+                <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+
+            <div class="accordion-body" x-show="expanded">
+              <div class="accordion-layout">
+                <!-- Left: Quantities -->
+                <div class="accordion-col-left">
+                  <div class="control-group" :class="state.isUserSetPax ? 'field-user-set' : ''">
+                    <label>Pax <span x-show="state.isUserSetPax" class="manual-badge">manual</span></label>
+                    <input type="number"
+                           :value="state.quantities?.pax || 0"
+                           @change="setOverride('pax', $event.target.value)"
+                           :class="state.isUserSetPax ? 'user-set-border' : ''"
+                           min="1">
+                  </div>
+                  <div class="control-group" :class="state.isUserSetCantidad ? 'field-user-set' : ''">
+                    <label>Unidades <span x-show="state.isUserSetCantidad" class="manual-badge">manual</span></label>
+                    <input type="number"
+                           :value="state.quantities?.cantidad || 0"
+                           @change="setOverride('cantidad', $event.target.value)"
+                           :class="state.isUserSetCantidad ? 'user-set-border' : ''"
+                           min="0">
+                  </div>
+                  <div class="control-group" :class="state.isUserSetDuracion ? 'field-user-set' : ''">
+                    <label>Duración (min) <span x-show="state.isUserSetDuracion" class="manual-badge">manual</span></label>
+                    <input type="number"
+                           :value="state.quantities?.duracionMin || 0"
+                           @change="setOverride('duracionMin', $event.target.value)"
+                           :class="state.isUserSetDuracion ? 'user-set-border' : ''"
+                           min="0" step="15">
+                  </div>
+
+                  <div class="line-price-box">
+                    <div class="line-price-row">
+                      <span>Unitario</span>
+                      <strong x-text="'$' + Number(state.profile?.baseFijo ?? 0).toLocaleString('es-CL')"></strong>
+                    </div>
+                    <div class="line-price-row">
+                      <span>Total</span>
+                      <strong x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Middle: Comments -->
+                <div class="accordion-col-middle">
+                  <div class="form-group mb-0">
+                    <label>Comentario</label>
+                    <textarea
+                        class="line-comment-input"
+                        :value="state.overrides.comentarios || ''"
+                        @change="setOverride('comentarios', $event.target.value)"
+                        rows="5"
+                        placeholder="Notas..."></textarea>
+                  </div>
+                </div>
+
+                <!-- Right: Actions -->
+                <div class="accordion-col-actions">
+                  <button class="icon-action danger" @click="removeFromBasket()" title="Delete">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
-  </div>
+
+    <!-- Rules Evaluation Results & Visual Logic Inspector -->
+    <div style="padding-top: 15px;">
+      <div class="section-box">
+        <h4 style="margin: 0 0 12px 0;">📊 Rule Results</h4>
+        <template x-if="state.appliedRules && state.appliedRules.length > 0">
+          <div x-if="state.ruleErrors && state.ruleErrors.length > 0" style="margin-bottom: 12px;">
+            <strong style="color: #d32f2f;">🚫 Errors (<span x-text="state.ruleErrors.length"></span>)</strong>
+            <ul style="margin: 6px 0; padding-left: 20px;">
+              <template x-for="rule in state.ruleErrors">
+                <li style="color: #d32f2f; font-size: 0.9rem;" x-text="rule.message || rule.id"></li>
+              </template>
+            </ul>
+          </div>
+          <div x-if="state.ruleWarnings && state.ruleWarnings.length > 0">
+            <strong style="color: #f57c00;">⚠️ Warnings (<span x-text="state.ruleWarnings.length"></span>)</strong>
+            <ul style="margin: 6px 0; padding-left: 20px;">
+              <template x-for="rule in state.ruleWarnings">
+                <li style="color: #f57c00; font-size: 0.9rem;" x-text="rule.message || rule.id"></li>
+              </template>
+            </ul>
+          </div>
+        </template>
+        <template x-if="!state.appliedRules || state.appliedRules.length === 0">
+          <p style="color: #999; font-style: italic; margin: 0;">No rules triggered</p>
+        </template>
+      </div>
+    </div>
+
+    <!-- VISUAL LOGIC INSPECTOR (New Rules Editor) -->
+    <div style="padding-top: 15px;">
+      <div class="rules-editor-container">
+        <!-- Header -->
+        <div class="rules-editor-header">
+          <div>
+            <h3 class="rules-title">⚡ Rule Inspector</h3>
+            <p class="rules-subtitle">JSON-Logic conditions that control item availability</p>
+          </div>
+          <button @click="toggleAddRuleForm()" class="btn-add-rule" :class="formExpanded && 'active'">
+            <i class="fa-solid fa-plus"></i>
+            <span>New Rule</span>
+          </button>
+        </div>
+
+        <!-- Add Rule Form (Expandable) -->
+        <template x-if="formExpanded">
+          <div class="rule-form-panel" x-transition>
+            <div class="form-grid">
+              <div class="form-column">
+                <div class="form-group">
+                  <label class="form-label">Rule Name</label>
+                  <input type="text" x-model="newRuleForm.Nombre" class="form-input" placeholder="e.g., Max pax exceeded">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Action Type</label>
+                  <div class="action-selector">
+                    <button @click="newRuleForm.Tipo_Accion = 'ERROR'" 
+                            :class="['action-btn', newRuleForm.Tipo_Accion === 'ERROR' && 'active']">
+                      <i class="fa-solid fa-circle-xmark"></i> Block
+                    </button>
+                    <button @click="newRuleForm.Tipo_Accion = 'WARNING'" 
+                            :class="['action-btn', newRuleForm.Tipo_Accion === 'WARNING' && 'active']">
+                      <i class="fa-solid fa-triangle-exclamation"></i> Warn
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-column">
+                <div class="form-group">
+                  <label class="form-label">Condition (JSON-Logic)</label>
+                  <textarea x-model="newRuleForm.Condicion_JSON" class="condition-textarea" 
+                            placeholder='{ ">": [{"var":"pax"}, 100] }' rows="4"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button @click="addRule()" class="btn-submit">
+                <i class="fa-solid fa-check"></i> Add Rule
+              </button>
+              <button @click="toggleAddRuleForm()" class="btn-cancel">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Rules List -->
+        <div class="rules-list">
+          <template x-if="rules && rules.length > 0">
+            <template x-for="(rule, idx) in rules" :key="rule.ID_Regla">
+              <div class="rule-card" :class="!rule.Activo && 'inactive'">
+                <!-- Card Header -->
+                <div class="rule-card-header" @click="toggleRuleExpanded(idx)">
+                  <div class="rule-header-left">
+                    <div class="status-indicator" :class="rule.Tipo_Accion.toLowerCase()">
+                      <i class="fa-solid" :class="rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'"></i>
+                    </div>
+                    <div class="rule-info">
+                      <div class="rule-name" x-text="rule.Nombre || 'Unnamed Rule'"></div>
+                      <div class="rule-meta">
+                        <span class="rule-id" x-text="'ID: ' + rule.ID_Regla"></span>
+                        <span class="rule-action" :class="rule.Tipo_Accion.toLowerCase()">
+                          <i class="fa-solid fa-circle-dot"></i>
+                          <span x-text="rule.Tipo_Accion"></span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="expand-toggle" :class="expandedRules[idx] && 'expanded'">
+                    <i class="fa-solid fa-chevron-down"></i>
+                  </div>
+                </div>
+
+                <!-- Condition Preview -->
+                <div class="rule-preview">
+                  <span class="preview-label">Condition:</span>
+                  <code class="preview-code" x-text="formatConditionPreview(rule.Condicion_JSON)"></code>
+                </div>
+
+                <!-- Expanded Details -->
+                <template x-if="expandedRules[idx]">
+                  <div class="rule-card-details" x-transition.in.duration.300ms>
+                    <div class="condition-humanized">
+                      <div class="detail-label">📖 Readable Format</div>
+                      <div class="humanized-text" x-text="humanizeCondition(rule.Condicion_JSON)"></div>
+                    </div>
+                    <div class="condition-tree">
+                      <div class="detail-label">🌳 Full Logic Tree</div>
+                      <pre class="tree-display" x-html="renderConditionTree(rule.Condicion_JSON, 0)"></pre>
+                    </div>
+                    <div class="rule-metadata">
+                      <div class="metadata-row">
+                        <span class="meta-key">Scope:</span>
+                        <span class="meta-value" x-text="rule.Scope || 'ITEM'"></span>
+                      </div>
+                      <div class="metadata-row">
+                        <span class="meta-key">Priority:</span>
+                        <span class="meta-value" x-text="rule.Prioridad || '—'"></span>
+                      </div>
+                      <div class="metadata-row">
+                        <span class="meta-key">Created:</span>
+                        <span class="meta-value" x-text="rule.Updated_At || 'Now'"></span>
+                      </div>
+                    </div>
+                    <div class="rule-actions">
+                      <button @click="toggleRuleActive(idx)" 
+                              class="btn-action"
+                              :class="rule.Activo ? 'active' : 'inactive'">
+                        <i class="fa-solid" :class="rule.Activo ? 'fa-toggle-on' : 'fa-toggle-off'"></i>
+                        <span x-text="rule.Activo ? 'Active' : 'Inactive'"></span>
+                      </button>
+                      <button @click="removeRule(idx)" class="btn-action danger">
+                        <i class="fa-solid fa-trash"></i>
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </template>
+
+          <!-- Empty State -->
+          <template x-if="!rules || rules.length === 0">
+            <div class="rules-empty">
+              <div class="empty-icon">📋</div>
+              <div class="empty-text">No rules yet</div>
+              <div class="empty-hint">Click "New Rule" to add your first business rule</div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    .item-standalone {
+      background: #f8fafc;
+      min-height: 100vh;
+    }
+
+    .main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+
+    /* ════════ CONFIG PANEL ════════ */
+    .config-panel {
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+
+    .config-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .config-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .config-row h2 {
+      margin: 0;
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .form-group.mb-0 {
+      margin-bottom: 0;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #0066cc;
+      box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+    }
+
+    /* ════════ TIMELINE CONTAINER ════════ */
+    .timeline-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    /* ════════ MINI CARD (CATALOG) ════════ */
+    .mini-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+
+    .mini-card:hover {
+      border-color: #0066cc;
+      box-shadow: 0 4px 12px rgba(0,102,204,0.15);
+      transform: translateY(-2px);
+    }
+
+    .mini-card h5 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #1a1a2e;
+      font-weight: 700;
+    }
+
+    .add-icon {
+      font-size: 1.8rem;
+      color: #0066cc;
+      flex-shrink: 0;
+      margin-left: 20px;
+    }
+
+    /* ════════ ACCORDION (BASKET) ════════ */
+    .accordion-item {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      cursor: pointer;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      transition: background 0.2s;
+    }
+
+    .accordion-header:hover {
+      background: #f1f5f9;
+    }
+
+    .acc-time {
+      flex-shrink: 0;
+    }
+
+    .time-input-small {
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .acc-info {
+      flex: 1;
+    }
+
+    .acc-title {
+      font-weight: 700;
+      color: #1a1a2e;
+      font-size: 1rem;
+    }
+
+    .acc-subtitle {
+      font-size: 0.9rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .acc-toggle {
+      color: #64748b;
+      flex-shrink: 0;
+      font-size: 1.1rem;
+    }
+
+    .accordion-body {
+      padding: 20px;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .accordion-layout {
+      display: grid;
+      grid-template-columns: 180px 1fr 80px;
+      gap: 20px;
+    }
+
+    .accordion-col-left {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .control-group input {
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .line-price-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }
+
+    .line-price-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      padding: 6px 0;
+    }
+
+    .line-price-row strong {
+      color: #0066cc;
+      font-weight: 700;
+    }
+
+    .accordion-col-middle {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .line-comment-input {
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .accordion-col-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: flex-start;
+    }
+
+    .icon-action {
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #64748b;
+    }
+
+    .icon-action:hover {
+      border-color: #64748b;
+      color: #1a1a2e;
+    }
+
+    .icon-action.danger {
+      color: #d32f2f;
+      border-color: #ffcdd2;
+    }
+
+    .icon-action.danger:hover {
+      background: #ffebee;
+      border-color: #d32f2f;
+    }
+
+    /* ════════ SECTIONS ════════ */
+    .section-box {
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .section-box h4 {
+      margin: 0 0 12px 0;
+      color: #1a1a2e;
+    }
+
+    /* ════════ RULES EDITOR ════════ */
+    .rule-form-container summary {
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .rule-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 15px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      margin-top: 12px;
+    }
+
+    .rule-form .form-group {
+      margin-bottom: 0;
+    }
+
+    .rule-form textarea {
+      font-family: monospace;
+    }
+
+    .rules-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .rules-table thead {
+      background: #f1f5f9;
+    }
+
+    .rules-table th {
+      padding: 10px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #cbd5e1;
+      color: #1a1a2e;
+    }
+
+    .rules-table td {
+      padding: 10px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .rules-table code {
+      background: #f8fafc;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+
+    .rules-table .rule-inactive {
+      opacity: 0.6;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #475569;
+    }
+
+    .badge-error,
+    .badge-danger {
+      background: #ffcdd2;
+      color: #d32f2f;
+    }
+
+    .badge-warning {
+      background: #ffe0b2;
+      color: #f57c00;
+    }
+
+    .badge-success {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+
+    .badge-info {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #2d5a27;
+      color: white;
+      border-color: #2d5a27;
+    }
+
+    .btn-primary:hover {
+      background: #1e3f1a;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #64748b;
+    }
+
+    .btn-secondary:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-success {
+      background: #c8e6c9;
+      color: #2e7d32;
+      border-color: #2e7d32;
+    }
+
+    .btn-danger {
+      background: #ffcdd2;
+      color: #d32f2f;
+      border-color: #d32f2f;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+    }
+
+    .btn-danger:hover {
+      background: #f44336;
+      color: white;
+    }
+
+    /* ════════ USER-SET INDICATORS ════════ */
+    .field-user-set label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-group.field-user-set input.user-set-border {
+      border-color: #ff9800;
+      background-color: #fff3e0;
+    }
+
+    .manual-badge {
+      display: inline-block;
+      background: #ff9800;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    /* ════════ CATEGORY BADGE ════════ */
+    .category-badge {
+      display: inline-block;
+      background: #e8f5e9;
+      color: #2d5a27;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ════════ VISUAL LOGIC INSPECTOR ════════ */
+    .rules-editor-container {
+      background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 100%);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .rules-editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .rules-title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #10b981;
+      letter-spacing: -0.5px;
+    }
+
+    .rules-subtitle {
+      margin: 6px 0 0 0;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .btn-add-rule {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid #10b981;
+      color: #10b981;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+
+    .btn-add-rule:hover {
+      background: rgba(16, 185, 129, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .btn-add-rule.active {
+      background: #10b981;
+      color: #0f172a;
+    }
+
+    .rule-form-panel {
+      padding: 24px;
+      background: rgba(30, 41, 59, 0.5);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .form-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input,
+    .condition-textarea {
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus,
+    .condition-textarea:focus {
+      outline: none;
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .condition-textarea {
+      resize: vertical;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.5;
+    }
+
+    .action-selector {
+      display: flex;
+      gap: 12px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px;
+      color: #94a3b8;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .action-btn:hover {
+      border-color: #94a3b8;
+      color: #e2e8f0;
+    }
+
+    .action-btn.active {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .btn-submit,
+    .btn-cancel {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-submit {
+      background: #10b981;
+      color: #0f172a;
+      border: none;
+    }
+
+    .btn-submit:hover {
+      background: #059669;
+      transform: translateY(-2px);
+    }
+
+    .btn-cancel {
+      background: transparent;
+      border: 1px solid #94a3b8;
+      color: #94a3b8;
+    }
+
+    .btn-cancel:hover {
+      border-color: #e2e8f0;
+      color: #e2e8f0;
+    }
+
+    .rules-list {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .rule-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .rule-card:hover {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(30, 41, 59, 0.8);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+    }
+
+    .rule-card.inactive {
+      opacity: 0.6;
+    }
+
+    .rule-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.4);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .rule-card-header:hover {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .rule-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .status-indicator {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    .status-indicator.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .status-indicator.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    .rule-info {
+      flex: 1;
+    }
+
+    .rule-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 6px;
+    }
+
+    .rule-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.8rem;
+    }
+
+    .rule-id {
+      color: #94a3b8;
+      font-family: 'Courier New', monospace;
+    }
+
+    .rule-action {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 4px;
+      color: #10b981;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .rule-action.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+    }
+
+    .rule-action.warning {
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+    }
+
+    .expand-toggle {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      transition: transform 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .expand-toggle.expanded {
+      transform: rotate(180deg);
+    }
+
+    .rule-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.2);
+      border-top: 1px solid rgba(16, 185, 129, 0.05);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.05);
+    }
+
+    .preview-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .preview-code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #10b981;
+      background: transparent;
+      flex: 1;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .rule-card-details {
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.3);
+      border-top: 1px solid rgba(16, 185, 129, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .detail-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #10b981;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .condition-humanized {
+      padding: 12px;
+      background: rgba(16, 185, 129, 0.05);
+      border-left: 3px solid #10b981;
+      border-radius: 4px;
+    }
+
+    .humanized-text {
+      color: #cbd5e1;
+      line-height: 1.6;
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .condition-tree {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(16, 185, 129, 0.1);
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    .tree-display {
+      margin: 0;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #10b981;
+      line-height: 1.6;
+      overflow: auto;
+      max-height: 200px;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .rule-metadata {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .metadata-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(16, 185, 129, 0.05);
+      border-radius: 4px;
+      border-left: 2px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .meta-key {
+      font-weight: 600;
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+
+    .meta-value {
+      color: #cbd5e1;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+    }
+
+    .rule-actions {
+      display: flex;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .btn-action {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      padding: 10px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+    }
+
+    .btn-action.danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+    }
+
+    .btn-action.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+    }
+
+    .rules-empty {
+      text-align: center;
+      padding: 48px 24px;
+      color: #94a3b8;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+    }
+
+    .empty-hint {
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .config-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .accordion-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-form {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-metadata {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
 </section>
