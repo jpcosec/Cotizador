@@ -1,0 +1,5 @@
+<section class="quotation-basket" x-data="basketController">
+  <template x-for="item in items" :key="item.id">
+    <div x-text="item.name || item.nombre"></div>
+  </template>
+</section>

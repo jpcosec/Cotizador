@@ -1,0 +1,14 @@
+<section class="quotation-catalog" x-data="catalogController">
+  <template x-for="category in categories" :key="category.id">
+    <article>
+      <h4 x-text="category.name"></h4>
+      <ul>
+        <template x-for="item in category.items" :key="item.id">
+          <li>
+            <button type="button" @click="selectItem(item)" x-text="item.name || item.nombre"></button>
+          </li>
+        </template>
+      </ul>
+    </article>
+  </template>
+</section>

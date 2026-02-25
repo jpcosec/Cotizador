@@ -1,0 +1,25 @@
+<div class="quotation-modal" x-data="quotationInitializerController">
+  <header>
+    <h3>Inicializar Cotizacion</h3>
+  </header>
+
+  <label>
+    Pax
+    <input type="number" min="1" @input="setField('pax', Number($el.value))" />
+  </label>
+
+  <label>
+    Fecha
+    <input type="date" @input="setField('fecha', $el.value)" />
+  </label>
+
+  <label>
+    Duracion (dias)
+    <input type="number" min="1" @input="setField('duracion', Number($el.value))" />
+  </label>
+
+  <footer>
+    <button type="button" @click="cancel()">Cancelar</button>
+    <button type="button" @click="submit()">Continuar</button>
+  </footer>
+</div>

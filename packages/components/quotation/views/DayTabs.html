@@ -1,0 +1,5 @@
+<nav class="day-tabs" x-data="dayTabsController">
+  <template x-for="(day, index) in days" :key="index">
+    <button type="button" @click="selectDay(index)" x-text="day"></button>
+  </template>
+</nav>

@@ -1,0 +1,13 @@
+<div class="quotation-modal" x-data="databaseViewerController">
+  <h3>Database Viewer</h3>
+
+  <select @change="selectTable($el.value)">
+    <template x-for="name in tableNames" :key="name">
+      <option :value="name" x-text="name"></option>
+    </template>
+  </select>
+
+  <input type="text" placeholder="Filter rows" @input="setFilter($el.value)" />
+
+  <pre x-text="JSON.stringify(rows, null, 2)"></pre>
+</div>
