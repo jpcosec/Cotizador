@@ -8,7 +8,7 @@
  * @module itemMachine
  */
 
-import { assign, createActor, createMachine } from 'https://esm.sh/xstate@5.28.0';
+import { assign, createActor, createMachine } from 'xstate';
 import { Item } from '../Item.js';
 
 /**

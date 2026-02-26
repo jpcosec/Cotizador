@@ -131,7 +131,7 @@ export class Item {
 
     // Initialize RulesCoordinator for ITEM-scoped rules (Step 3.3)
     // Rules will be evaluated in calculate() with full context available
-    this.#rulesCoordinator = new RulesCoordinator('ITEM', this.#definition.rules || []);
+    this.#rulesCoordinator = new RulesCoordinator('ITEM', this.#definition.rules || [], this.#definition.id ?? null);
 
     return this.calculate();
   }
@@ -481,7 +481,7 @@ export class Item {
    */
   get catalogCard() {
     return {
-      ID_Item: 'ITEM_DEMO',
+      ID_Item: this.#definition.id ?? 'ITEM_UNKNOWN',
       Nombre: this.#definition.name,
       Precio_Calculado_Default: this.#derived.catalogDisaggregated,
       Precio_Por_Cantidad: this.#derived.pricingHumanText,
@@ -499,9 +499,9 @@ export class Item {
    */
   get basketLine() {
     return {
-      id: this.#mode === 'basket' ? 'LIN_DEMO_001' : 'ITEM_DEMO',
-      lineId: this.#mode === 'basket' ? 'LIN_DEMO_001' : null,
-      itemId: 'ITEM_DEMO',
+      id: this.#definition.id ?? 'ITEM_UNKNOWN',
+      lineId: null,
+      itemId: this.#definition.id ?? 'ITEM_UNKNOWN',
       nombre: this.#definition.name,
       descripcion: this.#definition.description,
       categoria: this.#definition.category,

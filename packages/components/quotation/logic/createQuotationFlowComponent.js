@@ -2,7 +2,8 @@ import {
   createAppState,
   createHomePage,
   createClientSelector,
-  createQuotationInitializer
+  createQuotationInitializer,
+  createDatabaseViewer
 } from '../modals/index.js';
 import {
   createQuotationView,
@@ -11,19 +12,47 @@ import {
   createQuotationHeader,
   createQuotationTotals
 } from '../views/index.js';
+import { createDatabase, SEED_DATA } from '/packages/database/index.js';
 
-const DEMO_CLIENTS = [
-  { id: 'C-001', nombre: 'Empresa Andina', rut: '76.123.456-7', email: 'eventos@andina.cl' },
-  { id: 'C-002', nombre: 'Corporacion Pacifico', rut: '77.987.654-3', email: 'compras@pacifico.cl' },
-  { id: 'C-003', nombre: 'Inversiones Austral', rut: '96.555.111-2', email: 'hola@austral.cl' }
-];
+function buildDatabase() {
+  return createDatabase({ adapter: 'memory', seed: SEED_DATA });
+}
 
-const DEMO_CATALOG = [
-  { id: 'I-001', name: 'Coffee Break Intermedio', category: 'Coffee', price: 460 },
-  { id: 'I-002', name: 'Open Bar Clasico', category: 'Bar', price: 850 },
-  { id: 'I-003', name: 'Brunch Campestre', category: 'Brunch', price: 1200 },
-  { id: 'I-004', name: 'Estacion de Postres', category: 'Postres', price: 640 }
-];
+function toClientList(models) {
+  return models.CLIENTES.all().map((r) => ({
+    id: r.ID_Cliente,
+    nombre: r.Nombre_Empresa,
+    rut: r.RUT,
+    email: r.Email
+  }));
+}
+
+function toCatalogList(models) {
+  const profiles = Object.fromEntries(
+    models.PERFILES_PRECIO.all().map((p) => [p.ID_Perfil_Precio, p])
+  );
+  const categories = Object.fromEntries(
+    models.CATEGORIAS.all().map((c) => [c.ID_Categoria, c])
+  );
+
+  return models.ITEM_CATALOGO.where((r) => r.Activo !== false).map((item) => {
+    const cat = categories[item.ID_Categoria] ?? {};
+    const profileId = item.ID_Perfil_Precio_Override ?? cat.ID_Perfil_Precio_Default;
+    const profile = profiles[profileId] ?? {};
+    return {
+      id: item.ID_Item,
+      name: item.Nombre,
+      category: cat.Nombre ?? item.ID_Categoria,
+      price: profile.Costo_Unitario_Pax ?? profile.Costo_Base_Fijo ?? 0
+    };
+  });
+}
+
+function toTableDump(models) {
+  return Object.fromEntries(
+    Object.keys(models).map((tableName) => [tableName, models[tableName].all()])
+  );
+}
 
 /**
  * Mount a live quotation flow demo using the new package components.
@@ -35,12 +64,17 @@ export async function mountQuotationFlow(root) {
   const templatePath = '/packages/components/quotation/ui/QuotationFlowDemo.html';
   const html = await fetch(templatePath).then((res) => res.text());
 
+  const { models } = buildDatabase();
+  const clients = toClientList(models);
+  const catalog = toCatalogList(models);
+
   const appState = createAppState().openModal('HOME');
   const home = createHomePage();
-  const clientSelector = createClientSelector(DEMO_CLIENTS);
+  const dbViewer = createDatabaseViewer(toTableDump(models));
+  const clientSelector = createClientSelector(clients);
   const initializer = createQuotationInitializer({ duracion: 1 });
   const quotationView = createQuotationView();
-  const sidebar = createSidebar(DEMO_CATALOG);
+  const sidebar = createSidebar(catalog);
   const basket = createBasket().setSelectedDayIndex(0).setItemsForDay(0, []);
   const header = createQuotationHeader();
   const totals = createQuotationTotals(0);
@@ -55,6 +89,7 @@ export async function mountQuotationFlow(root) {
     appState.openModal('PREVIOUS_QUOTES');
   });
   home.on('VIEW_DATABASE', () => {
+    dbViewer.open();
     appState.openModal('DATABASE_VIEWER');
   });
 
@@ -97,6 +132,7 @@ export async function mountQuotationFlow(root) {
       basket: {},
       header: {},
       totals: {},
+      db: {},
 
       init() {
         this.sync();
@@ -112,6 +148,7 @@ export async function mountQuotationFlow(root) {
         this.basket = basket.toDisplayObject();
         this.header = header.toDisplayObject();
         this.totals = totals.toDisplayObject();
+        this.db = dbViewer.toDisplayObject();
       },
 
       clickHome(actionId) {
@@ -159,6 +196,22 @@ export async function mountQuotationFlow(root) {
         appState.resetFlow();
         basket.setItemsForDay(0, []);
         totals.setSubtotal(0);
+        this.sync();
+      },
+
+      selectDbTable(tableName) {
+        dbViewer.selectTable(tableName);
+        this.sync();
+      },
+
+      filterDb(term) {
+        dbViewer.setFilter(term);
+        this.sync();
+      },
+
+      closeDbViewer() {
+        dbViewer.close();
+        appState.openModal('HOME');
         this.sync();
       }
     };

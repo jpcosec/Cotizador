@@ -159,13 +159,11 @@ describe('Item', () => {
     });
 
     it('should affect basketLine projection when switching to basket mode', () => {
+      // lineId is always null — line IDs are assigned by the basket/container layer
       const item = Item.fromSeed(defaultSeed);
-      const catalogLine = item.basketLine;
-      expect(catalogLine.lineId).toBeNull();
-
+      expect(item.basketLine.lineId).toBeNull();
       item.setMode('basket');
-      const basketLine = item.basketLine;
-      expect(basketLine.lineId).toBe('LIN_DEMO_001');
+      expect(item.basketLine.lineId).toBeNull();
     });
   });
 
@@ -647,14 +645,17 @@ describe('Item', () => {
     });
 
     describe('basketLine', () => {
-      it('should have different id format in catalog vs basket mode', () => {
-        const item = Item.fromSeed(defaultSeed);
-        expect(item.basketLine.id).toBe('ITEM_DEMO');
-        expect(item.basketLine.lineId).toBeNull();
+      it('should use definition.id for id and itemId fields', () => {
+        const itemWithId = Item.fromDefinition({ ...defaultItemDefinition, id: 'ITEM-TEST-001' });
+        expect(itemWithId.basketLine.id).toBe('ITEM-TEST-001');
+        expect(itemWithId.basketLine.itemId).toBe('ITEM-TEST-001');
+        expect(itemWithId.basketLine.lineId).toBeNull();
+      });
 
-        item.setMode('basket');
-        expect(item.basketLine.id).toBe('LIN_DEMO_001');
-        expect(item.basketLine.lineId).toBe('LIN_DEMO_001');
+      it('should fall back to ITEM_UNKNOWN when no id in definition', () => {
+        const item = Item.fromSeed(defaultSeed);
+        expect(item.basketLine.id).toBe('ITEM_UNKNOWN');
+        expect(item.basketLine.lineId).toBeNull();
       });
 
       it('should include quantities', () => {
