@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>I-3 Category — Playground Draft</title>
+</head>
+<body>
+
+  <h1>Step I-3: Category Component</h1>
+  <p><a href="/">← Back</a></p>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 1 — EXTERNAL STATE PANEL
+       Simulates what a parent Basket/Day would push.
+       Two kinds of external state:
+         A) The category definition — from DB (dropdown)
+         B) The event context — pax, dia, hora
+         C) Add-item control — pick an item to add
+  ════════════════════════════════════════════ -->
+  <section id="external-state">
+    <h2>External State</h2>
+
+    <fieldset>
+      <legend>A) Category definition (from DB)</legend>
+
+      <label for="category-select">Select category:</label>
+      <select id="category-select">
+        <!-- populated from SEED_CATEGORIAS -->
+        <option value="CAT_GASTRO">CAT_GASTRO — Gastronomía (per-pax)</option>
+        <option value="CAT_AUDIO">CAT_AUDIO — Audio/Video (time-based)</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>B) Event context (what Basket pushes down)</legend>
+
+      <label for="pax-input">paxGlobal:</label>
+      <input type="number" id="pax-input" value="50" min="0" />
+
+      <label for="dia-input">Día:</label>
+      <input type="number" id="dia-input" value="1" min="1" />
+
+      <label for="hora-input">Hora:</label>
+      <input type="time" id="hora-input" value="09:00" />
+    </fieldset>
+
+    <fieldset>
+      <legend>C) Add item to this category</legend>
+
+      <label for="item-to-add-select">Select item:</label>
+      <select id="item-to-add-select">
+        <!-- populated from SEED_ITEM_CATALOGO -->
+        <option value="ITEM_CENA">ITEM_CENA — Cena de Gala</option>
+        <option value="ITEM_SONIDO">ITEM_SONIDO — Sistema de Sonido</option>
+        <option value="ITEM_BAR">ITEM_BAR — Servicio de Bar</option>
+      </select>
+
+      <button id="btn-add-item">+ Add Item</button>
+    </fieldset>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 2 — COMPONENT DISPLAY
+       The Category component itself.
+
+       Header: category name, icon, subtotal.
+       Body: a list of ITEM PLACEHOLDERS.
+             Each placeholder shows:
+               - item name
+               - item total
+               - a remove button
+             (The full Item component UI is Phase II work)
+  ════════════════════════════════════════════ -->
+  <section id="component-display">
+    <h2>Category Display</h2>
+
+    <div id="category-container">
+
+      <!-- Category header -->
+      <div id="category-header">
+        <span id="cat-icon">[icon]</span>
+        <span id="cat-nombre">[category name]</span>
+        <span id="cat-item-count">([n] items)</span>
+        <span id="cat-subtotal">Subtotal: $[n]</span>
+        <span id="cat-error-flag" hidden>⚠ has errors</span>
+      </div>
+
+      <!-- Item list — each item is a PLACEHOLDER card for now -->
+      <!-- In Phase II (step-I3+item integration), this becomes the full Item component -->
+      <div id="item-list">
+
+        <!-- Repeated for each item in category.toDisplayObject().items -->
+        <div class="item-placeholder-card">
+          <span class="item-placeholder-name">[item.nombre]</span>
+          <span class="item-placeholder-category">[item.categoria]</span>
+          <span class="item-placeholder-total">$[item.total]</span>
+          <span class="item-placeholder-error" hidden>[ERROR]</span>
+          <button class="item-placeholder-remove">× Remove</button>
+        </div>
+
+        <!-- (more items would repeat the above block) -->
+
+      </div>
+
+      <!-- Empty state (when no items added yet) -->
+      <div id="empty-state">
+        <p>No items in this category. Add one from the panel above.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 3 — DEBUG PANEL
+       Shows internal state of the Category instance.
+  ════════════════════════════════════════════ -->
+  <section id="debug-panel">
+    <h2>Debug — category.toDisplayObject()</h2>
+
+    <div id="debug-summary">
+      <p>id: <span id="dbg-id"></span></p>
+      <p>nombre: <span id="dbg-nombre"></span></p>
+      <p>itemCount: <span id="dbg-count"></span></p>
+      <p>subtotal: <span id="dbg-subtotal"></span></p>
+      <p>hasErrors: <span id="dbg-errors"></span></p>
+      <p>hasWarnings: <span id="dbg-warnings"></span></p>
+    </div>
+
+    <div id="debug-raw">
+      <h3>Raw JSON</h3>
+      <pre id="debug-json"></pre>
+    </div>
+  </section>
+
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>I-2 Item — Playground Draft</title>
+</head>
+<body>
+
+  <h1>Step I-2: Item Component</h1>
+  <p><a href="/">← Back</a></p>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 1 — EXTERNAL STATE PANEL
+       Everything here simulates what a parent
+       container (Category, Basket) would push down.
+       Two kinds of external state:
+         A) The item definition — from DB (dropdown)
+         B) The event context — manually adjustable
+  ════════════════════════════════════════════ -->
+  <section id="external-state">
+    <h2>External State</h2>
+
+    <fieldset>
+      <legend>A) Item definition (from DB)</legend>
+
+      <label for="item-select">Select item:</label>
+      <select id="item-select">
+        <!-- populated from SEED_ITEM_CATALOGO -->
+        <option value="ITEM_CENA">ITEM_CENA — Cena de Gala (per-pax)</option>
+        <option value="ITEM_SONIDO">ITEM_SONIDO — Sistema de Sonido (time-based)</option>
+        <option value="ITEM_BAR">ITEM_BAR — Servicio de Bar (profile override)</option>
+      </select>
+
+      <!-- Read-only: shows the resolved profile after item selection -->
+      <div id="resolved-profile-display">
+        <p><strong>Resolved profile:</strong> <span id="profile-name"></span></p>
+        <p>Base: <span id="profile-base"></span> |
+           Por pax: <span id="profile-pax"></span> |
+           Por min: <span id="profile-tiempo"></span> |
+           Por unidad: <span id="profile-item"></span></p>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>B) Event context (what container pushes down)</legend>
+
+      <label for="pax-input">paxGlobal:</label>
+      <input type="number" id="pax-input" value="50" min="0" />
+
+      <label for="dia-input">Día:</label>
+      <input type="number" id="dia-input" value="1" min="1" />
+
+      <label for="hora-input">Hora:</label>
+      <input type="time" id="hora-input" value="09:00" />
+
+      <label for="duracion-input">Duración (min):</label>
+      <input type="number" id="duracion-input" value="120" min="0" step="15" />
+    </fieldset>
+
+    <div id="mode-controls">
+      <button id="btn-add-to-basket">Add to Basket →</button>
+      <button id="btn-back-to-catalog">← Back to Catalog</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 2 — COMPONENT DISPLAY
+       The Item component itself.
+       Shows either catalog card OR basket accordion.
+       Only one is visible at a time (mode toggle).
+  ════════════════════════════════════════════ -->
+  <section id="component-display">
+    <h2>Item Display <small>(mode: <span id="current-mode">catalog</span>)</small></h2>
+
+    <!-- CATALOG VIEW — shown when mode = 'catalog' -->
+    <div id="catalog-view">
+      <div id="catalog-card">
+        <span id="cat-category-badge">[category name]</span>
+        <h3 id="cat-item-name">[item name]</h3>
+        <p id="cat-pricing-formula">[pricing formula: e.g. $50.000 por persona]</p>
+        <p id="cat-policy-hint">[initialization hint: e.g. 1 unidad/persona]</p>
+        <button id="cat-add-btn">+ Agregar</button>
+      </div>
+    </div>
+
+    <!-- BASKET VIEW — shown when mode = 'basket' -->
+    <div id="basket-view" hidden>
+      <div id="basket-accordion">
+
+        <div id="accordion-header">
+          <input type="time" id="basket-hora" />
+          <span id="basket-item-name">[item name]</span>
+          <span id="basket-total">[$ total]</span>
+          <button id="accordion-toggle">▾</button>
+        </div>
+
+        <div id="accordion-body">
+
+          <div id="quantities-col">
+            <div id="pax-control">
+              <label>Pax <span id="pax-manual-badge" hidden>[manual]</span></label>
+              <input type="number" id="basket-pax" />
+            </div>
+
+            <!-- cantidad and duracion controls:
+                 only rendered if showCantidad / showDuracion = true -->
+            <div id="cantidad-control">
+              <label>Unidades <span id="cantidad-manual-badge" hidden>[manual]</span></label>
+              <input type="number" id="basket-cantidad" />
+            </div>
+
+            <div id="duracion-control">
+              <label>Duración (min) <span id="duracion-manual-badge" hidden>[manual]</span></label>
+              <input type="number" id="basket-duracion" />
+            </div>
+
+            <div id="price-breakdown">
+              <p>Base: <span id="price-base"></span></p>
+              <p>Subtotal: <span id="price-subtotal"></span></p>
+              <p><strong>Total: <span id="price-total"></span></strong></p>
+            </div>
+          </div>
+
+          <div id="comments-col">
+            <label>Comentario</label>
+            <textarea id="basket-comments" rows="4" placeholder="Notas..."></textarea>
+          </div>
+
+          <div id="actions-col">
+            <button id="basket-delete-btn">🗑 Eliminar</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 3 — DEBUG PANEL
+       Two sub-panels: rule results + full state dump
+  ════════════════════════════════════════════ -->
+  <section id="debug-panel">
+    <h2>Debug</h2>
+
+    <div id="rule-results">
+      <h3>Rule Results</h3>
+      <div id="rule-errors">
+        <strong>Errors (<span id="error-count">0</span>):</strong>
+        <ul id="error-list"></ul>
+      </div>
+      <div id="rule-warnings">
+        <strong>Warnings (<span id="warning-count">0</span>):</strong>
+        <ul id="warning-list"></ul>
+      </div>
+    </div>
+
+    <div id="state-dump">
+      <h3>toDisplayObject()</h3>
+      <pre id="state-json"></pre>
+    </div>
+  </section>
+
+</body>
+</html>

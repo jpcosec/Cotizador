@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>I-1 Database — Playground Draft</title>
+</head>
+<body>
+
+  <h1>Step I-1: Database Browser</h1>
+  <p><a href="/">← Back</a></p>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 1 — EXTERNAL STATE PANEL
+       What you control: which table to browse,
+       which item to resolve.
+  ════════════════════════════════════════════ -->
+  <section id="external-state">
+    <h2>External Controls</h2>
+
+    <div id="table-selector">
+      <label for="table-select">Browse table:</label>
+      <select id="table-select">
+        <option value="PERFILES_PRECIO">PERFILES_PRECIO</option>
+        <option value="CATEGORIAS">CATEGORIAS</option>
+        <option value="ITEM_CATALOGO">ITEM_CATALOGO</option>
+        <option value="REGLAS_NEGOCIO">REGLAS_NEGOCIO</option>
+      </select>
+    </div>
+
+    <div id="item-resolver">
+      <label for="item-select">Resolve item definition:</label>
+      <select id="item-select">
+        <!-- populated from SEED_ITEM_CATALOGO -->
+        <option value="ITEM_CENA">ITEM_CENA — Cena de Gala</option>
+        <option value="ITEM_SONIDO">ITEM_SONIDO — Sistema de Sonido</option>
+        <option value="ITEM_BAR">ITEM_BAR — Servicio de Bar (has profile override)</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 2 — COMPONENT DISPLAY
+       Left: raw table view.
+       Right: resolved item definition.
+  ════════════════════════════════════════════ -->
+  <section id="component-display">
+
+    <div id="table-view">
+      <h2>Table: <span id="current-table-name">PERFILES_PRECIO</span></h2>
+      <table border="1">
+        <thead>
+          <tr id="table-headers">
+            <!-- column names injected here from schema -->
+          </tr>
+        </thead>
+        <tbody id="table-rows">
+          <!-- rows injected here from seed -->
+        </tbody>
+      </table>
+    </div>
+
+    <div id="resolved-item-view">
+      <h2>Resolved Item Definition</h2>
+
+      <div id="resolved-identity">
+        <p><strong>ID_Item:</strong> <span id="res-id"></span></p>
+        <p><strong>Nombre:</strong> <span id="res-nombre"></span></p>
+        <p><strong>Default_Glosa:</strong> <span id="res-glosa"></span></p>
+      </div>
+
+      <div id="resolved-category">
+        <h3>categoria</h3>
+        <p><strong>ID_Categoria:</strong> <span id="res-cat-id"></span></p>
+        <p><strong>Nombre:</strong> <span id="res-cat-nombre"></span></p>
+        <p><strong>Def_Requiere_Pax:</strong> <span id="res-req-pax"></span></p>
+        <p><strong>Def_Requiere_Tiempo:</strong> <span id="res-req-tiempo"></span></p>
+        <p><strong>Def_Unidades_Por_Pax:</strong> <span id="res-und-pax"></span></p>
+      </div>
+
+      <div id="resolved-profile">
+        <h3>perfil <em>(resolved — override or category default)</em></h3>
+        <p><strong>ID_Perfil_Precio:</strong> <span id="res-perf-id"></span></p>
+        <p><strong>Nombre:</strong> <span id="res-perf-nombre"></span></p>
+        <p><strong>Costo_Base_Fijo:</strong> <span id="res-base"></span></p>
+        <p><strong>Costo_Unitario_Pax:</strong> <span id="res-pax"></span></p>
+        <p><strong>Costo_Unitario_Tiempo:</strong> <span id="res-tiempo"></span></p>
+        <p><strong>Costo_Unitario_Item:</strong> <span id="res-item"></span></p>
+      </div>
+
+      <div id="resolved-rules">
+        <h3>reglas (<span id="res-rules-count">0</span> active)</h3>
+        <ul id="res-rules-list">
+          <!-- one <li> per rule: ID_Regla, Tipo_Accion, Condicion_JSON preview -->
+        </ul>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       ZONE 3 — DEBUG PANEL
+       Raw JSON of the resolved definition.
+  ════════════════════════════════════════════ -->
+  <section id="debug-panel">
+    <h2>Debug — Raw resolved definition</h2>
+    <pre id="debug-json">
+      <!-- JSON.stringify of resolveItemDefinition() result -->
+    </pre>
+  </section>
+
+</body>
+</html>
