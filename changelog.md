@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### 2026-03-01 (step-I1 database full-width correction)
+- Fixed `apps/sandbox/routes/step-I1-database/index.html` so the sandbox route now renders edge-to-edge by removing horizontal body padding on `body.sandbox-page`.
+- Preserved header readability by keeping local spacing on the route title row while allowing table/content area to use full viewport width.
+- Added route-level notes in `apps/sandbox/routes/step-I1-database/README.md` documenting root cause, fix, and Playwright verification.
+
 ### 2026-02-25 (step-04 quotation flow route wiring)
 - Added live quotation flow mount logic at `packages/components/quotation/logic/createQuotationFlowComponent.js` wiring `AppState`, modal components, and quotation view components into one Alpine runtime.
 - Added demo template `packages/components/quotation/ui/QuotationFlowDemo.html` to exercise Home -> Client Selector -> Initializer -> Quotation flow with live basket + totals updates.
