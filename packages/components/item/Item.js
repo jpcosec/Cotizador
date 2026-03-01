@@ -74,13 +74,38 @@ export class Item {
    * @param {Object} [options.overrides={}] - User overrides
    * @returns {Item}
    */
-  static fromDefinition(definition, options = {}) {
+  static fromDefinition(resolvedDef, options = {}) {
     const item = new Item();
+    const definition = {
+      id:             resolvedDef.ID_Item,
+      name:           resolvedDef.Nombre,
+      description:    resolvedDef.Default_Glosa ?? null,
+      category:       resolvedDef.categoria?.Nombre ?? null,
+      categoriaIcono: resolvedDef.categoria?.Icono_UI ?? null,
+      pricingProfile: {
+        baseFijo:   resolvedDef.perfil?.Costo_Base_Fijo       ?? 0,
+        porPersona: resolvedDef.perfil?.Costo_Unitario_Pax    ?? 0,
+        porMinuto:  resolvedDef.perfil?.Costo_Unitario_Tiempo ?? 0,
+        porUnidad:  resolvedDef.perfil?.Costo_Unitario_Item   ?? 0,
+      },
+      defaultQuantities: {
+        duracionMin:        resolvedDef.categoria?.Def_Duracion_Min ?? 0,
+        unidadesPorUsuario: resolvedDef.Def_Unidades_Por_Pax_Override
+                         ?? resolvedDef.categoria?.Def_Unidades_Por_Pax ?? 0,
+        requierePax:    resolvedDef.categoria?.Def_Requiere_Pax    ?? false,
+        requiereCant:   resolvedDef.categoria?.Def_Requiere_Cant   ?? false,
+        requiereTiempo: resolvedDef.categoria?.Def_Requiere_Tiempo ?? false,
+        requiereHora:   resolvedDef.categoria?.Def_Requiere_Hora   ?? false,
+      },
+      rules:    resolvedDef.reglas    ?? [],
+      perfil:   resolvedDef.perfil    ?? null,
+      categoria: resolvedDef.categoria ?? null,
+    };
     return item.initialize({
       mode: 'catalog',
       definition,
       externalContext: options.externalContext || {},
-      overrides: options.overrides || {}
+      overrides:       options.overrides       || {}
     });
   }
 
@@ -582,7 +607,15 @@ export class Item {
       appliedRules: this.#ruleResult?.appliedRules || [],
       ruleErrors: this.#ruleResult?.errors || [],
       ruleWarnings: this.#ruleResult?.warnings || [],
-      available: this.#ruleResult?.available ?? true
+      available: this.#ruleResult?.available ?? true,
+      // Visibility flags — from category dimension flags (set by DB definition)
+      showPax:      this.#definition.defaultQuantities?.requierePax    ?? false,
+      showCantidad: this.#definition.defaultQuantities?.requiereCant   ?? false,
+      showDuracion: this.#definition.defaultQuantities?.requiereTiempo ?? false,
+      showHora:     this.#definition.defaultQuantities?.requiereHora   ?? false,
+      // Raw DB objects for read-only display panels
+      perfil:    this.#definition.perfil    ?? null,
+      categoria: this.#definition.categoria ?? null,
     };
   }
 

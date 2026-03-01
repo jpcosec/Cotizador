@@ -20,6 +20,40 @@ const defaultItemDefinition = {
   rules: []
 };
 
+// ResolvedItemDefinition shape — used for Item.fromDefinition() tests
+const defaultResolvedDefinition = {
+  ID_Item: 'ITEM-COFFEE',
+  Nombre: 'Coffee Break Intermedio',
+  Default_Glosa: 'Servicio de coffee break para eventos corporativos.',
+  ID_Categoria: 'CAT_TEST',
+  ID_Perfil_Precio_Override: null,
+  Def_Unidades_Por_Pax_Override: null,
+  Activo: true,
+  categoria: {
+    ID_Categoria: 'CAT_TEST',
+    Nombre: 'Coffee',
+    ID_Perfil_Precio_Default: 'PERF_TEST',
+    Def_Requiere_Pax: false,
+    Def_Requiere_Cant: true,
+    Def_Requiere_Tiempo: false,
+    Def_Requiere_Hora: false,
+    Def_Duracion_Min: 0,
+    Def_Unidades_Por_Pax: 3,
+    Icono_UI: 'coffee',
+    Activo: true,
+  },
+  perfil: {
+    ID_Perfil_Precio: 'PERF_TEST',
+    Nombre: 'Por Unidad',
+    Costo_Base_Fijo: 400,
+    Costo_Unitario_Pax: 0,
+    Costo_Unitario_Tiempo: 0,
+    Costo_Unitario_Item: 1,
+    Activo: true,
+  },
+  reglas: [],
+};
+
 function createDefaultItemSeed() {
   return {
     mode: 'catalog',
@@ -43,36 +77,57 @@ describe('Item', () => {
 
   describe('Factory Methods', () => {
     describe('Item.fromDefinition()', () => {
-      it('should create an Item from a definition with default options', () => {
-        const item = Item.fromDefinition(defaultItemDefinition);
+      it('should create an Item from a ResolvedItemDefinition', () => {
+        const item = Item.fromDefinition(defaultResolvedDefinition);
         expect(item).toBeDefined();
         expect(item.mode).toBe('catalog');
         expect(item.definition.name).toBe('Coffee Break Intermedio');
+        expect(item.definition.id).toBe('ITEM-COFFEE');
       });
 
       it('should accept externalContext in options', () => {
         const context = { paxGlobal: 100, duracionMin: 240 };
-        const item = Item.fromDefinition(defaultItemDefinition, { externalContext: context });
+        const item = Item.fromDefinition(defaultResolvedDefinition, { externalContext: context });
         expect(item.externalContext.paxGlobal).toBe(100);
         expect(item.externalContext.duracionMin).toBe(240);
       });
 
       it('should accept overrides in options', () => {
         const overrides = { pax: 50, cantidad: 10 };
-        const item = Item.fromDefinition(defaultItemDefinition, { overrides });
+        const item = Item.fromDefinition(defaultResolvedDefinition, { overrides });
         expect(item.overrides.pax).toBe(50);
         expect(item.overrides.cantidad).toBe(10);
       });
 
       it('should default to catalog mode', () => {
-        const item = Item.fromDefinition(defaultItemDefinition);
+        const item = Item.fromDefinition(defaultResolvedDefinition);
         expect(item.mode).toBe('catalog');
       });
 
       it('should start with empty externalContext and overrides if not provided', () => {
-        const item = Item.fromDefinition(defaultItemDefinition);
+        const item = Item.fromDefinition(defaultResolvedDefinition);
         expect(item.externalContext).toEqual({});
         expect(item.overrides).toEqual({});
+      });
+
+      it('should normalize pricing profile from DB field names', () => {
+        const item = Item.fromDefinition(defaultResolvedDefinition);
+        expect(item.definition.pricingProfile.baseFijo).toBe(400);
+        expect(item.definition.pricingProfile.porUnidad).toBe(1);
+      });
+
+      it('should set visibility flags from category', () => {
+        const display = Item.fromDefinition(defaultResolvedDefinition).toDisplayObject();
+        expect(display.showPax).toBe(false);
+        expect(display.showCantidad).toBe(true);
+        expect(display.showDuracion).toBe(false);
+        expect(display.showHora).toBe(false);
+      });
+
+      it('should expose perfil and categoria on display object', () => {
+        const display = Item.fromDefinition(defaultResolvedDefinition).toDisplayObject();
+        expect(display.perfil?.ID_Perfil_Precio).toBe('PERF_TEST');
+        expect(display.categoria?.Nombre).toBe('Coffee');
       });
     });
 
@@ -646,7 +701,7 @@ describe('Item', () => {
 
     describe('basketLine', () => {
       it('should use definition.id for id and itemId fields', () => {
-        const itemWithId = Item.fromDefinition({ ...defaultItemDefinition, id: 'ITEM-TEST-001' });
+        const itemWithId = Item.fromDefinition({ ...defaultResolvedDefinition, ID_Item: 'ITEM-TEST-001' });
         expect(itemWithId.basketLine.id).toBe('ITEM-TEST-001');
         expect(itemWithId.basketLine.itemId).toBe('ITEM-TEST-001');
         expect(itemWithId.basketLine.lineId).toBeNull();
