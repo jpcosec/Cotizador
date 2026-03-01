@@ -1,0 +1,13 @@
+ID_Categoria,Nombre,ID_Perfil_Precio_Default,Def_Requiere_Pax,Def_Requiere_Cant,Def_Requiere_Tiempo,Def_Requiere_Hora,Def_Duracion_Min,Def_Unidades_Por_Pax,Icono_UI,Activo,Updated_At
+CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES,"Arriendo de salones, audios y comedores",PROF_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS,false,false,true,true,480,0,,true,2026-02-19T16:42:08.795Z
+CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES,Coffes y servicios relacionado a salones,PROF_COFFEE_BASICO,false,false,false,false,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_SERVICIOS_PARA_FIESTAS,Servicios para fiestas,PROF_LUCES_PERIMETRALES_SALON_CHINOOK_O_VIP,true,false,true,true,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_BEBIDAS_Y_BAR,Bebidas  y Bar,PROF_TICKET_DE_TRAGO,false,false,false,false,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION,Cambios de horas y lugar en servicios de alimentacion,PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS,false,false,true,true,480,0,,true,2026-02-19T16:42:08.795Z
+CAT_ALIMENTACION_Y_BANQUETERIA,Alimentacion y banqueteria,PROF_DESAYUNO,true,false,true,true,480,0,,true,2026-02-19T16:42:08.795Z
+CAT_SPA,Spa,PROF_MASAJISTA_EXCLUSIVA_PARA_MASAJES_RELAX_30_MINUTOS,false,false,true,true,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_ALOJAMIENTO,Alojamiento,PROF_HABITACION_SINGLE_HOTEL_B_B,false,false,false,false,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_OTROS_ARTICULOS,Otros articulos,PROF_1_RAMO_DE_FLORES_6_ROSAS_ROJAS_BLANCAS_ROSADAS_AMARILLA,false,false,false,false,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_ACTIVIDADES,Actividades,PROF_GUIAS_EXCLUSIVOS_PARA_CAMINATAS,true,false,true,true,0,0,,true,2026-02-19T16:42:08.795Z
+CAT_TEAMBUILDING,Teambuilding,PROF_PAINTBALL,true,false,true,true,0,1,,true,2026-02-19T16:42:08.795Z
+CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA,"Teambuilding, actividades de pausa",PROF_LOS_NEUMATICOS,true,false,false,false,0,1,,true,2026-02-19T16:42:08.795Z

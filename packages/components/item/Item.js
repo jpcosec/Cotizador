@@ -177,17 +177,23 @@ export class Item {
     };
 
     const schedule = resolveSchedule(this.#externalContext, this.#overrides);
+    const horaFinMin = schedule.horaMin + quantities.duracionMin;
 
-    // Evaluate rules using RulesCoordinator (Step 3.3)
-    // Invalidate cache to force re-evaluation with new context
+    // Evaluate rules using RulesCoordinator.
+    // Snapshot uses the `linea.*` namespace that matches Condicion_JSON var paths
+    // in REGLAS_NEGOCIO.csv (e.g. { "var": "linea._pax" }, { "var": "linea.ID_Item" }).
     this.#rulesCoordinator.invalidateCache();
     this.#ruleResult = this.#rulesCoordinator.evaluate({
-      itemId: this.#definition.id,
-      pax: quantities.pax,
-      cantidad: quantities.cantidad,
-      duracionMin: quantities.duracionMin,
-      hora: schedule.hora,
-      dia: schedule.dia
+      item: {
+        id:       this.#definition.id,
+        pax:      quantities.pax,
+        cantidad: quantities.cantidad,
+        duracion: quantities.duracionMin,
+        hora:     schedule.hora,
+        horaMin:  schedule.horaMin,
+        horaFinMin,
+        dia:      schedule.dia,
+      }
     });
 
     const catalogDisaggregated = formatCatalogTerms(
@@ -506,6 +512,8 @@ export class Item {
       descripcion: this.#definition.description,
       categoria: this.#definition.category,
       hora: this.#derived.schedule.hora,
+      horaMin: this.#derived.schedule.horaMin,
+      horaFinMin: this.#derived.schedule.horaMin + this.#derived.quantities.duracionMin,
       dia: this.#derived.schedule.dia,
       comentarios: this.#derived.comentarios,
       pax: this.#derived.quantities.pax,

@@ -30,8 +30,8 @@ Rules for Item components follow the real CSV structure from `claps_codelab/data
 // Redundant: item ID check inside condition
 {
   "and": [
-    { "===": [{ "var": "linea.ID_Item" }, "ITEM_SALON_CHINOOK_..." ] },
-    { ">": [{ "var": "linea._pax" }, 320] }
+    { "===": [{ "var": "item.id" }, "ITEM_SALON_CHINOOK_..." ] },
+    { ">": [{ "var": "item.pax" }, 320] }
   ]
 }
 ```
@@ -42,12 +42,12 @@ Rules for Item components follow the real CSV structure from `claps_codelab/data
 const itemRules = allRules.filter(r =>
   r.Scope === 'ITEM' &&     // Only ITEM-scoped rules
   r.Activo === true &&       // Only active rules
-  r.ID_Item === itemId       // Only for THIS item (pre-filtered!)
+  r.id === itemId       // Only for THIS item (pre-filtered!)
 );
 
 // Condition only contains business logic:
 {
-  ">": [{ "var": "linea._pax" }, 320]
+  ">": [{ "var": "item.pax" }, 320]
 }
 // Variables in condition: pax, cantidad, duracionMin, hora, dia (no ID matching)
 ```
@@ -83,14 +83,14 @@ All conditions use `json-logic-js` syntax. Examples from real CSV:
 
 ```javascript
 // Simple comparison
-{ ">": [{ "var": "linea._pax" }, 320] }
+{ ">": [{ "var": "item.pax" }, 320] }
 // Meaning: pax > 320
 
 // Logical AND
 {
   "and": [
-    { "===": [{ "var": "linea.ID_Item" }, "ITEM_SALON_CHINOOK_..."] },
-    { ">": [{ "var": "linea._pax" }, 320] }
+    { "===": [{ "var": "item.id" }, "ITEM_SALON_CHINOOK_..."] },
+    { ">": [{ "var": "item.pax" }, 320] }
   ]
 }
 // Meaning: Item matches AND pax > 320
@@ -98,8 +98,8 @@ All conditions use `json-logic-js` syntax. Examples from real CSV:
 // Complex OR
 {
   "or": [
-    { "<": [{ "var": "linea._pax" }, 10] },
-    { ">": [{ "var": "linea._pax" }, 320] }
+    { "<": [{ "var": "item.pax" }, 10] },
+    { ">": [{ "var": "item.pax" }, 320] }
   ]
 }
 // Meaning: pax < 10 OR pax > 320

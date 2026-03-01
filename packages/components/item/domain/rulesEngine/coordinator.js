@@ -24,111 +24,97 @@ import { humanizeCondition, humanizePayload } from './humanize.js';
 export class RulesCoordinator {
   /**
    * @param {string} componentType - ITEM, CATEGORY, KIT, CONTAINER, BASKET
-   * @param {Array} allRules - All rules from definition
-   * @param {string} [componentId] - For filtering (required for ITEM, CATEGORY, KIT, CONTAINER)
+   * @param {Array}  allRules      - Pre-filtered rules from resolveItemDefinition()
+   * @param {string} [componentId] - Used only when rules are NOT pre-filtered (optional guard)
    */
   constructor(componentType, allRules = [], componentId = null) {
     this.componentType = componentType;
     this.componentId = componentId;
     this.cached = null;
 
-    // Filter rules at construction time
-    // Key insight: Component ID matching happens in the FILTER, not the condition
+    // Secondary guard: filter by Scope, Activo, and ID_Componente.
+    // In production, resolveItemDefinition() already pre-filters; this guard
+    // catches any stray rules when the coordinator is used directly in tests.
     this.rules = (allRules || [])
       .filter(r => {
-        // Must match component type
         if (!r || r.Scope !== componentType) return false;
-
-        // Must be active
         if (r.Activo === false) return false;
-
-        // For component-specific types, filter by ID
-        // (BASKET doesn't need ID filtering)
-        if (componentType !== 'BASKET' && componentId) {
-          const idField = `ID_${componentType}`;
-          // If rule has ID field and it doesn't match, skip it
-          if (r[idField] && r[idField] !== componentId) return false;
-        }
-
+        // ID_Componente is the FK field name in REGLAS_NEGOCIO (not ID_ITEM/ID_CATEGORY)
+        if (componentId && r.ID_Componente && r.ID_Componente !== componentId) return false;
         return true;
       })
-      // Sort by priority (ascending: lower number = higher priority)
       .sort((a, b) => (a.Prioridad || 0) - (b.Prioridad || 0));
   }
 
   /**
    * Evaluate all filtered rules against a snapshot.
-   * Results are cached after first call.
+   * The snapshot must use the `item.*` namespace that matches REGLAS_NEGOCIO.csv:
    *
-   * @param {Object} snapshot - Component state snapshot
-   *   For ITEM: { itemId, pax, cantidad, duracionMin, hora, dia, ... }
-   *   For CATEGORY: { categoryId, totalItems, ... }
-   *   etc.
-   * @returns {Object} { appliedRules, errors, warnings, available }
+   *   snapshot = {
+   *     item: {
+   *       id:         string,   // { "var": "item.id" }
+   *       pax:        number,   // { "var": "item.pax" }
+   *       cantidad:   number,   // { "var": "item.cantidad" }
+   *       duracion:   number,   // { "var": "item.duracion" }
+   *       hora:       string,   // { "var": "item.hora" }   'HH:MM'
+   *       horaMin:    number,   // minutes from midnight
+   *       horaFinMin: number,   // hora start + duration
+   *       dia:        number,   // day number (1..N)
+   *     }
+   *   }
+   *
+   * Acumulable semantics: when a rule has Acumulable=false and it fires,
+   * no further rules of the same Tipo_Accion are evaluated.
+   *
+   * @param {Object} snapshot
+   * @returns {{ appliedRules, errors, warnings, available }}
    */
   evaluate(snapshot) {
-    // Return cached result if already evaluated
-    if (this.cached !== null) {
-      return this.cached;
-    }
+    if (this.cached !== null) return this.cached;
 
-    const result = {
-      appliedRules: [],
-      errors: [],
-      warnings: [],
-      available: true
-    };
+    const result = { appliedRules: [], errors: [], warnings: [], available: true };
+    let errorsDone = false;
+    let warningsDone = false;
 
-    // Evaluate each rule
     for (const rule of this.rules) {
-      // Evaluate condition
-      const conditionMatches = this.evaluateCondition(rule.Condicion_JSON, snapshot);
+      const type = rule.Tipo_Accion;
 
-      if (!conditionMatches) {
-        continue;
-      }
+      // Skip if a prior non-accumulating rule of the same type already fired
+      if (type === 'ERROR'   && errorsDone)   continue;
+      if (type === 'WARNING' && warningsDone) continue;
 
-      // Condition matched - execute action
-      const actionResult = {
-        id: rule.ID_Regla,
-        type: rule.Tipo_Accion,
-        priority: rule.Prioridad,
-        message: this.extractMessage(rule)
+      if (!this.evaluateCondition(rule.Condicion_JSON, snapshot)) continue;
+
+      const entry = {
+        id:             rule.ID_Regla,
+        type,
+        priority:       rule.Prioridad,
+        message:        this.extractMessage(rule),
+        humanCondition: humanizeCondition(rule.Condicion_JSON),
+        humanPayload:   humanizePayload(type, rule.Payload_JSON),
       };
 
-      // Add humanized versions for UI display
-      actionResult.humanCondition = humanizeCondition(rule.Condicion_JSON);
-      actionResult.humanPayload = humanizePayload(rule.Tipo_Accion, rule.Payload_JSON);
+      result.appliedRules.push(entry);
 
-      // Add to applied rules
-      result.appliedRules.push(actionResult);
-
-      // Handle action type
-      if (rule.Tipo_Accion === 'ERROR') {
-        result.errors.push(actionResult);
-        result.available = false; // Blocking error
-      } else if (rule.Tipo_Accion === 'WARNING') {
-        result.warnings.push(actionResult);
-        // Non-blocking: available stays true
+      if (type === 'ERROR') {
+        result.errors.push(entry);
+        result.available = false;
+        if (rule.Acumulable === false) errorsDone = true;
+      } else if (type === 'WARNING') {
+        result.warnings.push(entry);
+        if (rule.Acumulable === false) warningsDone = true;
       }
-      // Other action types (MULTIPLY, ADD_FIXED, etc.) have no effect yet
-      // They're recorded in appliedRules for UI display
+      // Other action types (MULTIPLY, ADD_FIXED, etc.) are recorded but have no
+      // UI availability effect at the RESTRICCION_UI stage.
     }
 
-    // Cache result
     this.cached = result;
     return result;
   }
 
-  /**
-   * Evaluate a single condition using json-logic-js
-   * @private
-   */
+  /** @private */
   evaluateCondition(conditionJson, snapshot) {
-    // Explicitly check for false BEFORE checking for falsy values
     if (conditionJson === false || conditionJson === 'false') return false;
-
-    // No condition (null/undefined) = always true
     if (conditionJson == null) return true;
 
     try {
@@ -136,57 +122,31 @@ export class RulesCoordinator {
         ? JSON.parse(conditionJson)
         : conditionJson;
 
-      // Handle trivial boolean conditions again (in case it was a string)
       if (logic === true || logic === 'true') return true;
       if (logic === false || logic === 'false') return false;
 
-      // Use json-logic-js for evaluation
       return jsonLogic.apply(logic, snapshot);
     } catch (e) {
-      console.error(`Error evaluating condition: ${e.message}`, conditionJson);
+      console.error(`RulesCoordinator: error evaluating condition: ${e.message}`, conditionJson);
       return false;
     }
   }
 
-  /**
-   * Extract message from payload
-   * @private
-   */
+  /** @private */
   extractMessage(rule) {
     try {
       const payload = typeof rule.Payload_JSON === 'string'
         ? JSON.parse(rule.Payload_JSON)
         : rule.Payload_JSON;
-
-      return payload.message || rule.Nombre || 'Rule triggered';
+      return payload?.message || rule.Nombre || 'Rule triggered';
     } catch (e) {
       return rule.Nombre || 'Rule triggered';
     }
   }
 
-  /**
-   * Convenience getters
-   */
-  getAppliedRules() {
-    return this.cached?.appliedRules || [];
-  }
-
-  isAvailable() {
-    return this.cached?.available ?? true;
-  }
-
-  getErrors() {
-    return this.cached?.errors || [];
-  }
-
-  getWarnings() {
-    return this.cached?.warnings || [];
-  }
-
-  /**
-   * Invalidate cache (for testing or when rules change)
-   */
-  invalidateCache() {
-    this.cached = null;
-  }
+  getAppliedRules() { return this.cached?.appliedRules || []; }
+  isAvailable()     { return this.cached?.available ?? true; }
+  getErrors()       { return this.cached?.errors || []; }
+  getWarnings()     { return this.cached?.warnings || []; }
+  invalidateCache() { this.cached = null; }
 }

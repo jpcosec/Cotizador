@@ -159,14 +159,15 @@ describe('RulesCoordinator', () => {
     });
   });
 
-  describe('evaluate - JSON-Logic conditions', () => {
-    it('evaluates greater than condition', () => {
+  // Snapshots must use the item.* namespace matching REGLAS_NEGOCIO.csv var paths
+  describe('evaluate - JSON-Logic conditions (item.* namespace)', () => {
+    it('evaluates greater than condition against item.pax', () => {
       const rules = [
         {
           ID_Regla: 'R1',
           Scope: 'ITEM',
           Tipo_Accion: 'ERROR',
-          Condicion_JSON: { '>': [{ var: 'pax' }, 100] },
+          Condicion_JSON: { '>': [{ var: 'item.pax' }, 100] },
           Payload_JSON: { message: 'Too many pax' },
           Prioridad: 1,
           Activo: true
@@ -175,21 +176,18 @@ describe('RulesCoordinator', () => {
 
       const coord = new RulesCoordinator('ITEM', rules);
 
-      // Should match
-      let result = coord.evaluate({ pax: 150 });
+      let result = coord.evaluate({ item: { pax: 150 } });
       expect(result.appliedRules).toHaveLength(1);
       expect(result.available).toBe(false);
 
-      // Clear cache for next evaluation
       coord.invalidateCache();
 
-      // Should not match
-      result = coord.evaluate({ pax: 50 });
+      result = coord.evaluate({ item: { pax: 50 } });
       expect(result.appliedRules).toHaveLength(0);
       expect(result.available).toBe(true);
     });
 
-    it('evaluates AND condition', () => {
+    it('evaluates AND condition with item.id guard (real CSV pattern)', () => {
       const rules = [
         {
           ID_Regla: 'R1',
@@ -197,11 +195,11 @@ describe('RulesCoordinator', () => {
           Tipo_Accion: 'ERROR',
           Condicion_JSON: {
             and: [
-              { '>': [{ var: 'pax' }, 100] },
-              { '<': [{ var: 'pax' }, 200] }
+              { '===': [{ var: 'item.id' }, 'ITEM_SALON'] },
+              { '>':   [{ var: 'item.pax'    }, 320         ] }
             ]
           },
-          Payload_JSON: { message: 'Between 100 and 200' },
+          Payload_JSON: { message: 'Max 320 pax' },
           Prioridad: 1,
           Activo: true
         }
@@ -209,19 +207,24 @@ describe('RulesCoordinator', () => {
 
       const coord = new RulesCoordinator('ITEM', rules);
 
-      // Should match (100 < 150 < 200)
-      let result = coord.evaluate({ pax: 150 });
+      // Matches: correct item + pax exceeded
+      let result = coord.evaluate({ item: { id: 'ITEM_SALON', pax: 400 } });
       expect(result.appliedRules).toHaveLength(1);
 
-      // Clear cache
       coord.invalidateCache();
 
-      // Should not match (50 not > 100)
-      result = coord.evaluate({ pax: 50 });
+      // No match: different item
+      result = coord.evaluate({ item: { id: 'ITEM_OTHER', pax: 400 } });
+      expect(result.appliedRules).toHaveLength(0);
+
+      coord.invalidateCache();
+
+      // No match: pax within limit
+      result = coord.evaluate({ item: { id: 'ITEM_SALON', pax: 100 } });
       expect(result.appliedRules).toHaveLength(0);
     });
 
-    it('evaluates OR condition', () => {
+    it('evaluates OR condition against item.hora', () => {
       const rules = [
         {
           ID_Regla: 'R1',
@@ -229,8 +232,8 @@ describe('RulesCoordinator', () => {
           Tipo_Accion: 'WARNING',
           Condicion_JSON: {
             or: [
-              { '<': [{ var: 'hora' }, '09:00'] },
-              { '>': [{ var: 'hora' }, '18:00'] }
+              { '<': [{ var: 'item.hora' }, '09:00'] },
+              { '>': [{ var: 'item.hora' }, '18:00'] }
             ]
           },
           Payload_JSON: { message: 'Outside hours' },
@@ -241,20 +244,17 @@ describe('RulesCoordinator', () => {
 
       const coord = new RulesCoordinator('ITEM', rules);
 
-      // Should match (before 09:00)
-      let result = coord.evaluate({ hora: '08:00' });
+      let result = coord.evaluate({ item: { hora: '08:00' } });
       expect(result.warnings).toHaveLength(1);
 
       coord.invalidateCache();
 
-      // Should match (after 18:00)
-      result = coord.evaluate({ hora: '20:00' });
+      result = coord.evaluate({ item: { hora: '20:00' } });
       expect(result.warnings).toHaveLength(1);
 
       coord.invalidateCache();
 
-      // Should not match (within hours)
-      result = coord.evaluate({ hora: '14:00' });
+      result = coord.evaluate({ item: { hora: '14:00' } });
       expect(result.warnings).toHaveLength(0);
     });
   });
@@ -326,97 +326,140 @@ describe('RulesCoordinator', () => {
   describe('caching', () => {
     it('caches result after first evaluation', () => {
       const rules = [
-        {
-          ID_Regla: 'R1',
-          Scope: 'ITEM',
-          Tipo_Accion: 'ERROR',
-          Condicion_JSON: true,
-          Payload_JSON: { message: 'Test' },
-          Prioridad: 1,
-          Activo: true
-        }
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'Test' }, Prioridad: 1, Activo: true }
       ];
 
       const coord = new RulesCoordinator('ITEM', rules);
       const result1 = coord.evaluate({});
       const result2 = coord.evaluate({ different: 'context' });
-
-      // Same object (cached)
       expect(result1).toBe(result2);
     });
 
     it('returns same cached result even with different snapshot', () => {
       const rules = [
-        {
-          ID_Regla: 'R1',
-          Scope: 'ITEM',
-          Tipo_Accion: 'ERROR',
-          Condicion_JSON: { '>': [{ var: 'pax' }, 100] },
-          Payload_JSON: { message: 'Too many' },
-          Prioridad: 1,
-          Activo: true
-        }
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: { '>': [{ var: 'item.pax' }, 100] },
+          Payload_JSON: { message: 'Too many' }, Prioridad: 1, Activo: true }
       ];
 
       const coord = new RulesCoordinator('ITEM', rules);
-      const result1 = coord.evaluate({ pax: 150 });
-      const result2 = coord.evaluate({ pax: 50 });
-
-      // Same cached result (even though second snapshot would not match)
+      const result1 = coord.evaluate({ item: { pax: 150 } });
+      const result2 = coord.evaluate({ item: { pax: 50 } });
       expect(result1).toBe(result2);
-      expect(result1.appliedRules).toHaveLength(1); // From first evaluation
+      expect(result1.appliedRules).toHaveLength(1);
     });
 
     it('invalidateCache clears cached result', () => {
       const rules = [
-        {
-          ID_Regla: 'R1',
-          Scope: 'ITEM',
-          Tipo_Accion: 'ERROR',
-          Condicion_JSON: { '>': [{ var: 'pax' }, 100] },
-          Payload_JSON: { message: 'Too many' },
-          Prioridad: 1,
-          Activo: true
-        }
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: { '>': [{ var: 'item.pax' }, 100] },
+          Payload_JSON: { message: 'Too many' }, Prioridad: 1, Activo: true }
       ];
 
       const coord = new RulesCoordinator('ITEM', rules);
-      const result1 = coord.evaluate({ pax: 150 });
+      const result1 = coord.evaluate({ item: { pax: 150 } });
       expect(result1.appliedRules).toHaveLength(1);
 
       coord.invalidateCache();
 
-      const result2 = coord.evaluate({ pax: 50 });
+      const result2 = coord.evaluate({ item: { pax: 50 } });
       expect(result2).not.toBe(result1);
       expect(result2.appliedRules).toHaveLength(0);
     });
   });
 
-  describe('multiple rules', () => {
-    it('applies multiple rules', () => {
+  describe('Acumulable flag', () => {
+    it('stops evaluating ERROR rules after first non-accumulating match', () => {
       const rules = [
-        {
-          ID_Regla: 'R1',
-          Scope: 'ITEM',
-          Tipo_Accion: 'ERROR',
-          Condicion_JSON: { '>': [{ var: 'pax' }, 100] },
-          Payload_JSON: { message: 'Too many pax' },
-          Prioridad: 10,
-          Activo: true
-        },
-        {
-          ID_Regla: 'R2',
-          Scope: 'ITEM',
-          Tipo_Accion: 'WARNING',
-          Condicion_JSON: { '<': [{ var: 'hora' }, '09:00'] },
-          Payload_JSON: { message: 'Early morning' },
-          Prioridad: 20,
-          Activo: true
-        }
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'First error' },
+          Prioridad: 10, Activo: true, Acumulable: false },
+        { ID_Regla: 'R2', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'Second error' },
+          Prioridad: 20, Activo: true, Acumulable: false },
       ];
 
       const coord = new RulesCoordinator('ITEM', rules);
-      const result = coord.evaluate({ pax: 150, hora: '08:00' });
+      const result = coord.evaluate({});
+
+      // Only R1 fires; R2 is skipped because R1 fired with Acumulable=false
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].id).toBe('R1');
+    });
+
+    it('stops evaluating WARNING rules after first non-accumulating match', () => {
+      const rules = [
+        { ID_Regla: 'W1', Scope: 'ITEM', Tipo_Accion: 'WARNING',
+          Condicion_JSON: true, Payload_JSON: { message: 'First warning' },
+          Prioridad: 10, Activo: true, Acumulable: false },
+        { ID_Regla: 'W2', Scope: 'ITEM', Tipo_Accion: 'WARNING',
+          Condicion_JSON: true, Payload_JSON: { message: 'Second warning' },
+          Prioridad: 20, Activo: true, Acumulable: false },
+      ];
+
+      const coord = new RulesCoordinator('ITEM', rules);
+      const result = coord.evaluate({});
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0].id).toBe('W1');
+    });
+
+    it('allows accumulation when Acumulable=true', () => {
+      const rules = [
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'First' },
+          Prioridad: 10, Activo: true, Acumulable: true },
+        { ID_Regla: 'R2', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'Second' },
+          Prioridad: 20, Activo: true, Acumulable: true },
+      ];
+
+      const coord = new RulesCoordinator('ITEM', rules);
+      const result = coord.evaluate({});
+
+      expect(result.errors).toHaveLength(2);
+    });
+
+    it('ERROR and WARNING stop independently', () => {
+      const rules = [
+        { ID_Regla: 'E1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'Error' },
+          Prioridad: 10, Activo: true, Acumulable: false },
+        { ID_Regla: 'W1', Scope: 'ITEM', Tipo_Accion: 'WARNING',
+          Condicion_JSON: true, Payload_JSON: { message: 'Warning' },
+          Prioridad: 20, Activo: true, Acumulable: false },
+        { ID_Regla: 'E2', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: true, Payload_JSON: { message: 'Second error (skipped)' },
+          Prioridad: 30, Activo: true, Acumulable: false },
+        { ID_Regla: 'W2', Scope: 'ITEM', Tipo_Accion: 'WARNING',
+          Condicion_JSON: true, Payload_JSON: { message: 'Second warning (skipped)' },
+          Prioridad: 40, Activo: true, Acumulable: false },
+      ];
+
+      const coord = new RulesCoordinator('ITEM', rules);
+      const result = coord.evaluate({});
+
+      expect(result.errors).toHaveLength(1);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.errors[0].id).toBe('E1');
+      expect(result.warnings[0].id).toBe('W1');
+    });
+  });
+
+  describe('multiple rules', () => {
+    it('applies multiple rules (Acumulable=true)', () => {
+      const rules = [
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: { '>': [{ var: 'item.pax' }, 100] },
+          Payload_JSON: { message: 'Too many pax' }, Prioridad: 10, Activo: true, Acumulable: true },
+        { ID_Regla: 'R2', Scope: 'ITEM', Tipo_Accion: 'WARNING',
+          Condicion_JSON: { '<': [{ var: 'item.hora' }, '09:00'] },
+          Payload_JSON: { message: 'Early morning' }, Prioridad: 20, Activo: true, Acumulable: true },
+      ];
+
+      const coord = new RulesCoordinator('ITEM', rules);
+      const result = coord.evaluate({ item: { pax: 150, hora: '08:00' } });
 
       expect(result.appliedRules).toHaveLength(2);
       expect(result.errors).toHaveLength(1);
@@ -536,22 +579,16 @@ describe('RulesCoordinator', () => {
   describe('humanization', () => {
     it('includes humanCondition in applied rules', () => {
       const rules = [
-        {
-          ID_Regla: 'R1',
-          Scope: 'ITEM',
-          Tipo_Accion: 'ERROR',
-          Condicion_JSON: { '>': [{ var: 'pax' }, 100] },
-          Payload_JSON: { message: 'Too many' },
-          Prioridad: 1,
-          Activo: true
-        }
+        { ID_Regla: 'R1', Scope: 'ITEM', Tipo_Accion: 'ERROR',
+          Condicion_JSON: { '>': [{ var: 'item.pax' }, 100] },
+          Payload_JSON: { message: 'Too many' }, Prioridad: 1, Activo: true }
       ];
 
       const coord = new RulesCoordinator('ITEM', rules);
-      const result = coord.evaluate({ pax: 150 });
+      const result = coord.evaluate({ item: { pax: 150 } });
 
       expect(result.appliedRules[0].humanCondition).toBeDefined();
-      expect(result.appliedRules[0].humanCondition).toContain('pax');
+      expect(result.appliedRules[0].humanCondition).toContain('item.pax');
     });
 
     it('includes humanPayload in applied rules', () => {
