@@ -1,0 +1,266 @@
+<section class="category-shell">
+  <header class="panel controls-panel">
+    <div class="control-group">
+      <label for="category-select">Category</label>
+      <select id="category-select" :value="selectedCategoryId" @change="selectCategory($event.target.value)">
+        <template x-for="option in categoryOptions" :key="option.id">
+          <option :value="option.id" x-text="`${option.nombre} (${option.itemCount})`"></option>
+        </template>
+      </select>
+    </div>
+
+    <div class="control-grid">
+      <label>
+        <span>Pax Global</span>
+        <input type="number" min="0" :value="globalContext.paxGlobal" @input="setContextField('paxGlobal', $event.target.value)" />
+      </label>
+      <label>
+        <span>Dia</span>
+        <input type="number" min="1" :value="globalContext.dia" @input="setContextField('dia', $event.target.value)" />
+      </label>
+      <label>
+        <span>Hora</span>
+        <input type="time" :value="globalContext.hora" @input="setContextField('hora', $event.target.value)" />
+      </label>
+    </div>
+  </header>
+
+  <section class="panel aggregate-panel">
+    <h2 x-text="categoryState.nombre || 'Category'"></h2>
+    <div class="aggregate-grid">
+      <article>
+        <p class="label">Items</p>
+        <p class="value" x-text="categoryState.itemCount || 0"></p>
+      </article>
+      <article>
+        <p class="label">Subtotal</p>
+        <p class="value" x-text="formatMoney(categoryState.subtotal)"></p>
+      </article>
+      <article>
+        <p class="label">Warnings</p>
+        <p class="value" x-text="categoryState.ruleWarnings?.length || 0"></p>
+      </article>
+      <article>
+        <p class="label">Errors</p>
+        <p class="value" x-text="categoryState.ruleErrors?.length || 0"></p>
+      </article>
+    </div>
+
+    <template x-if="(categoryState.loadErrors || []).length > 0">
+      <div class="load-errors">
+        <h3>Load errors</h3>
+        <template x-for="error in categoryState.loadErrors" :key="`${error.itemId}-${error.message}`">
+          <p class="error-line" x-text="`${error.itemId}: ${error.message}`"></p>
+        </template>
+      </div>
+    </template>
+  </section>
+
+  <section class="panel items-panel">
+    <h2>Category Items</h2>
+    <template x-if="(categoryState.items || []).length === 0">
+      <p class="empty-state">No active items in this category.</p>
+    </template>
+
+    <ul class="item-list">
+      <template x-for="item in categoryState.items" :key="item.entryId">
+        <li class="item-row" :class="lineStatusClass(item)">
+          <div>
+            <p class="item-name" x-text="item.name"></p>
+            <p class="item-meta">
+              <span x-text="item.itemId"></span>
+              <span>·</span>
+              <span x-text="item.available ? 'available' : 'blocked'"></span>
+            </p>
+          </div>
+          <div class="item-metrics">
+            <span x-text="formatMoney(item.total)"></span>
+            <span class="badge" x-text="`${item.warnings}W / ${item.errors}E`"></span>
+          </div>
+        </li>
+      </template>
+    </ul>
+  </section>
+</section>
+
+<style>
+  .category-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    gap: 16px;
+  }
+
+  .panel {
+    background: #ffffff;
+    border: 1px solid #dbe5ef;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  }
+
+  .controls-panel {
+    display: grid;
+    gap: 12px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .control-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+  }
+
+  input,
+  select {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+
+  .aggregate-grid {
+    margin-top: 8px;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .aggregate-grid article {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .label {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .value {
+    margin: 4px 0 0;
+    font-size: 1.12rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .load-errors {
+    margin-top: 12px;
+    border-top: 1px dashed #fca5a5;
+    padding-top: 10px;
+  }
+
+  .load-errors h3 {
+    margin: 0 0 6px;
+    font-size: 0.9rem;
+    color: #b91c1c;
+  }
+
+  .error-line {
+    margin: 0;
+    color: #991b1b;
+    font-size: 0.82rem;
+  }
+
+  .items-panel h2,
+  .aggregate-panel h2 {
+    margin: 0;
+    color: #0f172a;
+  }
+
+  .empty-state {
+    margin: 10px 0 0;
+    color: #64748b;
+  }
+
+  .item-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .item-row {
+    border: 1px solid #e2e8f0;
+    border-left-width: 5px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+  }
+
+  .item-row.status-ok {
+    border-left-color: #16a34a;
+  }
+
+  .item-row.status-warn {
+    border-left-color: #ca8a04;
+  }
+
+  .item-row.status-error {
+    border-left-color: #dc2626;
+  }
+
+  .item-name {
+    margin: 0;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .item-meta {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .item-metrics {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    color: #334155;
+    background: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  @media (max-width: 768px) {
+    .category-shell {
+      padding: 16px;
+    }
+
+    .item-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

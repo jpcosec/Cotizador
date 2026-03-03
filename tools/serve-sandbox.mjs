@@ -85,6 +85,10 @@ function resolveTarget(reqPath) {
     return path.join(routesDir, 'step-I1-database', 'index.html');
   }
 
+  if (reqPath === '/step-I3-category-01' || reqPath === '/step-I3-category-01/') {
+    return path.join(routesDir, 'step-I3-category-01', 'index.html');
+  }
+
   if (reqPath.startsWith('/data/')) {
     return safeJoin(rootDir, reqPath.slice(1));
   }
@@ -145,5 +149,7 @@ server.listen(port, () => {
   console.log('  /step-02-counter-composed');
   console.log('  /step-03-item');
   console.log('  /step-03b (multi-item view)');
+  console.log('  /step-I1-database');
+  console.log('  /step-I3-category-01');
   console.log('  /step-04-quotation');
 });
