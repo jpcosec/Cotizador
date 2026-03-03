@@ -8,10 +8,11 @@
 
 static fromDefinition(dbDef) {
   const normalized = {
-    id:          dbDef.ID_Item,
-    name:        dbDef.Nombre,
-    category:    dbDef.categoria?.Nombre,
-    description: dbDef.Default_Glosa,
+    id:              dbDef.ID_Item,
+    name:            dbDef.Nombre,
+    description:     dbDef.Default_Glosa,        // maps Default_Glosa → description
+    category:        dbDef.categoria?.Nombre,
+    categoriaIcono:  dbDef.categoria?.Icono_UI ?? null,
 
     // Pricing profile — map DB coefficient names to internal names
     pricing: {
@@ -86,7 +87,17 @@ definition = resolveItemDefinition(selectedItemId, db)
 mode:          'catalog' | 'basket'
 quantities:    { pax: N, cantidad: N, duracionMin: N }   // resolved values
 userSetFields: Set<'pax' | 'cantidad' | 'duracionMin'>   // override tracking
-overrides:     { comentarios: '' }
+overrides: {
+  pax?:         number,   // user-set headcount (overrides paxGlobal from context)
+  cantidad?:    number,   // user-set quantity (overrides default units)
+  duracionMin?: number,   // user-set duration (overrides category default)
+  hora?:        string,   // user-set start time 'HH:MM'
+  dia?:         number,   // user-set day number
+  comentarios?: string,   // free-text comment (passed through to basketLine)
+}
+// Note: overrides feed directly into calculate() — pax/cantidad/duracionMin
+// replace their context-derived counterparts in the pricing formula:
+//   total = baseFijo + (pax × porPersona) + (duracionMin × porMinuto) + (cantidad × porUnidad)
 ```
 
 ---

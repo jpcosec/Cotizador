@@ -27,18 +27,17 @@ const defaultResolvedDefinition = {
   Default_Glosa: 'Servicio de coffee break para eventos corporativos.',
   ID_Categoria: 'CAT_TEST',
   ID_Perfil_Precio_Override: null,
-  Def_Unidades_Por_Pax_Override: null,
+  ID_Perfil_Init_Override: null,
   Activo: true,
   categoria: {
     ID_Categoria: 'CAT_TEST',
     Nombre: 'Coffee',
     ID_Perfil_Precio_Default: 'PERF_TEST',
+    ID_Perfil_Init_Default: 'PI_TEST',
     Def_Requiere_Pax: false,
     Def_Requiere_Cant: true,
     Def_Requiere_Tiempo: false,
     Def_Requiere_Hora: false,
-    Def_Duracion_Min: 0,
-    Def_Unidades_Por_Pax: 3,
     Icono_UI: 'coffee',
     Activo: true,
   },
@@ -49,6 +48,17 @@ const defaultResolvedDefinition = {
     Costo_Unitario_Pax: 0,
     Costo_Unitario_Tiempo: 0,
     Costo_Unitario_Item: 1,
+    Activo: true,
+  },
+  perfilInit: {
+    ID_Perfil_Init: 'PI_TEST',
+    Nombre: 'Init test profile',
+    Duracion_Min: 0,
+    Unidades_Por_Pax: 3,
+    Unidades_Por_Hora: 0,
+    Minutos_Por_Usuario: 0,
+    Cantidad_Fija: 0,
+    Pax_Fijo: 0,
     Activo: true,
   },
   reglas: [],
@@ -127,7 +137,56 @@ describe('Item', () => {
       it('should expose perfil and categoria on display object', () => {
         const display = Item.fromDefinition(defaultResolvedDefinition).toDisplayObject();
         expect(display.perfil?.ID_Perfil_Precio).toBe('PERF_TEST');
+        expect(display.perfilInit?.ID_Perfil_Init).toBe('PI_TEST');
         expect(display.categoria?.Nombre).toBe('Coffee');
+      });
+
+      it('should map all init values from perfilInit into defaultQuantities', () => {
+        const item = Item.fromDefinition(defaultResolvedDefinition);
+        const defaults = item.definition.defaultQuantities;
+
+        expect(defaults.duracionMin).toBe(0);
+        expect(defaults.unidadesPorUsuario).toBe(3);
+        expect(defaults.unidadesPorHora).toBe(0);
+        expect(defaults.minutosPorUsuario).toBe(0);
+        expect(defaults.cantidad).toBe(0);
+        expect(defaults.pax).toBe(0);
+      });
+
+      it('should support UNITS CONTEXT_TIME via Unidades_Por_Hora', () => {
+        const resolved = {
+          ...defaultResolvedDefinition,
+          perfilInit: {
+            ...defaultResolvedDefinition.perfilInit,
+            Unidades_Por_Pax: 0,
+            Unidades_Por_Hora: 2,
+          },
+        };
+        const item = Item.fromDefinition(resolved, {
+          externalContext: { duracionMin: 120 },
+        });
+        expect(item.toDisplayObject().initializationMode).toBe(InitializationMode.CONTEXT_TIME);
+      });
+
+      it('should support TIME CONTEXT_PAX via Minutos_Por_Usuario', () => {
+        const resolved = {
+          ...defaultResolvedDefinition,
+          perfil: {
+            ...defaultResolvedDefinition.perfil,
+            Costo_Unitario_Item: 0,
+            Costo_Unitario_Tiempo: 10,
+          },
+          perfilInit: {
+            ...defaultResolvedDefinition.perfilInit,
+            Minutos_Por_Usuario: 5,
+            Duracion_Min: 0,
+          },
+        };
+        const item = Item.fromDefinition(resolved, {
+          externalContext: { paxGlobal: 20 },
+        });
+        expect(item.toDisplayObject().pricingKind).toBe(PricingKind.TIME);
+        expect(item.toDisplayObject().initializationMode).toBe(InitializationMode.CONTEXT_PAX);
       });
     });
 

@@ -24,6 +24,7 @@ const mimeByExt = {
   '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
   '.json': 'application/json; charset=utf-8'
 };
 
@@ -80,8 +81,12 @@ function resolveTarget(reqPath) {
     return path.join(routesDir, 'step-04-quotation', 'index.html');
   }
 
-  if (reqPath === '/item-playground' || reqPath === '/item-playground/') {
-    return path.join(routesDir, 'item-playground', 'index.html');
+  if (reqPath === '/step-I1-database' || reqPath === '/step-I1-database/') {
+    return path.join(routesDir, 'step-I1-database', 'index.html');
+  }
+
+  if (reqPath.startsWith('/data/')) {
+    return safeJoin(rootDir, reqPath.slice(1));
   }
 
   if (reqPath.startsWith('/packages/')) {
@@ -141,5 +146,4 @@ server.listen(port, () => {
   console.log('  /step-03-item');
   console.log('  /step-03b (multi-item view)');
   console.log('  /step-04-quotation');
-  console.log('  /item-playground');
 });

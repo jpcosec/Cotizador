@@ -6,7 +6,7 @@ You are rebasing the existing Item component to accept real DB-shaped definition
 
 Prerequisites: Task I-1 must be complete. `resolveItemDefinition()` and the seed must exist and have passing tests.
 
-Reference: `plan/I-2-item/STATE_CONTRACT.md` (write this first), `plan/I-1-database/minimal_js_pseudo_code.md` (resolved shape)
+Reference: `plan/I-2-item/STATE_CONTRACT.md` (write this first), `plan/III-1-resolver/field_contracts.md` (resolved shape)
 
 Run `npm test` after every step. Do not proceed if tests fail.
 
@@ -53,23 +53,25 @@ File: `packages/components/item/Item.js`
 `fromDefinition()` receives the shape from `resolveItemDefinition()`. It must normalize to the internal shape:
 
 ```
-DB field                         → internal field
-─────────────────────────────────────────────────
-ID_Item                          → definition.id
-Nombre                           → definition.name
-categoria.Nombre                 → definition.category
-perfil.Costo_Base_Fijo          → profile.baseFijo
-perfil.Costo_Unitario_Pax       → profile.porPersona
-perfil.Costo_Unitario_Tiempo    → profile.porMinuto
-perfil.Costo_Unitario_Item      → profile.porUnidad
-categoria.Def_Requiere_Pax      → definition.defaults.requierePax
-categoria.Def_Requiere_Cant     → definition.defaults.requiereCant
-categoria.Def_Requiere_Tiempo   → definition.defaults.requiereTiempo
-categoria.Def_Requiere_Hora     → definition.defaults.requiereHora
-categoria.Def_Duracion_Min      → definition.defaults.duracionMin
-categoria.Def_Unidades_Por_Pax  → definition.defaults.unidadesPorPax
+DB field                              → internal field
+──────────────────────────────────────────────────────
+ID_Item                               → definition.id
+Nombre                                → definition.name
+Default_Glosa                         → definition.description
+categoria.Nombre                      → definition.category
+categoria.Icono_UI                    → definition.categoriaIcono
+perfil.Costo_Base_Fijo               → profile.baseFijo
+perfil.Costo_Unitario_Pax            → profile.porPersona
+perfil.Costo_Unitario_Tiempo         → profile.porMinuto
+perfil.Costo_Unitario_Item           → profile.porUnidad
+categoria.Def_Requiere_Pax           → definition.defaults.requierePax
+categoria.Def_Requiere_Cant          → definition.defaults.requiereCant
+categoria.Def_Requiere_Tiempo        → definition.defaults.requiereTiempo
+categoria.Def_Requiere_Hora          → definition.defaults.requiereHora
+categoria.Def_Duracion_Min           → definition.defaults.duracionMin
+categoria.Def_Unidades_Por_Pax       → definition.defaults.unidadesPorPax
   (item override wins if Def_Unidades_Por_Pax_Override is not null)
-reglas[]                         → definition.rules[] (kept as-is)
+reglas[]                              → definition.rules[] (kept as-is, pre-filtered by resolveItemDefinition)
 ```
 
 All normalization happens in `fromDefinition()`. The domain functions below it are not changed.

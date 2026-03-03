@@ -1,0 +1,4 @@
+ID_Perfil_Init,Nombre,Duracion_Min,Unidades_Por_Pax,Unidades_Por_Hora,Minutos_Por_Usuario,Cantidad_Fija,Pax_Fijo,Activo,Updated_At
+PI_SALON_8H,Perfil salon 8 horas,480,0,0,0,0,0,true,2026-02-19T16:42:08.795Z
+PI_NONE,Sin inicializacion por defecto,0,0,0,0,0,0,true,2026-02-19T16:42:08.795Z
+PI_1_PER_PAX,Unidades por pax,0,1,0,0,0,0,true,2026-02-19T16:42:08.795Z

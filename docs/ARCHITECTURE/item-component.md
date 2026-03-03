@@ -299,7 +299,7 @@ const itemMachine = setup({
 
 ## HTML Structure (Standalone)
 
-**Location:** `ui/ItemStandalone.html`
+**Location:** `ui/ItemDisplay.html` (production view)
 
 ```html
 <div id="item-container" x-data="itemComponent()" class="item">

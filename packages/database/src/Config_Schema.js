@@ -26,12 +26,11 @@ export const DATA_SCHEMA = {
       { name: 'ID_Categoria', type: 'PK', desc: 'Identificador categoría' },
       { name: 'Nombre', type: 'TEXT', desc: 'Nombre visible' },
       { name: 'ID_Perfil_Precio_Default', type: 'FK', ref: 'PERFILES_PRECIO', desc: 'Perfil de precio base heredable' },
+      { name: 'ID_Perfil_Init_Default', type: 'FK', ref: 'PERFILES_INICIALIZACION', desc: 'Perfil de inicialización por defecto' },
       { name: 'Def_Requiere_Pax', type: 'BOOLEAN', desc: 'Pricing depende de pax (P)' },
       { name: 'Def_Requiere_Cant', type: 'BOOLEAN', desc: 'Pricing depende de cantidad (Q)' },
       { name: 'Def_Requiere_Tiempo', type: 'BOOLEAN', desc: 'Pricing depende de tiempo (T)' },
       { name: 'Def_Requiere_Hora', type: 'BOOLEAN', desc: 'UI: mostrar selectores de hora' },
-      { name: 'Def_Duracion_Min', type: 'INTEGER', desc: 'Duración default en minutos' },
-      { name: 'Def_Unidades_Por_Pax', type: 'DECIMAL', desc: 'Calculador default: unidades por pax' },
       { name: 'Icono_UI', type: 'TEXT', desc: 'Nombre de icono para UI' },
       { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
       { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
@@ -45,7 +44,7 @@ export const DATA_SCHEMA = {
       { name: 'Nombre', type: 'TEXT', desc: 'Nombre comercial' },
       { name: 'ID_Categoria', type: 'FK', ref: 'CATEGORIAS', desc: 'Categoría base' },
       { name: 'ID_Perfil_Precio_Override', type: 'FK', ref: 'PERFILES_PRECIO', desc: 'Override de perfil de precio' },
-      { name: 'Def_Unidades_Por_Pax_Override', type: 'DECIMAL', desc: 'Override del calculador unidades/pax' },
+      { name: 'ID_Perfil_Init_Override', type: 'FK', ref: 'PERFILES_INICIALIZACION', desc: 'Override del perfil de inicialización' },
       { name: 'Default_Glosa', type: 'TEXT', desc: 'Descripción/comentario por defecto' },
       { name: 'Activo', type: 'BOOLEAN', desc: 'Borrado lógico' },
       { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
@@ -66,6 +65,22 @@ export const DATA_SCHEMA = {
     ]
   },
 
+  PERFILES_INICIALIZACION: {
+    description: 'Perfil de inicialización de cantidades. Cómo se resuelve la cantidad default según pricing kind.',
+    columns: [
+      { name: 'ID_Perfil_Init', type: 'PK', desc: 'Identificador' },
+      { name: 'Nombre', type: 'TEXT', desc: 'Nombre legible' },
+      { name: 'Duracion_Min', type: 'INTEGER', desc: 'Duración default (FIXED_AMOUNT for TIME)' },
+      { name: 'Unidades_Por_Pax', type: 'DECIMAL', desc: 'Multiplicador und/pax (CONTEXT_PAX for UNITS)' },
+      { name: 'Unidades_Por_Hora', type: 'DECIMAL', desc: 'Multiplicador und/hora (CONTEXT_TIME for UNITS)' },
+      { name: 'Minutos_Por_Usuario', type: 'DECIMAL', desc: 'Multiplicador min/usuario (CONTEXT_PAX for TIME)' },
+      { name: 'Cantidad_Fija', type: 'DECIMAL', desc: 'Cantidad fija (FIXED_AMOUNT for UNITS)' },
+      { name: 'Pax_Fijo', type: 'INTEGER', desc: 'Pax fijo (FIXED_AMOUNT for PAX)' },
+      { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
+      { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+    ]
+  },
+
   COMPOSICION_KIT: {
     description: 'Estructura recursiva Padre-Hijo para packs/kits.',
     columns: [
@@ -79,17 +94,18 @@ export const DATA_SCHEMA = {
   },
 
   REGLAS_NEGOCIO: {
-    description: 'Motor unificado de reglas por etapa.',
+    description: 'Motor unificado de reglas por etapa. Una regla se asigna a un tipo de componente (Scope) y opcionalmente a una instancia específica (ID_Componente). Sin ID_Componente, aplica a todas las instancias del Scope.',
     columns: [
       { name: 'ID_Regla', type: 'PK', desc: 'Identificador único' },
       { name: 'Nombre', type: 'TEXT', desc: 'Nombre legible de la regla' },
-      { name: 'Etapa', type: 'ENUM', options: ['CANTIDAD_DEFAULT', 'RESTRICCION_UI', 'AJUSTE_LINEA', 'AJUSTE_GLOBAL', 'IMPUESTO'], desc: 'Fase del pipeline' },
-      { name: 'Scope', type: 'ENUM', options: ['LINEA', 'ITEM', 'CATEGORIA', 'COTIZACION', 'CLIENTE', 'COMPOSICION'], desc: 'Alcance de aplicación' },
+      { name: 'Etapa', type: 'ENUM', options: ['CANTIDAD_DEFAULT', 'RESTRICCION_UI', 'AJUSTE_LINEA', 'AJUSTE_GLOBAL', 'IMPUESTO'], desc: 'Fase del pipeline donde se evalúa la regla' },
+      { name: 'Scope', type: 'ENUM', options: ['LINEA', 'ITEM', 'CATEGORIA', 'COTIZACION', 'CLIENTE', 'COMPOSICION'], desc: 'Tipo de componente al que aplica' },
+      { name: 'ID_Componente', type: 'TEXT', nullable: true, desc: 'ID del componente específico (ID_Item, ID_Categoria, ID_Composicion…). Null = aplica a todas las instancias del Scope' },
       { name: 'Tipo_Accion', type: 'ENUM', options: ['SET_VALUE', 'MULTIPLY', 'ADD_FIXED', 'ADD_ITEM', 'INVALIDATE_BASKET', 'WARNING', 'ERROR', 'SET_TAX', 'SET_DEFAULT'], desc: 'Acción ejecutable' },
       { name: 'Hook', type: 'ENUM', options: ['pre_execution', 'execute', 'post_execution', null], desc: 'Lifecycle hook filter' },
-      { name: 'Condicion_JSON', type: 'JSON', desc: 'Predicado para activar la regla' },
+      { name: 'Condicion_JSON', type: 'JSON', desc: 'Predicado para activar la regla (JSON-Logic)' },
       { name: 'Payload_JSON', type: 'JSON', desc: 'Parámetros para ejecutar la acción' },
-      { name: 'Prioridad', type: 'INTEGER', desc: 'Orden de ejecución en su etapa' },
+      { name: 'Prioridad', type: 'INTEGER', desc: 'Orden de ejecución dentro de su etapa' },
       { name: 'Acumulable', type: 'BOOLEAN', desc: 'Si puede combinarse con otras reglas' },
       { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
       { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }

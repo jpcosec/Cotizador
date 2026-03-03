@@ -2,112 +2,132 @@
 
 ## Context
 
-You are implementing the database foundation step. The schema is already defined in `packages/database/src/Config_Schema.js` — do not modify it. Your job is to write seed data that uses exactly those field names, and a pure resolver function that joins the tables.
+You are implementing the database foundation step. The schema is already defined in `packages/database/src/Config_Schema.js`; do not modify it. Your job is to verify and test seed data with exact field names, then deliver editable/validated table browsing for the database playground.
 
-Reference for field names: `plan/I-1-database/field_contracts.md`
-Reference for full implementation plan: `plan/antecedents/reorder-implementation-plan.md` (Tasks 5–7)
+The real production CSV data (188 items, 12 categories, 188 profiles, 63 rules) is at `data/init/*.csv`.
+A `csvSeed.js` utility already exists at `packages/database/src/csvSeed.js` for loading it (Node.js only).
+The minimal fixture for tests lives in `packages/database/src/seed.js`; use this for unit tests.
 
-Run `npm test` after every step. Do not proceed if tests fail.
-
----
-
-## Step 1 — Write field_contracts.md
-
-Before touching any code, write `plan/I-1-database/field_contracts.md` documenting the exact shape of a resolved item definition. See the pseudo code file for the expected shape.
-
-This document is the contract all later components depend on. Take time to get it right.
-
-Commit: `docs: add database field contracts`
+Run `npm test` after each step. Do not proceed if tests fail.
 
 ---
 
-## Step 2 — Rewrite seed.js with real field names
+## Step 1 — Verify CSV loading covers all 11 tables
 
-File: `packages/database/src/seed.js`
+**Data source:** `data/init/*.csv` is the only source of truth. Do not maintain a separate hand-written seed fixture for the playground or integration tests.
 
-Read the existing seed.js first. Then rewrite it so every row uses the exact field names from `Config_Schema.js`. The minimum required rows:
+Load data via:
+- `loadSeedFromCsvUrl(baseUrl)` — browser (fetches from `/data/init`)
+- `loadSeedFromCsvDir(dirPath)` — Node.js tests (reads from `data/init/`)
 
-- `SEED_PERFILES_PRECIO`: 2 profiles (one per-pax, one time-based)
-- `SEED_CATEGORIAS`: 2 categories (one requiring pax, one requiring time)
-- `SEED_ITEM_CATALOGO`: 3 items (2 with no profile override, 1 with override)
-- `SEED_REGLAS_NEGOCIO`: 2 rules (1 ERROR, 1 WARNING, both `Scope='ITEM'`, `Etapa='RESTRICCION_UI'`)
+Verify that all 11 tables load without error and that `BROWSER_TABLES` in `databaseMachine.js` lists all of them:
 
-See `minimal_js_pseudo_code.md` for the exact field names.
+```
+Block 1 — Reference:   CLIENTES, PERFILES_PRECIO, CATEGORIAS, ITEM_CATALOGO, COMPOSICION_KIT, REGLAS_NEGOCIO
+Block 2 — Transactional: COTIZACIONES, LINEA_DETALLE, AJUSTES_COTIZACION, CACHE_COTIZACION, HISTORIAL_COTIZACION
+```
 
-Export each as a named constant: `SEED_PERFILES_PRECIO`, `SEED_CATEGORIAS`, `SEED_ITEM_CATALOGO`, `SEED_REGLAS_NEGOCIO`.
+Tables with header-only CSVs (no data rows yet) should still load without error.
+
+Export format (single named export):
+```js
+export const SEED_DATA = [
+  { table: 'PERFILES_PRECIO', records: [...] },
+  { table: 'CATEGORIAS', records: [...] },
+  { table: 'ITEM_CATALOGO', records: [...] },
+  { table: 'REGLAS_NEGOCIO', records: [...] }
+];
+```
 
 ---
 
-## Step 3 — Write seed.test.js (write test BEFORE running)
+## Step 2 — Validate CSV integration via `seed.test.js`
 
 File: `packages/database/src/seed.test.js`
 
+Tests load directly from `data/init/*.csv` using `loadSeedFromCsvDir()`. No hand-written seed fixture — the CSV files are the test data.
+
 Tests must verify:
-1. Each table's rows have the correct primary key field name
-2. Each table's rows have the required domain fields
-3. Foreign key references resolve (e.g., every `ID_Perfil_Precio_Default` in CATEGORIAS exists in PERFILES_PRECIO)
-4. At least one item has `ID_Perfil_Precio_Override: null` (inherits from category)
-5. At least one item has a non-null `ID_Perfil_Precio_Override` (override case)
+1. All 11 tables load without error
+2. FK references resolve across tables (e.g., `ITEM_CATALOGO.ID_Categoria` → `CATEGORIAS`)
+3. At least one item has `ID_Perfil_Precio_Override: null` (inherits from category)
+4. At least one item has a non-null `ID_Perfil_Precio_Override` (explicit override)
+5. `REGLAS_NEGOCIO` rows contain at least one `ERROR` and one `WARNING` rule with `Scope='ITEM'`
 
-Run tests first to confirm they fail (module exists but fields may be wrong), then fix seed.js until they pass.
+Run tests first to confirm failures if coverage is missing, then fix until all pass.
 
-Commit: `feat: rewrite seed fixtures with real schema field names`
-
----
-
-## Step 4 — Write resolveItemDefinition.test.js (write test BEFORE implementation)
-
-File: `packages/database/src/resolveItemDefinition.test.js`
-
-Tests must cover:
-1. Returns item with category joined in as `item.categoria`
-2. Returns resolved pricing profile as `item.perfil` — uses category default when item has no override
-3. Returns resolved pricing profile as `item.perfil` — uses item override when present
-4. Returns `item.reglas` as an array of active RESTRICCION_UI rules scoped to ITEM
-5. Throws a descriptive error when `itemId` is not found in the items array
-
-Run to confirm all fail (module does not exist yet).
+Commit: `feat: csv-based schema conformance and FK integrity tests`
 
 ---
 
-## Step 5 — Implement resolveItemDefinition.js
+## Step 3 — Implement edit service
 
-File: `packages/database/src/resolveItemDefinition.js`
+File: `packages/database/src/services/editService.js`
 
-Pure function. No classes, no state, no async. See `minimal_js_pseudo_code.md`.
+Implement pure write helpers over in-memory models:
+- `updateRow(table, id, patch)`
+- `addRow(table, row)`
+- `deleteRow(table, id)`
 
-Run tests. All must pass.
+Rules:
+- Return `{ ok, data, error }` for every operation
+- Do not throw from public service methods
+- Keep implementation synchronous for in-memory workflows
 
-Commit: `feat: add resolveItemDefinition() adapter with tests`
+Add tests for success + failure paths.
+
+Commit: `feat: add database edit service for playground writes`
 
 ---
 
-## Step 6 — Build the database playground
+## Step 4 — Implement validation module
+
+File: `packages/database/src/validation.js`
+
+Build per-table validation rules from `Config_Schema.js`:
+- Required fields
+- Enum/allowed-value checks
+- FK existence checks
+
+Expose:
+- `validateField(table, field, value, context)`
+- `validateRow(table, row, context)`
+
+Add tests for field-level and row-level validation behavior.
+
+Commit: `feat: add schema-derived validation for db playground`
+
+---
+
+## Step 5 — Build database playground route (table-first)
 
 Files:
 - `apps/sandbox/routes/step-I1-database/index.html`
-- Update `apps/sandbox/index.html` (add nav link)
-- Update `tools/serve-sandbox.mjs` (add route `'step-I1-database'`)
+- `apps/sandbox/index.html` (add nav link)
+- `tools/serve-sandbox.mjs` (add route `'step-I1-database'`)
 
-The playground is a simple HTML page (no Alpine needed, just vanilla JS or minimal Alpine) that:
-1. Shows a table selector dropdown (the four seed tables)
-2. Renders the selected table's rows as an HTML table with correct column headers
-3. Has an item selector dropdown that calls `resolveItemDefinition()` and shows the result as formatted JSON
-
-See `html_playground_draft.html` for the structural wireframe.
+The playground should support:
+1. Table selector for all 11 real tables (loaded from `data/init/*.csv`)
+2. Sortable headers
+3. Tag filters (category for items, action type for rules)
+4. Inline cell edit with Enter/Escape behavior
+5. Add row flow with `_new: true` pending state and cancel/remove
+6. Validation feedback on invalid edits
 
 Manual test:
 - Open `http://localhost:8090/step-I1-database/`
-- Browse each table, verify all rows and fields are visible
-- Select each item, verify the resolved definition matches expectations
+- Browse all tables and verify field names + row rendering
+- Edit invalid value and verify save is blocked with visual error
+- Add row, save valid row, and cancel pending row
+- Double-click cell to edit, confirm with Enter, cancel with Escape
 
-Commit: `feat: add database browser playground (step-I1)`
+Commit: `feat: add editable database playground (step-I1)`
 
 ---
 
 ## What NOT to do
 
-- Do not add more tables to the seed than listed — YAGNI
-- Do not add async database operations — the seed is in-memory, synchronous
-- Do not implement the full `createDatabase()` factory now — that comes later
 - Do not modify `Config_Schema.js`
+- Do not add async database writes in this step
+- Do not use `csvSeed.js` in browser-facing code (it uses Node `fs`)
+- Do not scope this step to resolver diagnostics; that work lives in `plan/III-1-resolver/`

@@ -100,6 +100,24 @@ export function createItemMachine(seed) {
               item.receiveContext(event.patch);
               return item.toDisplayObject();
             })
+          },
+          SET_PROFILE_VALUE: {
+            actions: assign(({ event }) => {
+              item.setProfileValue(event.key, event.value);
+              return item.toDisplayObject();
+            })
+          },
+          SET_DEFAULT_QUANTITY: {
+            actions: assign(({ event }) => {
+              item.setDefaultQuantity(event.key, event.value);
+              return item.toDisplayObject();
+            })
+          },
+          CLEAR_DEFAULT_QUANTITY: {
+            actions: assign(({ event }) => {
+              item.clearDefaultQuantity(event.key);
+              return item.toDisplayObject();
+            })
           }
         }
       }

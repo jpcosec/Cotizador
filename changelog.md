@@ -2,6 +2,77 @@
 
 ## [Unreleased]
 
+### 2026-03-03 (step-03b playground orchestration: factory + global context + catalog + basket)
+- Rebuilt `packages/components/item/logic/createItemMultiComponent.js` into a true playground orchestrator:
+  - factory inventory (`db` + `custom resolver`) as source definitions,
+  - shared global context broadcast via `SET_CONTEXT`,
+  - independent catalog and basket entity registries.
+- Shipping now creates **two separate runtime entities** (one catalog actor and one basket actor) from the same factory definition seed.
+- Added custom resolver modal flow to generate `ResolvedItemDefinition`-compatible custom items and ship them through the same pipeline as DB items.
+- Added rule indicator parity in both columns using actor snapshot fields (`available`, `ruleErrors`, `ruleWarnings`, `appliedRules`).
+- Hardened lifecycle management by storing actor/subscription handles outside Alpine reactive data to avoid recursive proxy stack issues.
+- Added plan document: `packages/components/item/ITEM_PLAYGROUND_IMPLEMENTATION_PLAN.md`.
+- Added Playwright acceptance coverage for `step-03b`:
+  - config: `playwright.config.mjs`,
+  - spec: `tests/e2e/step-03b.acceptance.spec.js`,
+  - scripts: `test:e2e` and `test:e2e:headed` in `package.json`.
+- Added CI workflow `.github/workflows/step-03b-e2e.yml` to run `npm run test:e2e` on pull requests and pushes to `main/master`.
+- Restored `step-03b` visual language based on `plan/I-2-item/html_playground_draft.html` item patterns:
+  - catalog uses draft-style mini cards,
+  - basket uses draft-style accordion layout with quantity/editor controls,
+  - rule state chips + alerts shown in both views.
+- Updated `apps/sandbox/routes/step-03b/index.html` and playground styles to render full-width (edge-to-edge shell).
+- UX cleanup requested after review:
+  - removed catalog hint text,
+  - removed catalog delete action,
+  - changed basket reset to icon action,
+  - hid variable-rate line for fixed-price items,
+  - replaced inline rule alerts with hover popovers on `.rules-dot` for both catalog and basket using item-owned rules (`definition.rules`) and applied-rule highlighting.
+- Rules-per-item fix:
+  - updated `packages/database/src/resolveItemDefinition.js` to avoid passing unrelated global ITEM rules when `ID_Componente` is null but `Condicion_JSON` explicitly targets another `item.id`,
+  - added test coverage in `packages/database/src/resolveItemDefinition.test.js`,
+  - made rules popover scrollable for long rule lists.
+- Updated item module docs:
+  - refreshed `packages/components/item/README.md`,
+  - expanded `packages/components/item/tests/README.md` with Playwright acceptance flows,
+  - updated `packages/components/item/STEP_03B_MULTI_VIEW_ISSUE_DIAGNOSIS.md` to reflect the orchestrated model.
+
+### 2026-03-03 (HOTFIX: step-03b multi-view Alpine initialization)
+- Fixed Alpine.js initialization failure in `step-03b` multi-view route (broken after UI split).
+- Root cause: `ItemDisplay.html` template had no queryable `x-data` element, so `createItemMultiComponent.js` couldn't initialize Alpine.
+- Solution: Wrapped template in `<div class="item-root">` and updated querySelector from `[x-data]` to `.item-root` in `createItemMultiComponent.js`.
+- Verified: Both `/step-03-item` and `/step-03b` routes now work correctly with full Alpine reactivity.
+- Updated `STEP_03B_MULTI_VIEW_ISSUE_DIAGNOSIS.md` to reflect resolution.
+
+### 2026-03-03 (I-2b item cleanup + init profiles + UI split)
+- Removed dead item artifacts: `packages/components/item/ItemComponent.js`, `packages/components/item/ItemComponent.html`, `packages/components/item/ui/RulesEditor.html`, `packages/components/item/ITEMCOMPONENT_README.md`, `packages/components/item/ITEMCOMPONENT_DESIGN.md`, and `packages/components/item/ITEMCOMPONENT_QUICK_START.md`.
+- Added `PERFILES_INICIALIZACION` to `packages/database/src/Config_Schema.js`, updated `CATEGORIAS` + `ITEM_CATALOGO` to FK-based init-profile references, and introduced `data/init/PERFILES_INICIALIZACION.csv`.
+- Migrated CSV seed shape: `data/init/CATEGORIAS.csv` now uses `ID_Perfil_Init_Default`; `data/init/ITEM_CATALOGO.csv` now uses `ID_Perfil_Init_Override`.
+- Updated seed/coercion pipeline in `packages/database/src/seed.js`, `packages/database/src/csvSeed.js`, and `packages/database/src/csvSeed.browser.js` to support init profiles.
+- Upgraded resolver to 5-way join in `packages/database/src/resolveItemDefinition.js` and refreshed resolver tests in `packages/database/src/resolveItemDefinition.test.js`.
+- Updated `Item.fromDefinition()` in `packages/components/item/Item.js` to map init defaults from `perfilInit` and expose `perfilInit` in `toDisplayObject()`.
+- Fixed context/override parsing and wired missing machine events from the standalone API in `packages/components/item/logic/createItemStandaloneComponent.js`.
+- Split item UI into `packages/components/item/ui/ItemDisplay.html` (production view) and `packages/components/item/ui/ResolverPanel.html` (sandbox panel), updated `apps/sandbox/routes/step-03-item/index.html`, and removed `packages/components/item/ui/ItemStandalone.html`.
+- (2026-03-03 followup cleanup) Removed dead `/item-playground/` route from `tools/serve-sandbox.mjs` and updated stale documentation references in `docs/README.md`, `docs/GUIDES/writing-rules.md`, `docs/ARCHITECTURE/item-component.md`, and `docs/plans/2026-03-01-item-db-integration-design.md` to reference `ItemDisplay.html` instead of deleted `ItemStandalone.html`.
+
+### 2026-03-01 (resolveItemDefinition — 4-way join for item DB integration)
+- Created `packages/database/src/resolveItemDefinition.js` — pure function that joins ITEM_CATALOGO + CATEGORIAS + PERFILES_PRECIO + REGLAS_NEGOCIO into the `ResolvedItemDefinition` contract (see `plan/III-1-resolver/field_contracts.md`).
+- Profile resolution: `item.ID_Perfil_Precio_Override ?? categoria.ID_Perfil_Precio_Default` (item wins).
+- Rules filter: `Activo=true AND Scope='ITEM' AND Etapa='RESTRICCION_UI' AND (ID_Componente IS NULL OR ID_Componente = itemId)`, sorted by `Prioridad ASC`.
+- Strips `Updated_At` from all nested objects (item, categoria, perfil, each rule row).
+- Throws descriptive errors for missing item, dangling categoria FK, or unresolvable perfil.
+- Added 19 tests in `packages/database/src/resolveItemDefinition.test.js` (happy path, rules filtering, output shape, error handling).
+- Exported from `packages/database/index.js` as `resolveItemDefinition`.
+- **Total tests: 514 passed, 1 skipped.**
+
+### 2026-03-01 (database seed — all 11 tables wired)
+- Expanded `packages/database/src/csvSeed.browser.js` `COERCE` map from 4 to all 11 schema tables (added CLIENTES, COMPOSICION_KIT, COTIZACIONES, LINEA_DETALLE, AJUSTES_COTIZACION, CACHE_COTIZACION, HISTORIAL_COTIZACION).
+- Added 6 new coerce functions in `packages/database/src/csvSeed.js` (`coerceComposicion`, `coerceCotizacion`, `coerceLinea`, `coerceAjuste`, `coerceCache`, `coerceHistorial`) and updated `LOADERS` to cover all 11 tables.
+- Expanded `BROWSER_TABLES` in `packages/database/src/machine/databaseMachine.js` from 4 to 11 tables; `allRows()` iterator auto-covers new tables.
+- `DEFAULT_TABLES = Object.keys(COERCE)` in the browser loader auto-updates from the expanded map.
+- Transactional tables (COTIZACIONES, LINEA_DETALLE, AJUSTES_COTIZACION, CACHE_COTIZACION, HISTORIAL_COTIZACION) and COMPOSICION_KIT have header-only CSVs; playground renders them with 0 rows as expected.
+- Note on REGLAS_NEGOCIO: `ID_Componente` is hardcoded `null` in the coercer — the CSV column is absent; item targeting is encoded inside `Condicion_JSON` (JSON-Logic).
+
 ### 2026-03-01 (step-I1 database full-width correction)
 - Fixed `apps/sandbox/routes/step-I1-database/index.html` so the sandbox route now renders edge-to-edge by removing horizontal body padding on `body.sandbox-page`.
 - Preserved header readability by keeping local spacing on the route title row while allowing table/content area to use full viewport width.

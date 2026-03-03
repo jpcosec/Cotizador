@@ -1,0 +1,278 @@
+<aside class="resolver-panel" x-show="resolvedDef">
+  <div class="resolver-head">
+    <h3>Resolver Panel</h3>
+    <span class="resolver-item" x-text="resolvedDef?.ID_Item"></span>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title">ITEM_CATALOGO</div>
+    <template x-for="[k, v] in Object.entries(resolvedItemFields())" :key="k">
+      <div class="resolver-row">
+        <div class="resolver-k" x-text="k"></div>
+        <div class="resolver-v" x-text="formatResolverVal(v)"></div>
+      </div>
+    </template>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title">CATEGORIAS</div>
+
+    <template x-for="k in ['ID_Categoria', 'Nombre', 'ID_Perfil_Precio_Default', 'ID_Perfil_Init_Default']" :key="k">
+      <div class="resolver-row">
+        <div class="resolver-k" x-text="k"></div>
+        <div class="resolver-v" x-text="formatResolverVal(resolvedDef?.categoria?.[k])"></div>
+      </div>
+    </template>
+
+    <template x-for="k in ['Def_Requiere_Pax', 'Def_Requiere_Cant', 'Def_Requiere_Tiempo', 'Def_Requiere_Hora']" :key="k">
+      <div class="resolver-row">
+        <div class="resolver-k" x-text="k"></div>
+        <div class="resolver-v toggle-cell">
+          <label class="toggle-wrap">
+            <input
+              type="checkbox"
+              :checked="!!resolvedDef?.categoria?.[k]"
+              @change="setCategoriaFlag(
+                k === 'Def_Requiere_Pax' ? 'requierePax' :
+                k === 'Def_Requiere_Cant' ? 'requiereCant' :
+                k === 'Def_Requiere_Tiempo' ? 'requiereTiempo' : 'requiereHora',
+                $event.target.checked
+              )"
+            >
+            <span x-text="resolvedDef?.categoria?.[k] ? 'true' : 'false'"></span>
+          </label>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title">PERFILES_PRECIO</div>
+    <template x-for="k in ['ID_Perfil_Precio', 'Nombre', 'Costo_Base_Fijo', 'Costo_Unitario_Pax', 'Costo_Unitario_Tiempo', 'Costo_Unitario_Item', 'Activo']" :key="k">
+      <div class="resolver-row">
+        <div class="resolver-k" x-text="k"></div>
+        <div class="resolver-v">
+          <template x-if="['Costo_Base_Fijo','Costo_Unitario_Pax','Costo_Unitario_Tiempo','Costo_Unitario_Item'].includes(k)">
+            <div>
+              <span
+                x-show="!isEditing('PERFILES_PRECIO', k)"
+                @click="startEditing('PERFILES_PRECIO', k)"
+                class="editable-value"
+                x-text="formatResolverVal(resolvedDef?.perfil?.[k])"
+              ></span>
+              <input
+                x-show="isEditing('PERFILES_PRECIO', k)"
+                type="number"
+                :value="resolvedDef?.perfil?.[k] ?? 0"
+                @blur="updateField('PERFILES_PRECIO', k, $event.target.value); stopEditing('PERFILES_PRECIO', k)"
+                @keydown.enter="$event.target.blur()"
+                class="edit-input"
+              >
+            </div>
+          </template>
+          <template x-if="!['Costo_Base_Fijo','Costo_Unitario_Pax','Costo_Unitario_Tiempo','Costo_Unitario_Item'].includes(k)">
+            <span x-text="formatResolverVal(resolvedDef?.perfil?.[k])"></span>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title">PERFILES_INICIALIZACION</div>
+    <template x-for="k in ['ID_Perfil_Init', 'Nombre', 'Duracion_Min', 'Unidades_Por_Pax', 'Unidades_Por_Hora', 'Minutos_Por_Usuario', 'Cantidad_Fija', 'Pax_Fijo', 'Activo']" :key="k">
+      <div class="resolver-row">
+        <div class="resolver-k" x-text="k"></div>
+        <div class="resolver-v">
+          <template x-if="['Duracion_Min','Unidades_Por_Pax','Unidades_Por_Hora','Minutos_Por_Usuario','Cantidad_Fija','Pax_Fijo'].includes(k)">
+            <div>
+              <span
+                x-show="!isEditing('PERFILES_INICIALIZACION', k)"
+                @click="startEditing('PERFILES_INICIALIZACION', k)"
+                class="editable-value"
+                x-text="formatResolverVal(resolvedDef?.perfilInit?.[k])"
+              ></span>
+              <input
+                x-show="isEditing('PERFILES_INICIALIZACION', k)"
+                type="number"
+                :value="resolvedDef?.perfilInit?.[k] ?? 0"
+                @blur="updateField('PERFILES_INICIALIZACION', k, $event.target.value); stopEditing('PERFILES_INICIALIZACION', k)"
+                @keydown.enter="$event.target.blur()"
+                class="edit-input"
+              >
+            </div>
+          </template>
+          <template x-if="!['Duracion_Min','Unidades_Por_Pax','Unidades_Por_Hora','Minutos_Por_Usuario','Cantidad_Fija','Pax_Fijo'].includes(k)">
+            <span x-text="formatResolverVal(resolvedDef?.perfilInit?.[k])"></span>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title resolver-title-row">
+      <span>REGLAS_NEGOCIO</span>
+      <button class="add-rule-btn" @click="addRule()">Add rule</button>
+    </div>
+    <template x-if="!(resolvedDef?.reglas?.length)">
+      <div class="resolver-empty">No rules for this item</div>
+    </template>
+    <template x-for="(rule, idx) in (resolvedDef?.reglas || [])" :key="rule.ID_Regla">
+      <div class="rule-card" x-data="{ expanded: false }">
+        <div class="rule-row-top">
+          <div class="rule-main">
+            <span class="rule-id" x-text="rule.ID_Regla"></span>
+            <span class="rule-name" x-text="rule.Nombre"></span>
+          </div>
+          <div class="rule-badges">
+            <span class="rule-action" x-text="rule.Tipo_Accion"></span>
+            <span class="rule-fired" x-show="state.appliedRules?.some(r => r.id === rule.ID_Regla)">FIRED</span>
+            <label class="toggle-wrap">
+              <input type="checkbox" :checked="rule.Activo === true" @change="toggleRuleActive(idx)">
+              <span x-text="rule.Activo ? 'on' : 'off'"></span>
+            </label>
+            <button class="expand-btn" @click="expanded = !expanded">JSON</button>
+          </div>
+        </div>
+        <div class="rule-details" x-show="expanded" style="display:none;">
+          <pre x-text="JSON.stringify(rule.Condicion_JSON, null, 2)"></pre>
+          <pre x-text="JSON.stringify(rule.Payload_JSON, null, 2)"></pre>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div class="resolver-section">
+    <div class="resolver-title resolver-title-row">
+      <span>State Dump</span>
+      <button class="expand-btn" @click="showStateDump = !showStateDump" x-text="showStateDump ? 'Hide' : 'Show'"></button>
+    </div>
+    <div class="state-dump" x-show="showStateDump" style="display:none;">
+      <pre x-text="JSON.stringify(state, null, 2)"></pre>
+    </div>
+  </div>
+
+  <style>
+    .resolver-panel {
+      background: linear-gradient(160deg, #0f172a 0%, #111827 55%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    .resolver-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .resolver-head h3 { margin: 0; font-size: .95rem; letter-spacing: .04em; text-transform: uppercase; color: #93c5fd; }
+    .resolver-item { font-size: .74rem; color: #cbd5e1; }
+    .resolver-section {
+      border: 1px solid rgba(148, 163, 184, .25);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      background: rgba(15, 23, 42, .55);
+    }
+    .resolver-title {
+      background: rgba(30, 41, 59, .95);
+      padding: 8px 10px;
+      font-size: .72rem;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      font-weight: 700;
+    }
+    .resolver-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .resolver-row {
+      display: grid;
+      grid-template-columns: 48% 52%;
+      border-top: 1px solid rgba(148, 163, 184, .12);
+      font-size: .73rem;
+    }
+    .resolver-k { padding: 6px 8px; color: #94a3b8; background: rgba(30, 41, 59, .45); }
+    .resolver-v { padding: 6px 8px; color: #e2e8f0; overflow-wrap: anywhere; }
+    .editable-value {
+      display: inline-block;
+      border: 1px dashed #38bdf8;
+      border-radius: 4px;
+      padding: 1px 6px;
+      cursor: pointer;
+      color: #7dd3fc;
+    }
+    .edit-input {
+      width: 100%;
+      border: 1px solid #38bdf8;
+      border-radius: 4px;
+      background: #0b1220;
+      color: #e2e8f0;
+      padding: 4px 6px;
+      font: inherit;
+    }
+    .toggle-cell { display: flex; align-items: center; }
+    .toggle-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .72rem;
+      color: #cbd5e1;
+    }
+    .add-rule-btn, .expand-btn {
+      border: 1px solid rgba(56, 189, 248, .5);
+      background: rgba(14, 116, 144, .25);
+      color: #bae6fd;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font: inherit;
+      font-size: .7rem;
+      cursor: pointer;
+    }
+    .rule-card { border-top: 1px solid rgba(148, 163, 184, .12); padding: 8px; }
+    .rule-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .rule-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .rule-id { font-size: .68rem; color: #93c5fd; }
+    .rule-name { font-size: .74rem; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rule-badges { display: flex; align-items: center; gap: 6px; }
+    .rule-action {
+      font-size: .66rem;
+      text-transform: uppercase;
+      border: 1px solid rgba(148, 163, 184, .35);
+      border-radius: 999px;
+      padding: 1px 6px;
+      color: #f8fafc;
+    }
+    .rule-fired {
+      font-size: .63rem;
+      background: #dc2626;
+      color: #fff;
+      border-radius: 999px;
+      padding: 1px 6px;
+      font-weight: 700;
+    }
+    .rule-details pre {
+      margin: 6px 0 0;
+      background: #020617;
+      color: #67e8f9;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: .68rem;
+      overflow: auto;
+    }
+    .state-dump pre {
+      margin: 0;
+      padding: 10px;
+      background: #020617;
+      color: #93c5fd;
+      font-size: .68rem;
+      max-height: 260px;
+      overflow: auto;
+    }
+    .resolver-empty { padding: 10px; color: #94a3b8; font-size: .74rem; }
+  </style>
+</aside>

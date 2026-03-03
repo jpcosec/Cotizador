@@ -42,7 +42,8 @@ Domain model and business logic documentation.
 | `packages/components/item/machine/itemMachine.js` | XState machine definition for Item |
 | `packages/components/item/domain/index.js` | Pure domain logic (pricing, quantity, formatting) |
 | `packages/components/item/domain/rulesEngine/coordinator.js` | JSON-Logic rules evaluation engine |
-| `packages/components/item/ui/ItemStandalone.html` | Item component HTML template |
+| `packages/components/item/ui/ItemDisplay.html` | Item component HTML template (production view) |
+| `packages/components/item/ui/ResolverPanel.html` | Database resolver panel (sandbox debugging) |
 | `packages/components/item/logic/createItemStandaloneComponent.js` | Item component factory and mounting |
 
 ## Test Structure

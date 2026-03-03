@@ -89,15 +89,19 @@ export class Item {
         porUnidad:  resolvedDef.perfil?.Costo_Unitario_Item   ?? 0,
       },
       defaultQuantities: {
-        duracionMin:        resolvedDef.categoria?.Def_Duracion_Min ?? 0,
-        unidadesPorUsuario: resolvedDef.Def_Unidades_Por_Pax_Override
-                         ?? resolvedDef.categoria?.Def_Unidades_Por_Pax ?? 0,
+        duracionMin:        resolvedDef.perfilInit?.Duracion_Min        ?? 0,
+        unidadesPorUsuario: resolvedDef.perfilInit?.Unidades_Por_Pax    ?? 0,
+        unidadesPorHora:    resolvedDef.perfilInit?.Unidades_Por_Hora   ?? 0,
+        minutosPorUsuario:  resolvedDef.perfilInit?.Minutos_Por_Usuario ?? 0,
+        cantidad:           resolvedDef.perfilInit?.Cantidad_Fija       ?? 0,
+        pax:                resolvedDef.perfilInit?.Pax_Fijo            ?? 0,
         requierePax:    resolvedDef.categoria?.Def_Requiere_Pax    ?? false,
         requiereCant:   resolvedDef.categoria?.Def_Requiere_Cant   ?? false,
         requiereTiempo: resolvedDef.categoria?.Def_Requiere_Tiempo ?? false,
         requiereHora:   resolvedDef.categoria?.Def_Requiere_Hora   ?? false,
       },
       rules:    resolvedDef.reglas    ?? [],
+      perfilInit: resolvedDef.perfilInit ?? null,
       perfil:   resolvedDef.perfil    ?? null,
       categoria: resolvedDef.categoria ?? null,
     };
@@ -232,7 +236,7 @@ export class Item {
     const policyHintText = policyHint(kind, initMode, defaults);
     const basketLegendText = legendForBasket(base, kind, quantity, rate, total);
     const pricingHumanText = profileHumanText(base, kind, rate);
-    const lineRateLabelText = lineRateLabel(kind);
+    const lineRateLabelText = lineRateLabel(kind, initMode);
 
     // Store all derived values
     this.#derived = {
@@ -614,8 +618,9 @@ export class Item {
       showDuracion: this.#definition.defaultQuantities?.requiereTiempo ?? false,
       showHora:     this.#definition.defaultQuantities?.requiereHora   ?? false,
       // Raw DB objects for read-only display panels
-      perfil:    this.#definition.perfil    ?? null,
-      categoria: this.#definition.categoria ?? null,
+      perfil:     this.#definition.perfil     ?? null,
+      perfilInit: this.#definition.perfilInit ?? null,
+      categoria:  this.#definition.categoria  ?? null,
     };
   }
 

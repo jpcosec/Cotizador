@@ -1,27 +1,35 @@
 # item (Step 03)
 
-Standalone item component with no database dependency.
+Item domain + state machine + sandbox playgrounds.
 
-Behavior contract:
+## Core behavior docs
 
-- `LOGIC.md` defines pricing kind, initialization modes, catalog vs basket semantics, and override rules.
-- `EXPECTED_BEHAVIOR.md` defines runtime expectations and QA checks.
+- `LOGIC.md` — pricing kind, initialization mode, catalog vs basket semantics.
+- `EXPECTED_BEHAVIOR.md` — runtime expectations and QA checks.
+- `STATE_CONTRACT.md` — public state boundary (`toDisplayObject()` contract).
 
-Architecture:
+## Current playground routes
 
-- Business logic class: `packages/pricing/src/ItemLogic.js`
-- Business seed/defaults: `packages/pricing/src/ItemLogic.js` (`defaultItemDefinition`, `createDefaultItemSeed`)
-- XState interaction adapter: `packages/xstate/src/interactions/ItemXStateInteraction.js`
-- Item machine delegates reduction/projection to the interaction adapter.
+- `/step-03-item` — single-item sandbox with resolver panel (debug/edit).
+- `/step-03b` — orchestrated playground with factory + global context + catalog + basket columns.
 
-External context modeled here:
+## Runtime architecture
 
-- schedule: `dia`, `hora`, `duracionMin`
-- quotation/global: `paxGlobal`
-- definition: `name`, `category`, `description`, `pricingProfile`, `rules`, `defaultQuantities`
+- **Domain object:** `Item.js`
+  - self-contained business object
+  - receives external context via `receiveContext()`
+  - enforces override precedence and computes display projections
+- **State machine adapter:** `machine/itemMachine.js`
+  - wraps one `Item` instance
+  - handles events (`SET_CONTEXT`, `SET_OVERRIDE`, etc.)
+- **Playground orchestrators:**
+  - `logic/createItemStandaloneComponent.js` (single actor)
+  - `logic/createItemMultiComponent.js` (multi-actor orchestration)
 
-Quantity precedence:
+## Implementation planning
 
-1. item defaults
-2. external context
-3. explicit user overrides
+- `ITEM_PLAYGROUND_IMPLEMENTATION_PLAN.md` documents the target factory->catalog+basket architecture and acceptance checks.
+
+## Historical note
+
+- `STEP_03B_MULTI_VIEW_ISSUE_DIAGNOSIS.md` records the prior multi-view initialization issue and the migration to the new orchestrated model.

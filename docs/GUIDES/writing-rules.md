@@ -269,10 +269,10 @@ If multiple rules match, all are recorded (unless a non-accumulative rule stops 
 
 ## Testing Your Rules
 
-Use the Item playground to test rules interactively before storing them in the database:
+Use the Item sandbox to test rules interactively before storing them in the database:
 
 ```
-http://localhost:8090/item-playground/
+http://localhost:8090/step-03-item/
 ```
 
 Or write a unit test:

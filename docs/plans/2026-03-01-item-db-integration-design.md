@@ -70,7 +70,7 @@ surfacing the constraint before the user adds the item.
 
 ### Phase 2: Basket State
 
-> **Implementation note:** The basket pricing logic is fully working in the current `ItemStandalone` playground (`packages/components/item/ui/ItemStandalone.html` + `createItemStandaloneComponent.js`). The `calculate()` flow, override controls, `basketLine` projection, and rule display are all live. The DB integration does **not** redesign this — it only changes the entry point from `fromSeed()` to `fromDefinition()`. Everything else stays as-is.
+> **Implementation note:** The basket pricing logic is fully working in the current Item sandbox (`packages/components/item/ui/ItemDisplay.html` + `createItemStandaloneComponent.js`). The `calculate()` flow, override controls, `basketLine` projection, and rule display are all live. The DB integration does **not** redesign this — it only changes the entry point from `fromSeed()` to `fromDefinition()`. Everything else stays as-is.
 
 **Entry:** `ADD_TO_BASKET` event → `item.setMode('basket')` → `calculate()`.
 

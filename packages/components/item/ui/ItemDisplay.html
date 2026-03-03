@@ -1,0 +1,408 @@
+<div class="item-root">
+<section class="item-display">
+  <div class="main">
+    <div>
+      <div class="zone-heading">Zone 1 - External State</div>
+      <div class="config-panel">
+        <div class="config-row">
+          <h2><i class="fa-solid fa-sliders"></i> Item Playground</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button @click="addToBasket()" x-show="state.mode === 'catalog'" class="btn-small btn-primary">
+              <i class="fa-solid fa-plus"></i> Add to Basket
+            </button>
+            <button @click="removeFromBasket()" x-show="state.mode === 'basket'" class="btn-small btn-secondary">
+              <i class="fa-solid fa-arrow-left"></i> Back to Catalog
+            </button>
+          </div>
+        </div>
+
+        <div class="config-grid">
+          <div class="form-group mb-0" style="grid-column: span 2;">
+            <label>Item</label>
+            <select :value="selectedItemId" @change="changeItem($event.target.value)">
+              <template x-for="opt in itemOptions" :key="opt.id">
+                <option :value="opt.id" :selected="opt.id === selectedItemId" x-text="opt.name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group mb-0">
+            <label>PAX Global</label>
+            <input type="number" :value="state.externalContext?.paxGlobal || 0"
+              @input="setContext('paxGlobal', $event.target.value)" min="0">
+          </div>
+          <div class="form-group mb-0">
+            <label>Hora</label>
+            <input type="time" :value="state.externalContext?.hora || '09:00'"
+              @input="setContext('hora', $event.target.value)">
+          </div>
+          <div class="form-group mb-0">
+            <label>Duracion (min)</label>
+            <input type="number" :value="state.externalContext?.duracionMin || 0"
+              @input="setContext('duracionMin', $event.target.value)" min="0" step="15">
+          </div>
+        </div>
+
+        <div class="db-info-strip" x-show="state.categoria || state.perfil">
+          <span class="db-chip" x-show="state.categoria">
+            <i class="fa-solid fa-tag"></i>
+            <span x-text="state.categoria?.Nombre"></span>
+          </span>
+          <span class="db-chip db-chip-secondary" x-show="state.perfil">
+            <i class="fa-solid fa-coins"></i>
+            <span x-text="state.perfil?.Nombre"></span>
+          </span>
+          <span class="db-chip db-chip-price" x-show="state.perfil?.Costo_Base_Fijo > 0">
+            Base: $<span x-text="Number(state.perfil?.Costo_Base_Fijo || 0).toLocaleString('es-CL')"></span>
+          </span>
+          <span class="db-chip db-chip-price" x-show="state.perfil?.Costo_Unitario_Pax > 0">
+            $<span x-text="Number(state.perfil?.Costo_Unitario_Pax || 0).toLocaleString('es-CL')"></span>/pax
+          </span>
+          <span class="db-chip db-chip-price" x-show="state.perfil?.Costo_Unitario_Item > 0">
+            $<span x-text="Number(state.perfil?.Costo_Unitario_Item || 0).toLocaleString('es-CL')"></span>/unidad
+          </span>
+          <span class="db-chip db-chip-price" x-show="state.perfil?.Costo_Unitario_Tiempo > 0">
+            $<span x-text="Number(state.perfil?.Costo_Unitario_Tiempo || 0).toLocaleString('es-CL')"></span>/min
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="zone-heading">
+        Zone 2 - Item Display
+        <span class="zone-mode-badge" x-text="state.mode"></span>
+      </div>
+
+      <template x-if="state.mode === 'catalog'">
+        <div style="max-width:520px;">
+          <div class="mini-card" @click="addToBasket()">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span class="category-badge" x-text="state.definition?.category || 'Uncategorized'"></span>
+                <span x-show="!state.available" class="unavailable-badge">No disponible</span>
+              </div>
+              <h5 x-text="state.definition?.name || 'Item'"></h5>
+              <p class="catalog-formula" x-text="state.catalogFormulaHuman || '-'"></p>
+              <p x-show="state.initPolicyHuman" class="catalog-hint" x-text="state.initPolicyHuman"></p>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <div x-show="state.definition?.rules?.length > 0" x-data="{ open: false }" class="rules-dot-wrapper"
+                @click.stop="open = !open">
+                <div class="rules-dot"
+                  :class="state.ruleErrors?.length ? 'dot-error' : state.ruleWarnings?.length ? 'dot-warn' : 'dot-ok'">
+                  <i class="fa-solid fa-xs"
+                    :class="state.ruleErrors?.length ? 'fa-xmark' : state.ruleWarnings?.length ? 'fa-exclamation' : 'fa-check'"></i>
+                </div>
+                <div class="rules-popover" x-show="open" @click.outside="open = false" style="display:none;">
+                  <div class="popover-header">Reglas (<span x-text="state.definition?.rules?.length"></span>)</div>
+                  <template x-for="rule in state.definition.rules" :key="rule.ID_Regla">
+                    <div class="popover-rule-row"
+                      :class="state.appliedRules?.some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+                      <i class="fa-solid fa-xs"
+                        :class="state.appliedRules?.some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
+                      <span x-text="rule.Nombre"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <i class="fa-solid fa-plus add-icon"></i>
+            </div>
+          </div>
+
+          <template x-if="state.ruleErrors?.length > 0">
+            <div class="rule-alerts">
+              <template x-for="e in state.ruleErrors">
+                <div class="rule-alert error"><i class="fa-solid fa-circle-xmark"></i> <span x-text="e.message"></span></div>
+              </template>
+            </div>
+          </template>
+          <template x-if="state.ruleWarnings?.length > 0">
+            <div class="rule-alerts">
+              <template x-for="w in state.ruleWarnings">
+                <div class="rule-alert warning"><i class="fa-solid fa-triangle-exclamation"></i> <span x-text="w.message"></span></div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="state.mode === 'basket'">
+        <div class="timeline-container">
+          <div class="accordion-item" x-data="{ expanded: true }">
+            <div class="accordion-header" @click="expanded = !expanded">
+              <div class="acc-time" x-show="state.showHora">
+                <input type="time" :value="state.overrides?.hora || state.externalContext?.hora || '09:00'" @click.stop
+                  @change="setOverride('hora', $event.target.value)" class="time-input-small">
+              </div>
+              <div class="acc-info">
+                <div class="acc-title" x-text="state.definition?.name || 'Item'"></div>
+                <div class="acc-subtitle">
+                  <span x-text="state.basketLegend || '-'"></span>
+                  <span x-show="!state.available" class="unavailable-badge" style="margin-left:8px;">No disponible</span>
+                </div>
+              </div>
+
+              <div x-show="state.definition?.rules?.length > 0" x-data="{ open: false }" class="rules-dot-wrapper"
+                @click.stop="open = !open">
+                <div class="rules-dot"
+                  :class="state.ruleErrors?.length ? 'dot-error' : state.ruleWarnings?.length ? 'dot-warn' : 'dot-ok'">
+                  <i class="fa-solid fa-xs"
+                    :class="state.ruleErrors?.length ? 'fa-xmark' : state.ruleWarnings?.length ? 'fa-exclamation' : 'fa-check'"></i>
+                </div>
+                <div class="rules-popover rules-popover-right" x-show="open" @click.outside="open = false"
+                  style="display:none;">
+                  <div class="popover-header">Reglas (<span x-text="state.definition?.rules?.length"></span>)</div>
+                  <template x-for="rule in state.definition.rules" :key="rule.ID_Regla">
+                    <div class="popover-rule-row"
+                      :class="state.appliedRules?.some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+                      <i class="fa-solid fa-xs"
+                        :class="state.appliedRules?.some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
+                      <span x-text="rule.Nombre"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="acc-total-pill">
+                $<span x-text="Number(state.total ?? 0).toLocaleString('es-CL')"></span>
+              </div>
+              <div class="acc-toggle">
+                <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </div>
+            </div>
+
+            <div class="accordion-body" x-show="expanded">
+              <div class="accordion-layout">
+                <div class="accordion-col-left">
+                  <div class="control-group" x-show="state.showPax || state.showPaxControl"
+                    :class="state.isUserSetPax ? 'field-user-set' : ''">
+                    <label>Pax <span x-show="state.isUserSetPax" class="manual-badge">manual</span></label>
+                    <input type="number" :value="state.quantities?.pax || 0" @change="setOverride('pax', $event.target.value)"
+                      :class="state.isUserSetPax ? 'user-set-border' : ''" min="1">
+                  </div>
+                  <div class="control-group" x-show="state.showCantidad || state.showUnitsControl"
+                    :class="state.isUserSetCantidad ? 'field-user-set' : ''">
+                    <label>Unidades <span x-show="state.isUserSetCantidad" class="manual-badge">manual</span></label>
+                    <input type="number" :value="state.quantities?.cantidad || 0"
+                      @change="setOverride('cantidad', $event.target.value)"
+                      :class="state.isUserSetCantidad ? 'user-set-border' : ''" min="0">
+                  </div>
+                  <div class="control-group" x-show="state.showTimeControl"
+                    :class="state.isUserSetDuracion ? 'field-user-set' : ''">
+                    <label>Duracion (min) <span x-show="state.isUserSetDuracion" class="manual-badge">manual</span></label>
+                    <input type="number" :value="state.quantities?.duracionMin || 0"
+                      @change="setOverride('duracionMin', $event.target.value)"
+                      :class="state.isUserSetDuracion ? 'user-set-border' : ''" min="0" step="15">
+                  </div>
+                  <button @click="resetOverrides()" class="btn-small btn-secondary" style="margin-top:4px;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                  </button>
+                  <div class="line-price-box">
+                    <div class="line-price-row">
+                      <span x-text="state.lineRateLabel || 'Rate'"></span>
+                      <strong x-text="'$' + Number(state.lineRateValue ?? 0).toLocaleString('es-CL')"></strong>
+                    </div>
+                    <div class="line-price-row" x-show="state.lineBaseValue > 0">
+                      <span>Base fija</span>
+                      <strong x-text="'$' + Number(state.lineBaseValue ?? 0).toLocaleString('es-CL')"></strong>
+                    </div>
+                    <div class="line-price-row" style="border-top:1px solid #cbd5e1;padding-top:6px;margin-top:4px;">
+                      <span>Total</span>
+                      <strong style="font-size:1.1rem;" x-text="'$' + Number(state.total ?? 0).toLocaleString('es-CL')"></strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-col-middle">
+                  <div class="form-group mb-0">
+                    <label>Comentario</label>
+                    <textarea class="line-comment-input" :value="state.overrides?.comentarios || ''"
+                      @change="setOverride('comentarios', $event.target.value)" rows="5" placeholder="Notas..."></textarea>
+                  </div>
+                </div>
+
+                <div class="accordion-col-actions">
+                  <button class="icon-action" title="Copiar al dia siguiente">
+                    <i class="fa-solid fa-forward-step"></i>
+                  </button>
+                  <button class="icon-action" title="Duplicar en este dia">
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                  <button class="icon-action danger" @click="removeFromBasket()" title="Quitar">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+
+              <template x-if="state.ruleErrors?.length > 0 || state.ruleWarnings?.length > 0">
+                <div class="rule-alerts" style="margin-top:12px;">
+                  <template x-for="e in state.ruleErrors">
+                    <div class="rule-alert error"><i class="fa-solid fa-circle-xmark"></i> <span x-text="e.message"></span>
+                    </div>
+                  </template>
+                  <template x-for="w in state.ruleWarnings">
+                    <div class="rule-alert warning"><i class="fa-solid fa-triangle-exclamation"></i>
+                      <span x-text="w.message"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    .item-display { background: #f8fafc; min-height: 100vh; }
+    .main { max-width: 900px; margin: 0 auto; padding: 20px 20px 60px; display: flex; flex-direction: column; gap: 20px; }
+    .zone-heading {
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
+      font-weight: 700; color: #94a3b8; margin-bottom: 10px;
+    }
+    .zone-mode-badge {
+      display: inline-block; margin-left: 8px;
+      background: #e0f2fe; color: #0369a1;
+      padding: 1px 8px; border-radius: 20px;
+      font-size: .7rem; font-weight: 700; text-transform: none; letter-spacing: 0;
+    }
+    .config-panel {
+      background: white; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .config-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;
+    }
+    .config-row h2 { margin: 0; color: #2d5a27; font-size: 1.1rem; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .form-group.mb-0 { margin-bottom: 0; }
+    .form-group label { font-size: .82rem; font-weight: 600; color: #64748b; }
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+      font-size: .9rem; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #0066cc; }
+    .db-info-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+    .db-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #e8f5e9; color: #2d5a27; padding: 4px 10px; border-radius: 20px;
+      font-size: .78rem; font-weight: 600;
+    }
+    .db-chip-secondary { background: #e3f2fd; color: #1565c0; }
+    .db-chip-price { background: #f3f4f6; color: #374151; font-variant-numeric: tabular-nums; }
+    .timeline-container { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+    .mini-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px; cursor: pointer; transition: all .2s;
+      border: 1px solid #e2e8f0; border-radius: 8px;
+    }
+    .mini-card:hover { border-color: #0066cc; box-shadow: 0 4px 12px rgba(0,102,204,.15); transform: translateY(-2px); }
+    .mini-card h5 { margin: 0; font-size: 1.1rem; color: #1a1a2e; font-weight: 700; }
+    .catalog-formula { margin: 6px 0 0; color: #475569; font-size: .95rem; }
+    .catalog-hint { margin: 4px 0 0; color: #94a3b8; font-size: .82rem; }
+    .add-icon { font-size: 1.8rem; color: #0066cc; flex-shrink: 0; }
+    .rules-dot-wrapper { position: relative; }
+    .rules-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: .75rem; transition: transform .15s;
+    }
+    .rules-dot:hover { transform: scale(1.15); }
+    .dot-ok { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+    .dot-warn { background: #fef9c3; color: #ca8a04; border: 1px solid #fde047; }
+    .dot-error { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+    .rules-popover {
+      position: absolute; top: 32px; left: 0; z-index: 50;
+      background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 240px; max-width: 320px;
+    }
+    .rules-popover-right { left: auto; right: 0; }
+    .popover-header {
+      padding: 8px 12px; font-size: .75rem; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #f1f5f9;
+    }
+    .popover-rule-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px; font-size: .83rem; color: #374151; border-bottom: 1px solid #f8fafc;
+    }
+    .popover-rule-row:last-child { border-bottom: none; }
+    .popover-rule-row.row-error { background: #fef2f2; color: #b91c1c; }
+    .popover-rule-row.row-warn { background: #fffbeb; color: #92400e; }
+    .rule-alerts { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .rule-alert {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border-radius: 6px; font-size: .88rem; font-weight: 500;
+    }
+    .rule-alert.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .rule-alert.warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .unavailable-badge {
+      background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 4px;
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    }
+    .accordion-item { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+    .accordion-header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+      cursor: pointer; background: #f8fafc; border-bottom: 1px solid #e2e8f0; transition: background .2s;
+    }
+    .accordion-header:hover { background: #f1f5f9; }
+    .acc-time { flex-shrink: 0; }
+    .time-input-small { padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .9rem; }
+    .acc-info { flex: 1; min-width: 0; }
+    .acc-title { font-weight: 700; color: #1a1a2e; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .acc-subtitle { font-size: .88rem; color: #64748b; margin-top: 3px; }
+    .acc-total-pill {
+      background: #2d5a27; color: white; padding: 4px 12px; border-radius: 20px;
+      font-size: .88rem; font-weight: 700; flex-shrink: 0; white-space: nowrap;
+    }
+    .acc-toggle { color: #64748b; flex-shrink: 0; }
+    .accordion-body { padding: 18px; background: white; }
+    .accordion-layout { display: grid; grid-template-columns: 190px 1fr 60px; gap: 18px; }
+    .accordion-col-left { display: flex; flex-direction: column; gap: 10px; }
+    .accordion-col-middle { display: flex; flex-direction: column; }
+    .accordion-col-actions { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+    .control-group { display: flex; flex-direction: column; gap: 3px; }
+    .control-group label { font-size: .8rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    .control-group input { padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: .9rem; }
+    .control-group.field-user-set input.user-set-border { border-color: #f97316; background: #fff7ed; }
+    .manual-badge {
+      background: #f97316; color: white; padding: 1px 5px; border-radius: 3px;
+      font-size: .65rem; font-weight: 700; letter-spacing: .5px;
+    }
+    .line-price-box { margin-top: 8px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+    .line-price-row { display: flex; justify-content: space-between; font-size: .88rem; padding: 4px 0; }
+    .line-price-row strong { color: #0066cc; font-weight: 700; }
+    .line-comment-input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; font-family: inherit; resize: vertical; width: 100%; }
+    .icon-action {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      padding: 0; border: 1px solid #cbd5e1; background: white; border-radius: 6px;
+      cursor: pointer; transition: all .2s; color: #64748b;
+    }
+    .icon-action:hover { background: #f1f5f9; }
+    .icon-action.danger { color: #d32f2f; border-color: #fecaca; }
+    .icon-action.danger:hover { background: #fef2f2; border-color: #d32f2f; }
+    .btn-small {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; font-size: .85rem; border-radius: 6px;
+      border: 1px solid #cbd5e1; background: white; cursor: pointer;
+      transition: all .2s; font-family: inherit; font-weight: 600;
+    }
+    .btn-primary { background: #2d5a27; color: white; border-color: #2d5a27; }
+    .btn-primary:hover { background: #1e3f1a; }
+    .btn-secondary { background: white; color: #64748b; }
+    .btn-secondary:hover { background: #f1f5f9; }
+    .category-badge {
+      background: #e8f5e9; color: #2d5a27; padding: 3px 8px; border-radius: 4px;
+      font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    }
+    @media (max-width: 680px) {
+      .config-grid { grid-template-columns: 1fr 1fr; }
+      .accordion-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</section>
+</div>

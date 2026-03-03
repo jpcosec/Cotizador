@@ -135,9 +135,14 @@ export function profileHumanText(base, kind, rate) {
  * @param {PricingKind} kind
  * @returns {string}
  */
-export function lineRateLabel(kind) {
+export function lineRateLabel(kind, initMode = null) {
+  // For items priced by quantity but controlled by pax, show "per Pax"
+  if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
+    return 'por Pax';
+  }
+  
   if (kind === PricingKind.PAX) return 'Pax';
   if (kind === PricingKind.UNITS) return 'Unidades';
   if (kind === PricingKind.TIME) return 'Duracion';
-  return 'Cantidad';
+  return 'Rate';
 }

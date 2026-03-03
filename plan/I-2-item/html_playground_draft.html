@@ -2,164 +2,1561 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>I-2 Item — Playground Draft</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════
+       PLAYGROUND DRAFT — I-2 Item Component
+       Sources:
+         • ItemStandalone.html (rebuild_components) — catalog card,
+           basket accordion, user-set badges, rules panel
+         • Components_Timeline.html (claps_codelab) — action buttons
+           (copy, duplicate), production accordion patterns
+         • RulesEditor.html (rebuild_components) — dark rules inspector
+       ═══════════════════════════════════════════════════════ */
+
+    :root {
+      --primary:       #2d5a27;
+      --primary-dark:  #1a3d2b;
+      --primary-light: #e8f2ec;
+      --accent:        #d97706;
+      --bg:            #f8fafc;
+      --border:        #e2e8f0;
+      --text:          #1e293b;
+      --muted:         #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f1f5f9;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .playground-shell {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .playground-nav {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .playground-nav a { color: #0066cc; text-decoration: none; font-weight: 500; }
+
+    /* ── Zone headings ───────────────────────────────────── */
+    .zone-heading {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+
+    /* ── Panel shell ─────────────────────────────────────── */
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    /* ════════════════════════════════════════════════════════
+       ZONE 1 — EXTERNAL STATE PANEL
+       Simulates what a parent (Category/Basket) pushes down.
+       A) Item definition from DB
+       B) Event context (pax, hora, duracionMin)
+       ════════════════════════════════════════════════════════ */
+
+    .zone1-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .fieldset-box {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+
+    .fieldset-legend {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .form-group:last-child { margin-bottom: 0; }
+
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 0.87rem;
+      font-family: inherit;
+      color: var(--text);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(45,90,39,0.1);
+    }
+
+    .resolved-profile {
+      margin-top: 10px;
+      padding: 10px;
+      background: var(--primary-light);
+      border-radius: 5px;
+      font-size: 0.78rem;
+      color: var(--primary-dark);
+    }
+
+    .resolved-profile strong {
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .mode-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* ════════════════════════════════════════════════════════
+       ZONE 2 — COMPONENT DISPLAY
+       Item in catalog OR basket mode (toggle via mode-controls)
+       ════════════════════════════════════════════════════════ */
+
+    /* ── Catalog card (from ItemStandalone) ──────────────── */
+    .timeline-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .mini-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .mini-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(45,90,39,0.15);
+      transform: translateY(-2px);
+    }
+
+    .mini-card h5 {
+      font-size: 1.05rem;
+      color: var(--text);
+      font-weight: 700;
+      margin: 4px 0 0;
+    }
+
+    .mini-card .add-icon {
+      font-size: 1.8rem;
+      color: var(--primary);
+      flex-shrink: 0;
+      margin-left: 20px;
+    }
+
+    .category-badge {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Basket accordion (merged patterns) ──────────────── */
+    .accordion-item {
+      background: white;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+
+    .accordion-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .accordion-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: white;
+      transition: background 0.15s;
+    }
+
+    .accordion-header:hover { background: #fafafa; }
+
+    .acc-time { flex-shrink: 0; }
+
+    .time-input-small {
+      padding: 5px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      background: #f8fafc;
+      color: var(--text);
+      width: 84px;
+    }
+
+    .acc-info { flex: 1; min-width: 0; }
+    .acc-title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+    .acc-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    /* Price pill — from claps_codelab iteration */
+    .acc-total-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 11px;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border: 1px solid #c5d9c9;
+    }
+
+    .acc-toggle { color: #cbd5e1; font-size: 0.8rem; }
+
+    /* ── Rules status indicator + popover ───────────────── */
+    .rules-indicator {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .rules-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 2px solid transparent;
+    }
+
+    .rules-dot.ok      { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+    .rules-dot.ok:hover      { background: #bbf7d0; }
+    .rules-dot.warning { background: #fef9c3; color: #ca8a04; border-color: #fde047; }
+    .rules-dot.warning:hover { background: #fde047; }
+    .rules-dot.error   { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+    .rules-dot.error:hover   { background: #fca5a5; }
+
+    .rules-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 200;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+      min-width: 200px;
+      max-width: 260px;
+      padding: 6px 0 8px;
+    }
+
+    .popover-header {
+      padding: 6px 12px 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .popover-rule-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      transition: background 0.1s;
+    }
+
+    .popover-rule-row:hover { background: #f8fafc; }
+
+    .popover-rule-row i {
+      font-size: 0.62rem;
+      flex-shrink: 0;
+      width: 10px;
+      text-align: center;
+    }
+
+    .popover-rule-row.row-ok      { color: #4ade80; }
+    .popover-rule-row.row-warning { color: #ca8a04; font-weight: 600; }
+    .popover-rule-row.row-error   { color: #dc2626; font-weight: 600; }
+
+    .accordion-body {
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .accordion-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr 44px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .accordion-col-left { display: flex; flex-direction: column; gap: 10px; }
+
+    .accordion-col-middle { min-width: 0; }
+
+    .accordion-col-actions {
+      width: 44px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Section label */
+    .body-section-label {
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: #aab5ae;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* Control groups with user-set indicator (from ItemStandalone) */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .control-group label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .control-group input {
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 0.87rem;
+      width: 100%;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .control-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(45,90,39,0.08);
+    }
+
+    /* User-set field styling (from ItemStandalone) */
+    .control-group.field-user-set input {
+      border-color: var(--accent);
+      background-color: #fff7ed;
+    }
+
+    .manual-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      line-height: 1.4;
+    }
+
+    /* Price box */
+    .line-price-box {
+      margin-top: 4px;
+      background: var(--primary-light);
+      border: 1px solid #bfdbbe;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+
+    .line-price-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      color: var(--muted);
+      padding: 2px 0;
+    }
+
+    .line-price-row strong {
+      color: var(--text);
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+
+    /* Comment textarea */
+    .line-comment-input {
+      width: 100%;
+      min-height: 100px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.84rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .line-comment-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(45,90,39,0.08);
+    }
+
+    /* Action icons (combined: delete from ItemStandalone + copy/dup from claps_codelab) */
+    .icon-action {
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      border: 1px solid #d6dee6;
+      background: white;
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      transition: all 0.15s;
+    }
+
+    .icon-action:hover {
+      background: #f1f5f9;
+      border-color: #b0bab3;
+      color: var(--text);
+    }
+
+    .icon-action.danger {
+      border-color: #fecaca;
+      color: #ef4444;
+      background: #fff5f5;
+    }
+
+    .icon-action.danger:hover {
+      background: #fee2e2;
+      border-color: #ef4444;
+    }
+
+    /* ════════════════════════════════════════════════════════
+       ZONE 3 — DEBUG PANEL
+       A) Rule results summary (errors / warnings)
+       B) Rule Inspector (dark, from RulesEditor.html)
+       C) Full state dump (toDisplayObject JSON)
+       ════════════════════════════════════════════════════════ */
+
+    /* ── Rule Results Summary ────────────────────────────── */
+    .rule-results-box {
+      padding: 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: white;
+      margin-bottom: 12px;
+    }
+
+    .rule-results-box h4 { font-size: 0.9rem; margin-bottom: 10px; }
+
+    .rule-group-error { color: #d32f2f; }
+    .rule-group-warning { color: #f57c00; }
+
+    .rule-group ul { margin: 4px 0; padding-left: 18px; }
+    .rule-group li { font-size: 0.85rem; margin: 2px 0; }
+
+    /* ── Rule Inspector (dark brutalist from RulesEditor) ── */
+    .rules-editor-container {
+      background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 100%);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      margin-bottom: 12px;
+    }
+
+    .rules-editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .rules-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #10b981;
+      letter-spacing: -0.5px;
+    }
+
+    .rules-subtitle {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
+    .btn-add-rule {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid #10b981;
+      color: #10b981;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.2s;
+    }
+
+    .btn-add-rule:hover { background: rgba(16, 185, 129, 0.2); }
+    .btn-add-rule.active { background: #10b981; color: #0f172a; }
+
+    .rule-form-panel {
+      padding: 20px 24px;
+      background: rgba(30, 41, 59, 0.5);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .rule-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 20px;
+      margin-bottom: 16px;
+    }
+
+    .rule-form-col { display: flex; flex-direction: column; gap: 12px; }
+
+    .form-label-dark {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input-dark,
+    .condition-textarea {
+      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.87rem;
+      font-family: monospace;
+      transition: all 0.2s;
+    }
+
+    .form-input-dark:not(textarea) { font-family: inherit; }
+
+    .form-input-dark:focus,
+    .condition-textarea:focus {
+      outline: none;
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .condition-textarea { resize: vertical; line-height: 1.5; }
+
+    .action-selector { display: flex; gap: 10px; }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px;
+      color: #94a3b8;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover { border-color: #94a3b8; color: #e2e8f0; }
+    .action-btn.active { border-color: #f59e0b; background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+    .form-actions-row { display: flex; gap: 10px; justify-content: flex-end; }
+
+    .btn-submit-dark {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 6px;
+      background: #10b981; color: #0f172a;
+      border: none; font-weight: 600; font-size: 0.87rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-submit-dark:hover { background: #059669; }
+
+    .btn-cancel-dark {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 6px;
+      background: transparent; color: #94a3b8;
+      border: 1px solid #94a3b8; font-weight: 600; font-size: 0.87rem; cursor: pointer;
+    }
+    .btn-cancel-dark:hover { color: #e2e8f0; border-color: #e2e8f0; }
+
+    .rules-list { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+    .rule-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .rule-card:hover {
+      border-color: rgba(16, 185, 129, 0.5);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+    }
+
+    .rule-card.inactive { opacity: 0.55; }
+
+    .rule-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px; cursor: pointer;
+      background: rgba(15, 23, 42, 0.4);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+      transition: background 0.2s;
+    }
+
+    .rule-card-header:hover { background: rgba(15, 23, 42, 0.6); }
+
+    .rule-header-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+
+    .status-indicator {
+      width: 30px; height: 30px;
+      border-radius: 6px; display: flex;
+      align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+
+    .status-indicator.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .status-indicator.warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+    .rule-name { font-size: 0.9rem; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+
+    .rule-meta { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; }
+
+    .rule-id { color: #94a3b8; font-family: monospace; }
+
+    .rule-action-badge {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 4px;
+      font-weight: 600; text-transform: uppercase;
+      font-size: 0.7rem; letter-spacing: 0.3px;
+    }
+
+    .rule-action-badge.error { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .rule-action-badge.warning { background: rgba(245,158,11,0.1); color: #f59e0b; }
+
+    .expand-toggle {
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; transition: transform 0.3s; flex-shrink: 0;
+    }
+
+    .expand-toggle.expanded { transform: rotate(180deg); }
+
+    .rule-preview {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: rgba(15, 23, 42, 0.2);
+    }
+
+    .preview-label {
+      font-size: 0.72rem; font-weight: 600;
+      color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+
+    .preview-code {
+      font-family: monospace; font-size: 0.85rem;
+      color: #10b981; flex: 1; overflow-x: auto; white-space: nowrap;
+    }
+
+    .rule-card-details {
+      padding: 14px 16px; background: rgba(15, 23, 42, 0.3);
+      border-top: 1px solid rgba(16, 185, 129, 0.1);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    .detail-label {
+      font-size: 0.75rem; font-weight: 700; color: #10b981;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+
+    .condition-humanized {
+      padding: 10px 12px;
+      background: rgba(16, 185, 129, 0.05);
+      border-left: 3px solid #10b981; border-radius: 4px;
+    }
+
+    .humanized-text { color: #cbd5e1; line-height: 1.5; font-size: 0.87rem; }
+
+    .tree-display {
+      margin: 0; padding: 10px 12px;
+      font-family: monospace; font-size: 0.8rem;
+      color: #10b981; line-height: 1.5;
+      background: rgba(15, 23, 42, 0.8);
+      max-height: 150px; overflow: auto;
+    }
+
+    .rule-metadata { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    .metadata-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 10px; background: rgba(16, 185, 129, 0.05);
+      border-radius: 4px; border-left: 2px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .meta-key { font-weight: 600; color: #94a3b8; font-size: 0.78rem; }
+    .meta-value { color: #cbd5e1; font-family: monospace; font-size: 0.78rem; }
+
+    .rule-actions-row {
+      display: flex; gap: 10px; padding-top: 10px;
+      border-top: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .btn-rule-action {
+      display: flex; align-items: center; gap: 6px; flex: 1;
+      padding: 8px 10px; border-radius: 4px; font-weight: 600;
+      font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;
+    }
+
+    .btn-rule-action:hover { background: rgba(16, 185, 129, 0.2); border-color: #10b981; }
+
+    .btn-rule-action.danger {
+      background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #ef4444;
+    }
+
+    .btn-rule-action.danger:hover { background: rgba(239,68,68,0.2); border-color: #ef4444; }
+
+    .rules-empty { text-align: center; padding: 40px 24px; color: #94a3b8; }
+    .rules-empty .empty-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.5; }
+    .rules-empty .empty-text { font-size: 1rem; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; }
+    .rules-empty .empty-hint { font-size: 0.82rem; color: #64748b; }
+
+    /* ── State Dump ──────────────────────────────────────── */
+    .state-dump {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .state-dump pre {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.5;
+      white-space: pre;
+      max-height: 300px;
+      overflow: auto;
+    }
+
+    /* ── Global buttons ──────────────────────────────────── */
+    .btn-small {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-small.btn-primary {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .btn-small.btn-primary:hover { background: var(--primary-dark); }
+    .btn-small.btn-secondary:hover { background: #f1f5f9; }
+
+    @media (max-width: 700px) {
+      .zone1-grid { grid-template-columns: 1fr; }
+      .accordion-layout { grid-template-columns: 1fr; }
+      .rule-form-grid { grid-template-columns: 1fr; }
+      .rule-metadata { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-  <h1>Step I-2: Item Component</h1>
-  <p><a href="/">← Back</a></p>
+<div class="playground-shell" x-data="itemPlayground()">
 
-  <!-- ═══════════════════════════════════════════
-       ZONE 1 — EXTERNAL STATE PANEL
-       Everything here simulates what a parent
-       container (Category, Basket) would push down.
-       Two kinds of external state:
-         A) The item definition — from DB (dropdown)
-         B) The event context — manually adjustable
-  ════════════════════════════════════════════ -->
-  <section id="external-state">
-    <h2>External State</h2>
+  <div class="playground-nav">
+    <a href="/">← Back</a> &nbsp;/&nbsp; plan / I-2-item / html_playground_draft
+  </div>
 
-    <fieldset>
-      <legend>A) Item definition (from DB)</legend>
+  <!-- ═══════════════════════════════════════════════════════
+       ZONE 1 — EXTERNAL STATE
+       A) Item definition (DB dropdown)
+       B) Event context (parent pushes down)
+  ═══════════════════════════════════════════════════════ -->
 
-      <label for="item-select">Select item:</label>
-      <select id="item-select">
-        <!-- populated from SEED_ITEM_CATALOGO -->
-        <option value="ITEM_CENA">ITEM_CENA — Cena de Gala (per-pax)</option>
-        <option value="ITEM_SONIDO">ITEM_SONIDO — Sistema de Sonido (time-based)</option>
-        <option value="ITEM_BAR">ITEM_BAR — Servicio de Bar (profile override)</option>
-      </select>
+  <div>
+    <div class="zone-heading">Zone 1 — External State</div>
+    <div class="panel">
+      <div class="zone1-grid">
 
-      <!-- Read-only: shows the resolved profile after item selection -->
-      <div id="resolved-profile-display">
-        <p><strong>Resolved profile:</strong> <span id="profile-name"></span></p>
-        <p>Base: <span id="profile-base"></span> |
-           Por pax: <span id="profile-pax"></span> |
-           Por min: <span id="profile-tiempo"></span> |
-           Por unidad: <span id="profile-item"></span></p>
+        <!-- A) Item definition -->
+        <div class="fieldset-box">
+          <div class="fieldset-legend">A) Item definition (from DB)</div>
+
+          <div class="form-group">
+            <label>Select item:</label>
+            <select x-model="selectedItemId" @change="onItemChange()">
+              <template x-for="item in catalog" :key="item.id">
+                <option :value="item.id" x-text="item.id + ' — ' + item.name"></option>
+              </template>
+            </select>
+          </div>
+
+          <div class="resolved-profile">
+            <strong>Resolved profile:</strong>
+            <span x-text="definition.profile_name || '—'"></span><br>
+            Base: <span x-text="'$' + (profile.baseFijo ?? 0).toLocaleString('es-CL')"></span> |
+            /pax: <span x-text="'$' + (profile.porPersona ?? 0).toLocaleString('es-CL')"></span> |
+            /min: <span x-text="'$' + (profile.porMinuto ?? 0).toLocaleString('es-CL')"></span> |
+            /und: <span x-text="'$' + (profile.porUnidad ?? 0).toLocaleString('es-CL')"></span>
+          </div>
+        </div>
+
+        <!-- B) Event context -->
+        <div class="fieldset-box">
+          <div class="fieldset-legend">B) Event context (parent pushes down)</div>
+
+          <div class="form-group">
+            <label>paxGlobal:</label>
+            <input type="number" x-model.number="ctx.paxGlobal" min="0" @input="recalculate()">
+          </div>
+          <div class="form-group">
+            <label>Día:</label>
+            <input type="number" x-model.number="ctx.dia" min="1">
+          </div>
+          <div class="form-group">
+            <label>Hora:</label>
+            <input type="time" x-model="ctx.hora">
+          </div>
+          <div class="form-group">
+            <label>Duración (min):</label>
+            <input type="number" x-model.number="ctx.duracionMin" min="0" step="15" @input="recalculate()">
+          </div>
+
+          <div class="mode-controls">
+            <button class="btn-small btn-primary" x-show="mode === 'catalog'" @click="addToBasket()">
+              <i class="fa-solid fa-plus"></i> Add to Basket
+            </button>
+            <button class="btn-small btn-secondary" x-show="mode === 'basket'" @click="backToCatalog()">
+              <i class="fa-solid fa-arrow-left"></i> Back to Catalog
+            </button>
+          </div>
+        </div>
+
       </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>B) Event context (what container pushes down)</legend>
-
-      <label for="pax-input">paxGlobal:</label>
-      <input type="number" id="pax-input" value="50" min="0" />
-
-      <label for="dia-input">Día:</label>
-      <input type="number" id="dia-input" value="1" min="1" />
-
-      <label for="hora-input">Hora:</label>
-      <input type="time" id="hora-input" value="09:00" />
-
-      <label for="duracion-input">Duración (min):</label>
-      <input type="number" id="duracion-input" value="120" min="0" step="15" />
-    </fieldset>
-
-    <div id="mode-controls">
-      <button id="btn-add-to-basket">Add to Basket →</button>
-      <button id="btn-back-to-catalog">← Back to Catalog</button>
     </div>
-  </section>
+  </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════
        ZONE 2 — COMPONENT DISPLAY
-       The Item component itself.
-       Shows either catalog card OR basket accordion.
-       Only one is visible at a time (mode toggle).
-  ════════════════════════════════════════════ -->
-  <section id="component-display">
-    <h2>Item Display <small>(mode: <span id="current-mode">catalog</span>)</small></h2>
+       Catalog card OR basket accordion (one visible at a time)
+  ═══════════════════════════════════════════════════════ -->
 
-    <!-- CATALOG VIEW — shown when mode = 'catalog' -->
-    <div id="catalog-view">
-      <div id="catalog-card">
-        <span id="cat-category-badge">[category name]</span>
-        <h3 id="cat-item-name">[item name]</h3>
-        <p id="cat-pricing-formula">[pricing formula: e.g. $50.000 por persona]</p>
-        <p id="cat-policy-hint">[initialization hint: e.g. 1 unidad/persona]</p>
-        <button id="cat-add-btn">+ Agregar</button>
-      </div>
+  <div>
+    <div class="zone-heading">
+      Zone 2 — Item Display
+      <span style="color: #60a5fa; text-transform: none; letter-spacing: 0; font-weight: 400;">(mode: <span x-text="mode"></span>)</span>
     </div>
 
-    <!-- BASKET VIEW — shown when mode = 'basket' -->
-    <div id="basket-view" hidden>
-      <div id="basket-accordion">
-
-        <div id="accordion-header">
-          <input type="time" id="basket-hora" />
-          <span id="basket-item-name">[item name]</span>
-          <span id="basket-total">[$ total]</span>
-          <button id="accordion-toggle">▾</button>
-        </div>
-
-        <div id="accordion-body">
-
-          <div id="quantities-col">
-            <div id="pax-control">
-              <label>Pax <span id="pax-manual-badge" hidden>[manual]</span></label>
-              <input type="number" id="basket-pax" />
-            </div>
-
-            <!-- cantidad and duracion controls:
-                 only rendered if showCantidad / showDuracion = true -->
-            <div id="cantidad-control">
-              <label>Unidades <span id="cantidad-manual-badge" hidden>[manual]</span></label>
-              <input type="number" id="basket-cantidad" />
-            </div>
-
-            <div id="duracion-control">
-              <label>Duración (min) <span id="duracion-manual-badge" hidden>[manual]</span></label>
-              <input type="number" id="basket-duracion" />
-            </div>
-
-            <div id="price-breakdown">
-              <p>Base: <span id="price-base"></span></p>
-              <p>Subtotal: <span id="price-subtotal"></span></p>
-              <p><strong>Total: <span id="price-total"></span></strong></p>
-            </div>
+    <!-- CATALOG VIEW -->
+    <template x-if="mode === 'catalog'">
+      <div style="max-width: 500px;">
+        <div class="mini-card" @click="addToBasket()">
+          <div>
+            <span class="category-badge" x-text="definition.category || 'Sin Categoría'"></span>
+            <h5 x-text="definition.name"></h5>
+            <p style="margin: 6px 0 0; color: var(--muted); font-size: 0.88rem;" x-text="formulaHuman"></p>
           </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+            <!-- Rules indicator -->
+            <div class="rules-indicator" x-data="{ open: false }" @click.stop="open = !open">
+              <div class="rules-dot" :class="ruleStatus()">
+                <i class="fa-solid" :class="ruleStatus() === 'ok' ? 'fa-check' : (ruleStatus() === 'error' ? 'fa-xmark' : 'fa-exclamation')"></i>
+              </div>
+              <div class="rules-popover" x-show="open" @click.outside="open = false" style="display:none;">
+                <div class="popover-header">Reglas (<span x-text="rules.length"></span>)</div>
+                <template x-for="rule in rules" :key="rule.id">
+                  <div class="popover-rule-row" :class="ruleRowClass(rule)">
+                    <i class="fa-solid" :class="ruleRowIcon(rule)"></i>
+                    <span x-text="rule.Nombre"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
 
-          <div id="comments-col">
-            <label>Comentario</label>
-            <textarea id="basket-comments" rows="4" placeholder="Notas..."></textarea>
+            <i class="fa-solid fa-plus add-icon"></i>
           </div>
-
-          <div id="actions-col">
-            <button id="basket-delete-btn">🗑 Eliminar</button>
-          </div>
-
         </div>
       </div>
-    </div>
+    </template>
 
-  </section>
+    <!-- BASKET VIEW -->
+    <template x-if="mode === 'basket'">
+      <div class="accordion-item" x-data="{ expanded: false }">
 
-  <!-- ═══════════════════════════════════════════
+        <div class="accordion-header" @click="expanded = !expanded">
+          <div class="acc-time">
+            <input type="time" x-model="ctx.hora" @click.stop class="time-input-small">
+          </div>
+
+          <div class="acc-info">
+            <div class="acc-title" x-text="definition.name"></div>
+            <div class="acc-subtitle" x-text="quantities.pax + ' pax'"></div>
+          </div>
+
+          <div class="acc-total-pill">
+            <span x-text="'$' + total.toLocaleString('es-CL')"></span>
+          </div>
+
+          <!-- Rules indicator -->
+          <div class="rules-indicator" x-data="{ open: false }" @click.stop="open = !open">
+            <div class="rules-dot" :class="ruleStatus()">
+              <i class="fa-solid" :class="ruleStatus() === 'ok' ? 'fa-check' : (ruleStatus() === 'error' ? 'fa-xmark' : 'fa-exclamation')"></i>
+            </div>
+            <div class="rules-popover" x-show="open" @click.outside="open = false" style="display:none;">
+              <div class="popover-header">Reglas (<span x-text="rules.length"></span>)</div>
+              <template x-for="rule in rules" :key="rule.id">
+                <div class="popover-rule-row" :class="ruleRowClass(rule)">
+                  <i class="fa-solid" :class="ruleRowIcon(rule)"></i>
+                  <span x-text="rule.Nombre"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="acc-toggle">
+            <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+          </div>
+        </div>
+
+        <div class="accordion-body" x-show="expanded">
+          <div class="accordion-layout">
+
+            <!-- Left: quantities -->
+            <div class="accordion-col-left">
+              <span class="body-section-label">Cantidades</span>
+
+              <div class="control-group" :class="userSet.pax ? 'field-user-set' : ''">
+                <label>
+                  Pax
+                  <span class="manual-badge" x-show="userSet.pax">manual</span>
+                </label>
+                <input type="number" :value="quantities.pax"
+                       @change="setOverride('pax', +$event.target.value)" min="1">
+              </div>
+
+              <div class="control-group" :class="userSet.cantidad ? 'field-user-set' : ''">
+                <label>
+                  Unidades
+                  <span class="manual-badge" x-show="userSet.cantidad">manual</span>
+                </label>
+                <input type="number" :value="quantities.cantidad"
+                       @change="setOverride('cantidad', +$event.target.value)" min="0">
+              </div>
+
+              <div class="control-group" :class="userSet.duracionMin ? 'field-user-set' : ''">
+                <label>
+                  Duración (min)
+                  <span class="manual-badge" x-show="userSet.duracionMin">manual</span>
+                </label>
+                <input type="number" :value="quantities.duracionMin"
+                       @change="setOverride('duracionMin', +$event.target.value)" min="0" step="15">
+              </div>
+
+              <div class="line-price-box">
+                <div class="line-price-row">
+                  <span>Unitario</span>
+                  <strong x-text="'$' + unitPrice.toLocaleString('es-CL')"></strong>
+                </div>
+                <div class="line-price-row">
+                  <span>Total</span>
+                  <strong x-text="'$' + total.toLocaleString('es-CL')"></strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Middle: notes -->
+            <div class="accordion-col-middle">
+              <span class="body-section-label">Notas</span>
+              <textarea class="line-comment-input"
+                        x-model="overrides.comentarios"
+                        rows="5"
+                        placeholder="Comentario de la línea…"></textarea>
+            </div>
+
+            <!-- Right: actions (delete + copy/dup from claps_codelab) -->
+            <div class="accordion-col-actions">
+              <button class="icon-action danger" @click="backToCatalog()" title="Eliminar">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              <button class="icon-action" title="Copiar al día siguiente">
+                <i class="fa-solid fa-forward-step"></i>
+              </button>
+              <button class="icon-action" title="Duplicar en este día">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
        ZONE 3 — DEBUG PANEL
-       Two sub-panels: rule results + full state dump
-  ════════════════════════════════════════════ -->
-  <section id="debug-panel">
-    <h2>Debug</h2>
+       A) Rule results summary
+       B) Visual Rule Inspector (dark)
+       C) Full toDisplayObject() dump
+  ═══════════════════════════════════════════════════════ -->
 
-    <div id="rule-results">
-      <h3>Rule Results</h3>
-      <div id="rule-errors">
-        <strong>Errors (<span id="error-count">0</span>):</strong>
-        <ul id="error-list"></ul>
+  <div>
+    <div class="zone-heading">Zone 3 — Debug</div>
+
+    <!-- A) Rule results -->
+    <div class="rule-results-box">
+      <h4>📊 Rule Results</h4>
+
+      <template x-if="ruleErrors.length > 0">
+        <div class="rule-group rule-group-error" style="margin-bottom: 8px;">
+          <strong>🚫 Errors (<span x-text="ruleErrors.length"></span>)</strong>
+          <ul>
+            <template x-for="r in ruleErrors" :key="r.id">
+              <li x-text="r.message || r.id"></li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <template x-if="ruleWarnings.length > 0">
+        <div class="rule-group rule-group-warning">
+          <strong>⚠️ Warnings (<span x-text="ruleWarnings.length"></span>)</strong>
+          <ul>
+            <template x-for="r in ruleWarnings" :key="r.id">
+              <li x-text="r.message || r.id"></li>
+            </template>
+          </ul>
+        </div>
+      </template>
+
+      <template x-if="ruleErrors.length === 0 && ruleWarnings.length === 0">
+        <p style="color: #94a3b8; font-style: italic; font-size: 0.85rem;">No rules triggered.</p>
+      </template>
+    </div>
+
+    <!-- B) Visual Rule Inspector -->
+    <div class="rules-editor-container">
+      <div class="rules-editor-header">
+        <div>
+          <div class="rules-title">⚡ Rule Inspector</div>
+          <div class="rules-subtitle">JSON-Logic conditions that control item availability</div>
+        </div>
+        <button class="btn-add-rule" :class="formExpanded && 'active'" @click="formExpanded = !formExpanded">
+          <i class="fa-solid fa-plus"></i> New Rule
+        </button>
       </div>
-      <div id="rule-warnings">
-        <strong>Warnings (<span id="warning-count">0</span>):</strong>
-        <ul id="warning-list"></ul>
+
+      <!-- Add rule form -->
+      <template x-if="formExpanded">
+        <div class="rule-form-panel">
+          <div class="rule-form-grid">
+            <div class="rule-form-col">
+              <div>
+                <div class="form-label-dark" style="margin-bottom: 6px;">Rule Name</div>
+                <input type="text" x-model="newRule.Nombre" class="form-input-dark" style="width:100%"
+                       placeholder="e.g., Max pax exceeded">
+              </div>
+              <div>
+                <div class="form-label-dark" style="margin-bottom: 6px;">Action Type</div>
+                <div class="action-selector">
+                  <button class="action-btn" :class="newRule.Tipo_Accion === 'ERROR' && 'active'"
+                          @click="newRule.Tipo_Accion = 'ERROR'">
+                    <i class="fa-solid fa-circle-xmark"></i> Block
+                  </button>
+                  <button class="action-btn" :class="newRule.Tipo_Accion === 'WARNING' && 'active'"
+                          @click="newRule.Tipo_Accion = 'WARNING'">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Warn
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="rule-form-col">
+              <div>
+                <div class="form-label-dark" style="margin-bottom: 6px;">Condition (JSON-Logic)</div>
+                <textarea x-model="newRule.Condicion_JSON" class="condition-textarea"
+                          style="width:100%" rows="4"
+                          placeholder='{ ">": [{"var":"pax"}, 100] }'></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions-row">
+            <button class="btn-submit-dark" @click="addRule()">
+              <i class="fa-solid fa-check"></i> Add Rule
+            </button>
+            <button class="btn-cancel-dark" @click="formExpanded = false">Cancel</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Rules list -->
+      <div class="rules-list">
+        <template x-if="rules.length > 0">
+          <template x-for="(rule, idx) in rules" :key="rule.id">
+            <div class="rule-card" :class="!rule.active && 'inactive'">
+              <div class="rule-card-header" @click="rule._expanded = !rule._expanded">
+                <div class="rule-header-left">
+                  <div class="status-indicator" :class="rule.Tipo_Accion.toLowerCase()">
+                    <i class="fa-solid" :class="rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'"></i>
+                  </div>
+                  <div>
+                    <div class="rule-name" x-text="rule.Nombre || 'Unnamed Rule'"></div>
+                    <div class="rule-meta">
+                      <span class="rule-id" x-text="'ID: ' + rule.id"></span>
+                      <span class="rule-action-badge" :class="rule.Tipo_Accion.toLowerCase()">
+                        <i class="fa-solid fa-circle-dot"></i>
+                        <span x-text="rule.Tipo_Accion"></span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="expand-toggle" :class="rule._expanded && 'expanded'">
+                  <i class="fa-solid fa-chevron-down"></i>
+                </div>
+              </div>
+
+              <div class="rule-preview">
+                <span class="preview-label">Condition:</span>
+                <code class="preview-code" x-text="rule.Condicion_JSON"></code>
+              </div>
+
+              <template x-if="rule._expanded">
+                <div class="rule-card-details">
+                  <div class="condition-humanized">
+                    <div class="detail-label">📖 Readable</div>
+                    <div class="humanized-text" x-text="rule._humanized || rule.Condicion_JSON"></div>
+                  </div>
+                  <div>
+                    <div class="detail-label">🌳 Logic Tree</div>
+                    <pre class="tree-display" x-text="JSON.stringify(JSON.parse(rule.Condicion_JSON), null, 2)"></pre>
+                  </div>
+                  <div class="rule-metadata">
+                    <div class="metadata-row">
+                      <span class="meta-key">Scope</span>
+                      <span class="meta-value" x-text="rule.Scope || 'ITEM'"></span>
+                    </div>
+                    <div class="metadata-row">
+                      <span class="meta-key">Priority</span>
+                      <span class="meta-value" x-text="rule.Prioridad || '—'"></span>
+                    </div>
+                    <div class="metadata-row">
+                      <span class="meta-key">Status</span>
+                      <span class="meta-value" x-text="rule.active ? 'active' : 'inactive'"></span>
+                    </div>
+                  </div>
+                  <div class="rule-actions-row">
+                    <button class="btn-rule-action" @click="rule.active = !rule.active">
+                      <i class="fa-solid" :class="rule.active ? 'fa-toggle-on' : 'fa-toggle-off'"></i>
+                      <span x-text="rule.active ? 'Active' : 'Inactive'"></span>
+                    </button>
+                    <button class="btn-rule-action danger" @click="rules.splice(idx, 1)">
+                      <i class="fa-solid fa-trash"></i> Delete
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </template>
+
+        <template x-if="rules.length === 0">
+          <div class="rules-empty">
+            <div class="empty-icon">📋</div>
+            <div class="empty-text">No rules yet</div>
+            <div class="empty-hint">Click "New Rule" to add a business rule</div>
+          </div>
+        </template>
       </div>
     </div>
 
-    <div id="state-dump">
-      <h3>toDisplayObject()</h3>
-      <pre id="state-json"></pre>
+    <!-- C) State dump -->
+    <div class="zone-heading" style="margin-top: 8px;">toDisplayObject()</div>
+    <div class="state-dump">
+      <pre x-text="JSON.stringify(toDisplayObject(), null, 2)"></pre>
     </div>
-  </section>
+  </div>
 
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────
+  // Seed data — mirrors SEED_ITEM_CATALOGO from Item.js tests
+  // ─────────────────────────────────────────────────────────
+  const CATALOG = [
+    {
+      id: 'ITEM_CENA',
+      name: 'Cena de Gala',
+      category: 'Alimentación',
+      kind: 'per-pax',
+      profile_name: 'Perfil Pax',
+      profile: { baseFijo: 0, porPersona: 45000, porMinuto: 0, porUnidad: 0 },
+      defaults: { unidadesPorUsuario: 1, unidadesPorHora: 0 },
+    },
+    {
+      id: 'ITEM_SONIDO',
+      name: 'Sistema de Sonido',
+      category: 'Equipamiento',
+      kind: 'time-based',
+      profile_name: 'Perfil Tiempo',
+      profile: { baseFijo: 50000, porPersona: 0, porMinuto: 500, porUnidad: 0 },
+      defaults: { unidadesPorUsuario: 0, unidadesPorHora: 0 },
+    },
+    {
+      id: 'ITEM_BAR',
+      name: 'Servicio de Bar',
+      category: 'Bebidas',
+      kind: 'per-pax',
+      profile_name: 'Perfil Override',
+      profile: { baseFijo: 20000, porPersona: 8000, porMinuto: 0, porUnidad: 0 },
+      defaults: { unidadesPorUsuario: 1, unidadesPorHora: 0 },
+    },
+  ];
+
+  const SEED_RULES = [
+    {
+      id: 'RULE_MAX_PAX',
+      Nombre: 'Max pax 200',
+      Tipo_Accion: 'ERROR',
+      Condicion_JSON: '{ ">": [{"var":"pax"}, 200] }',
+      _humanized: 'pax > 200',
+      Scope: 'ITEM', Prioridad: 1, active: true, _expanded: false,
+    },
+    {
+      id: 'RULE_OVERTIME',
+      Nombre: 'Inicio en horario extra (> 21:00)',
+      Tipo_Accion: 'WARNING',
+      Condicion_JSON: '{ ">": [{"var":"horaMin"}, 1260] }',
+      _humanized: 'horaMin > 1260  →  inicio después de 21:00',
+      Scope: 'ITEM', Prioridad: 2, active: true, _expanded: false,
+    },
+    {
+      id: 'RULE_PAST_MIDNIGHT',
+      Nombre: 'Termina después de medianoche',
+      Tipo_Accion: 'ERROR',
+      Condicion_JSON: '{ ">": [{"var":"horaFinMin"}, 1440] }',
+      _humanized: 'horaFinMin > 1440  →  fin pasa medianoche',
+      Scope: 'ITEM', Prioridad: 3, active: true, _expanded: false,
+    },
+  ];
+
+  // ─────────────────────────────────────────────────────────
+  // Alpine component
+  // ─────────────────────────────────────────────────────────
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('itemPlayground', () => ({
+      // State
+      catalog: CATALOG,
+      selectedItemId: 'ITEM_CENA',
+      mode: 'catalog',
+
+      // Resolved definition & profile
+      definition: {},
+      profile: {},
+
+      // External context (pushed from parent)
+      ctx: { paxGlobal: 50, dia: 1, hora: '09:00', duracionMin: 120 },
+
+      // Overrides (user sets manually)
+      overrides: { pax: null, cantidad: null, duracionMin: null, comentarios: '' },
+      userSet: { pax: false, cantidad: false, duracionMin: false },
+
+      // Calculated
+      quantities: { pax: 0, cantidad: 0, duracionMin: 0 },
+      unitPrice: 0,
+      total: 0,
+      formulaHuman: '',
+
+      // Rules
+      rules: JSON.parse(JSON.stringify(SEED_RULES)),
+      ruleErrors: [],
+      ruleWarnings: [],
+      triggeredRuleIds: [],
+      formExpanded: false,
+      newRule: { Nombre: '', Tipo_Accion: 'ERROR', Condicion_JSON: '' },
+
+      // ── Init ──────────────────────────────────────────────
+      init() {
+        this.onItemChange();
+      },
+
+      onItemChange() {
+        const item = this.catalog.find(i => i.id === this.selectedItemId);
+        this.definition = { ...item };
+        this.profile = { ...item.profile };
+        this.overrides = { pax: null, cantidad: null, duracionMin: null, comentarios: '' };
+        this.userSet = { pax: false, cantidad: false, duracionMin: false };
+        this.recalculate();
+      },
+
+      // ── Quantities resolution (mirrors Item.js logic) ─────
+      resolveQuantities() {
+        const pax = this.userSet.pax
+          ? this.overrides.pax
+          : this.ctx.paxGlobal;
+
+        const defUnitsPerUser = this.definition.defaults?.unidadesPorUsuario ?? 0;
+        const cantidad = this.userSet.cantidad
+          ? this.overrides.cantidad
+          : (defUnitsPerUser > 0 ? Math.round(pax * defUnitsPerUser) : 1);
+
+        const duracionMin = this.userSet.duracionMin
+          ? this.overrides.duracionMin
+          : this.ctx.duracionMin;
+
+        return { pax, cantidad, duracionMin };
+      },
+
+      // ── Pricing calculation (mirrors pipeline logic) ──────
+      recalculate() {
+        const q = this.resolveQuantities();
+        this.quantities = q;
+
+        const p = this.profile;
+        const unit = (p.baseFijo ?? 0)
+                   + (p.porPersona ?? 0) * q.pax
+                   + (p.porMinuto ?? 0) * q.duracionMin;
+        this.unitPrice = unit;
+        this.total = unit * q.cantidad || unit;
+
+        this.formulaHuman = this.buildFormulaHuman(p);
+        this.evaluateRules();
+      },
+
+      buildFormulaHuman(p) {
+        const parts = [];
+        if (p.baseFijo)     parts.push(`$${p.baseFijo.toLocaleString('es-CL')} base`);
+        if (p.porPersona)   parts.push(`$${p.porPersona.toLocaleString('es-CL')}/persona`);
+        if (p.porMinuto)    parts.push(`$${p.porMinuto.toLocaleString('es-CL')}/min`);
+        if (p.porUnidad)    parts.push(`$${p.porUnidad.toLocaleString('es-CL')}/unidad`);
+        return parts.join(' + ') || 'Sin precio';
+      },
+
+      // ── Override handling ─────────────────────────────────
+      setOverride(field, value) {
+        this.overrides[field] = value;
+        this.userSet[field] = true;
+        this.recalculate();
+      },
+
+      clearOverride(field) {
+        this.overrides[field] = null;
+        this.userSet[field] = false;
+        this.recalculate();
+      },
+
+      // ── Mode switching ────────────────────────────────────
+      addToBasket() {
+        this.mode = 'basket';
+        this.recalculate();
+      },
+
+      backToCatalog() {
+        this.mode = 'catalog';
+      },
+
+      // ── Event minutes (mirrors domain/time.js, inlined for standalone HTML) ─
+      eventMinutes(timeStr, boundary = 540) {
+        const m = typeof timeStr === 'string' && timeStr.match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return boundary;
+        const mins = parseInt(m[1]) * 60 + parseInt(m[2]);
+        return mins < boundary ? mins + 1440 : mins;
+      },
+
+      // ── Rule evaluation (simplified, no json-logic-js) ───
+      evaluateRules() {
+        const horaMin    = this.eventMinutes(this.ctx.hora);
+        const horaFinMin = horaMin + this.quantities.duracionMin;
+        const ctx = {
+          pax: this.quantities.pax,
+          hora: this.ctx.hora,
+          horaMin,
+          horaFinMin,
+          duracionMin: this.quantities.duracionMin,
+        };
+
+        this.ruleErrors = [];
+        this.ruleWarnings = [];
+        this.triggeredRuleIds = [];
+
+        for (const rule of this.rules) {
+          if (!rule.active) continue;
+          const triggered = this.evalCondition(rule.Condicion_JSON, ctx);
+          if (triggered) {
+            const result = { id: rule.id, message: rule.Nombre };
+            if (rule.Tipo_Accion === 'ERROR') this.ruleErrors.push(result);
+            else this.ruleWarnings.push(result);
+            this.triggeredRuleIds.push(rule.id);
+          }
+        }
+      },
+
+      ruleStatus() {
+        if (this.ruleErrors.length > 0)   return 'error';
+        if (this.ruleWarnings.length > 0) return 'warning';
+        return 'ok';
+      },
+
+      ruleRowClass(rule) {
+        if (!this.triggeredRuleIds.includes(rule.id)) return 'row-ok';
+        return rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warning';
+      },
+
+      ruleRowIcon(rule) {
+        if (!this.triggeredRuleIds.includes(rule.id)) return 'fa-check';
+        return rule.Tipo_Accion === 'ERROR' ? 'fa-xmark' : 'fa-exclamation';
+      },
+
+      evalCondition(jsonStr, ctx) {
+        try {
+          const cond = JSON.parse(jsonStr);
+          const op = Object.keys(cond)[0];
+          const [left, right] = cond[op];
+          const lv = left?.var ? ctx[left.var] : left;
+          const rv = right;
+          if (op === '>')  return lv > rv;
+          if (op === '>=') return lv >= rv;
+          if (op === '<')  return lv < rv;
+          if (op === '<=') return lv <= rv;
+          if (op === '===') return lv === rv;
+          return false;
+        } catch { return false; }
+      },
+
+      // ── Rule CRUD ─────────────────────────────────────────
+      addRule() {
+        if (!this.newRule.Nombre || !this.newRule.Condicion_JSON) return;
+        this.rules.push({
+          id: 'RULE_' + Date.now(),
+          Nombre: this.newRule.Nombre,
+          Tipo_Accion: this.newRule.Tipo_Accion,
+          Condicion_JSON: this.newRule.Condicion_JSON,
+          _humanized: this.newRule.Condicion_JSON,
+          Scope: 'ITEM', Prioridad: this.rules.length + 1,
+          active: true, _expanded: false,
+        });
+        this.newRule = { Nombre: '', Tipo_Accion: 'ERROR', Condicion_JSON: '' };
+        this.formExpanded = false;
+        this.evaluateRules();
+      },
+
+      // ── toDisplayObject (mirrors Item.toDisplayObject) ────
+      toDisplayObject() {
+        return {
+          mode:           this.mode,
+          itemId:         this.definition.id,
+          name:           this.definition.name,
+          category:       this.definition.category,
+          profile:        this.profile,
+          externalContext: this.ctx,
+          quantities:     this.quantities,
+          overrides:      this.overrides,
+          userSet:        this.userSet,
+          isUserSetPax:      this.userSet.pax,
+          isUserSetCantidad: this.userSet.cantidad,
+          isUserSetDuracion: this.userSet.duracionMin,
+          unitPrice:      this.unitPrice,
+          total:          this.total,
+          appliedRules:   [...this.ruleErrors, ...this.ruleWarnings],
+          ruleErrors:     this.ruleErrors,
+          ruleWarnings:   this.ruleWarnings,
+          available:      this.ruleErrors.length === 0,
+        };
+      },
+    }));
+  });
+</script>
 </body>
 </html>

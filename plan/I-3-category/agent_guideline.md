@@ -123,5 +123,8 @@ Commit: `feat: add Category component playground (step-I3)`
 
 - Do not embed ItemStandalone HTML inside the category playground — item cards are placeholders only
 - Do not add rule evaluation logic to Category — rules live in each Item
-- Do not add XState to Category at this stage — pure domain class only
 - Do not compute pricing inside Category — it only sums `item.total` values
+
+## XState requirement
+
+Category **must use XState** for its playground orchestration. The machine blueprint is in `plan/I-3-category/machine_blueprint.md`. Category is the first item-container; its machine pattern will be extended for Kit and Basket in later phases. The domain class (`Category.js`) stays pure — XState lives only in `createCategoryStandaloneComponent.js`.

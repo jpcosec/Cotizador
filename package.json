@@ -5,13 +5,16 @@
   "scripts": {
     "serve:sandbox": "node tools/serve-sandbox.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "json-logic-js": "^2.0.5",
     "xstate": "^5.28.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "vitest": "^4.0.18"
   }
 }
