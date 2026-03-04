@@ -4,15 +4,15 @@ import {
   createClientSelector,
   createQuotationInitializer,
   createDatabaseViewer
-} from '../modals/index.js';
+} from '../../../packages/components/quotation/modals/index.js';
 import {
   createQuotationView,
   createSidebar,
   createBasket,
   createQuotationHeader,
   createQuotationTotals
-} from '../views/index.js';
-import { createDatabase, SEED_DATA } from '/packages/database/index.js';
+} from '../../../packages/components/quotation/views/index.js';
+import { createDatabase, SEED_DATA } from '../../../packages/database/index.js';
 
 function buildDatabase() {
   return createDatabase({ adapter: 'memory', seed: SEED_DATA });
@@ -58,10 +58,10 @@ function toTableDump(models) {
  * Mount a live quotation flow demo using the new package components.
  * @param {HTMLElement|null} root
  */
-export async function mountQuotationFlow(root) {
+export async function mountQuotationPlayground(root) {
   if (!root) return;
 
-  const templatePath = '/packages/components/quotation/ui/QuotationFlowDemo.html';
+  const templatePath = '/apps/quotation/playground/QuotationFlowDemo.html';
   const html = await fetch(templatePath).then((res) => res.text());
 
   const { models } = buildDatabase();

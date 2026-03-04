@@ -19,6 +19,7 @@ import { DATA_SCHEMA } from '../Config_Schema.js';
 import { createDatabase } from '../createDatabase.js';
 import { updateRow, addRow, deleteRow } from '../services/editService.js';
 import { validateField, validateRow, isRowValid } from '../validation.js';
+import { getPrimaryKeyForTable } from '../playgroundAdapter.js';
 
 export const BROWSER_TABLES = [
   // Block 1 — Reference data
@@ -39,17 +40,11 @@ export const BROWSER_TABLES = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getPrimaryKey(tableName) {
-  const schema = DATA_SCHEMA[tableName];
-  if (!schema) return '_id';
-  const pk = schema.columns.find(c => c.type === 'PK' || c.type === 'PK/FK');
-  return pk ? pk.name : '_id';
-}
-
 function makeBlankRow(tableName) {
   const row = {};
+  const primaryKey = getPrimaryKeyForTable(tableName, DATA_SCHEMA);
   for (const col of DATA_SCHEMA[tableName]?.columns ?? []) {
-    if (col.type === 'PK') continue;
+    if (col.name === primaryKey) continue;
     row[col.name] = col.type === 'BOOLEAN' ? false : '';
   }
   return row;

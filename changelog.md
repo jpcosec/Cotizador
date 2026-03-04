@@ -2,6 +2,59 @@
 
 ## [Unreleased]
 
+### 2026-03-04 (structure split: components vs playground)
+- Moved sandbox orchestration out of component/database packages into app-level playground modules:
+  - `apps/sandbox/playground/item/mountItemPlayground.js`
+  - `apps/sandbox/playground/category/mountCategoryPlayground.js`
+  - `apps/sandbox/playground/database/mountDatabasePlayground.js`
+  - `apps/quotation/playground/mountQuotationFlow.js`
+- Moved sandbox-only HTML templates out of packages:
+  - `apps/sandbox/playground/database/DatabasePlayground.html`
+  - `apps/quotation/playground/QuotationFlowDemo.html`
+- Removed item dual playground mount files from `packages/components/item/logic/` and kept a single playground entrypoint (`mountItemPlayground`) at app level.
+- Removed counter demo components and routes (`counter-basic`, `counter-composed`, `/step-01-counter`, `/step-02-counter-composed`) per cleanup request.
+- Updated sandbox routes to import playground modules from `/apps/...` paths and updated `tools/serve-sandbox.mjs` to serve `/apps/` assets directly.
+- Updated `packages/components/quotation/index.js` to export reusable quotation parts only (no playground mount export).
+- Verified with tests: `npm test` => `48` files passed, `529` tests passed, `1` skipped.
+
+### 2026-03-04 (category uses exact shared item catalog HTML)
+- Removed duplicated category card markup from `packages/components/category/ui/CategoryStandalone.html` and replaced it with an injection placeholder.
+- Wired category playground mount (`apps/sandbox/playground/category/mountCategoryPlayground.js`) to import `catalogRuntimeHtml` from `packages/components/item/ui/playgroundItemSections.js` and inject that exact shared item catalog template into the category view at mount time.
+- Added `catalogEntries` mapping in category playground state so the shared item template can render without local HTML forks.
+- Result: category catalog rendering now uses the same item HTML source as item playground (no duplicated card template).
+
+### 2026-03-04 (database adapter dedupe for playgrounds)
+- Added shared database playground helpers in `packages/database/src/playgroundAdapter.js`:
+  - `seedToResolverDb(seed)` to map CSV seed arrays into resolver DB shape.
+  - `getPrimaryKeyForTable(tableName)` to derive PK field names from schema.
+- Updated item and category playground mounts to use `seedToResolverDb()`:
+  - `apps/sandbox/playground/item/mountItemPlayground.js`
+  - `apps/sandbox/playground/category/mountCategoryPlayground.js`
+- Updated database machine + mount to use shared PK resolution helper:
+  - `packages/database/src/machine/databaseMachine.js`
+  - `apps/sandbox/playground/database/mountDatabasePlayground.js`
+- Exported new helpers in `packages/database/index.js` and added tests in `packages/database/src/playgroundAdapter.test.js`.
+
+### 2026-03-04 (hotfix: fixed-rate labeling + Vitest/Playwright suite isolation)
+- Fixed `lineRateLabel` fallback regression in `packages/components/item/domain/formatting.js`:
+  - `PricingKind.NONE` now maps to `"Fijo"`,
+  - unknown/null/undefined kinds map to `"Cantidad"`,
+  - `UNITS + CONTEXT_PAX` keeps `"por Pax"` behavior.
+- Updated item display projections in `packages/components/item/Item.js` so fixed-only items render as a single rate row (`Fijo`) instead of splitting into separate base/rate lines.
+- Updated item UI templates in `packages/components/item/ui/ItemDisplay.html` and `packages/components/item/logic/createItemMultiComponent.js` to show the rate row only when value > 0 and use `"Fijo"` fallback label.
+- Added/updated tests in `packages/components/item/tests/formatting.test.js` and `packages/components/item/tests/Item.test.js` to cover fixed-only display behavior and `por Pax` labeling.
+- Added `vitest.config.mjs` excluding `tests/e2e/**` from unit test runs, preventing Playwright specs from being executed by Vitest (`npm test` now passes cleanly).
+
+### 2026-03-04 (category UI aligns to item-playground card HTML)
+- Updated `packages/components/category/ui/CategoryStandalone.html` to render category items with the same catalog-card visual structure used in the item playground (`mini-card runtime-card catalog-card`, hover description popover, rules dot + rules popover).
+- Updated category Alpine helpers in `packages/components/category/logic/createCategoryStandaloneComponent.js` to use shared rule status helpers (`ruleClass`, `ruleIcon`) matching item playground semantics.
+- Preserved category-specific aggregate metrics (subtotal, warnings/errors totals) while reusing item card presentation patterns.
+
+### 2026-03-04 (refactor: extract item runtime sections from playground shell)
+- Extracted item runtime markup out of `packages/components/item/logic/createItemMultiComponent.js` into new UI module `packages/components/item/ui/playgroundItemSections.js`.
+- Split catalog and basket entry sections into reusable exports (`catalogRuntimeHtml`, `basketRuntimeHtml`) and wired them back into the playground shell via imports.
+- Kept runtime behavior unchanged (all item/category tests and full test suite pass).
+
 ### 2026-03-03 (step-03b playground orchestration: factory + global context + catalog + basket)
 - Rebuilt `packages/components/item/logic/createItemMultiComponent.js` into a true playground orchestrator:
   - factory inventory (`db` + `custom resolver`) as source definitions,

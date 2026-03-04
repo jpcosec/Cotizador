@@ -102,7 +102,7 @@ All methods return `this` for chaining.
 
 ## 6. Relationship to XState machine (playground)
 
-The `Category` class is pure. XState lives in `createCategoryStandaloneComponent.js`. The machine holds the playground controls (selectedCategoryId, paxGlobal, dia, hora, selectedItemToAdd) and keeps a `Category` instance in its closure. After every mutation, it snapshots `category.toDisplayObject()` into `context.state` and Alpine renders from there.
+The `Category` class is pure. XState playground orchestration lives in `apps/sandbox/playground/category/mountCategoryPlayground.js`. The machine holds the playground controls (selectedCategoryId, paxGlobal, dia, hora, selectedItemToAdd) and keeps a `Category` instance in its closure. After every mutation, it snapshots `category.toDisplayObject()` into `context.state` and Alpine renders from there.
 
 See `plan/I-3-category/machine_blueprint.md` for the full machine design.
 

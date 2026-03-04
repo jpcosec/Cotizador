@@ -17,7 +17,7 @@ Core technical decisions and design documents for component architecture.
 ### PACKAGES/
 Per-package technical reference.
 
-- `components.md` — `packages/components/` structure (counter-basic, counter-composed, item)
+- `components.md` — `packages/components/` structure (item, quotation parts, common base/mixins)
 - `pricing.md` — `packages/pricing/` logic layer reference
 - `xstate.md` — `packages/xstate/` machine definitions and interactions
 
@@ -44,7 +44,7 @@ Domain model and business logic documentation.
 | `packages/components/item/domain/rulesEngine/coordinator.js` | JSON-Logic rules evaluation engine |
 | `packages/components/item/ui/ItemDisplay.html` | Item component HTML template (production view) |
 | `packages/components/item/ui/ResolverPanel.html` | Database resolver panel (sandbox debugging) |
-| `packages/components/item/logic/createItemStandaloneComponent.js` | Item component factory and mounting |
+| `apps/sandbox/playground/item/mountItemPlayground.js` | Item playground mounting (context wiring) |
 
 ## Test Structure
 
@@ -56,8 +56,7 @@ All tests located in `packages/components/item/tests/`:
 | `pricing.test.js` | 82 | Type conversion, kind detection, pricing enums |
 | `quantity.test.js` | 80 | Context resolution, override precedence, defaults |
 | `formatting.test.js` | 69 | Display strings, all kinds and modes |
-| `rules.test.js` | 44 | Rule evaluation, blocking, conditions |
-| **TOTAL** | **363** | 100% passing ✅ |
+| **TOTAL** | **530** | 529 passing + 1 skipped ✅ |
 
 ## Architecture Quick View
 
@@ -72,7 +71,7 @@ Component (e.g., Item)
 
 Each component:
 - Has **one XState actor** managing lifecycle and state
-- Exposes a **Factory function** for mounting (`createItemStandaloneComponent()`)
+- Is mounted by a **playground adapter** under `apps/sandbox/playground/**`
 - Uses **pure domain functions** for calculations
 - Passes context through **machine actions** to UI
 - Evaluates **rules independently** per component instance
@@ -102,10 +101,10 @@ cd packages/pricing && npm run interactive
 | Add a new rule type | `ARCHITECTURE/rules-engine-integration.md` |
 | Create a new component | `GUIDES/creating-a-component.md` |
 | Debug a failing test | `GUIDES/debugging-components.md` |
-| See rules in action | `packages/components/item/tests/rules.test.js` |
+| See rules in action | `packages/components/item/domain/rulesEngine/coordinator.test.js` |
 
 ---
 
 **Last Updated:** 2026-02-24
-**Total Tests:** 363 passing ✅
+**Total Tests:** 529 passing + 1 skipped ✅
 **Status:** Step 3 in progress (Rules & Category Profiles)

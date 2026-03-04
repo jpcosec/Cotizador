@@ -1,6 +1,6 @@
 # item (Step 03)
 
-Item domain + state machine + sandbox playgrounds.
+Item domain + state machine.
 
 ## Core behavior docs
 
@@ -22,9 +22,8 @@ Item domain + state machine + sandbox playgrounds.
 - **State machine adapter:** `machine/itemMachine.js`
   - wraps one `Item` instance
   - handles events (`SET_CONTEXT`, `SET_OVERRIDE`, etc.)
-- **Playground orchestrators:**
-  - `logic/createItemStandaloneComponent.js` (single actor)
-  - `logic/createItemMultiComponent.js` (multi-actor orchestration)
+- **Playground orchestrator:**
+  - `apps/sandbox/playground/item/mountItemPlayground.js` (factory + global context + catalog + basket)
 
 ## Implementation planning
 

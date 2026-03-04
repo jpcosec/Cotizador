@@ -140,9 +140,11 @@ export function lineRateLabel(kind, initMode = null) {
   if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
     return 'por Pax';
   }
+
+  if (kind === PricingKind.NONE) return 'Fijo';
   
   if (kind === PricingKind.PAX) return 'Pax';
   if (kind === PricingKind.UNITS) return 'Unidades';
   if (kind === PricingKind.TIME) return 'Duracion';
-  return 'Rate';
+  return 'Cantidad';
 }

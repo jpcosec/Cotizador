@@ -62,24 +62,9 @@
       <p class="empty-state">No active items in this category.</p>
     </template>
 
-    <ul class="item-list">
-      <template x-for="item in categoryState.items" :key="item.entryId">
-        <li class="item-row" :class="lineStatusClass(item)">
-          <div>
-            <p class="item-name" x-text="item.name"></p>
-            <p class="item-meta">
-              <span x-text="item.itemId"></span>
-              <span>·</span>
-              <span x-text="item.available ? 'available' : 'blocked'"></span>
-            </p>
-          </div>
-          <div class="item-metrics">
-            <span x-text="formatMoney(item.total)"></span>
-            <span class="badge" x-text="`${item.warnings}W / ${item.errors}E`"></span>
-          </div>
-        </li>
-      </template>
-    </ul>
+    <div class="item-list">
+      <!-- ITEM_CATALOG_RUNTIME -->
+    </div>
   </section>
 </section>
 
@@ -190,59 +175,236 @@
     color: #64748b;
   }
 
+  .empty {
+    margin: 4px 0;
+    color: #94a3b8;
+    font-size: 0.82rem;
+  }
+
   .item-list {
-    list-style: none;
     margin: 12px 0 0;
-    padding: 0;
     display: grid;
     gap: 8px;
   }
 
-  .item-row {
-    border: 1px solid #e2e8f0;
-    border-left-width: 5px;
-    border-radius: 10px;
-    padding: 10px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    background: #f8fafc;
+  .entity-wrap {
+    margin-bottom: 10px;
+    position: relative;
   }
 
-  .item-row.status-ok {
-    border-left-color: #16a34a;
+  .entity-wrap:hover {
+    z-index: 20;
   }
 
-  .item-row.status-warn {
+  .runtime-card {
+    border-left: 5px solid #16a34a;
+  }
+
+  .runtime-card.status-warn {
     border-left-color: #ca8a04;
   }
 
-  .item-row.status-error {
+  .runtime-card.status-error {
     border-left-color: #dc2626;
   }
 
-  .item-name {
-    margin: 0;
-    font-weight: 700;
-    color: #0f172a;
+  .mini-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px;
+    border: 1px solid #dbe5ef;
+    border-radius: 8px;
+    background: #ffffff;
+    transition: all 0.2s;
   }
 
-  .item-meta {
-    margin: 2px 0 0;
+  .mini-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .catalog-card {
+    position: relative;
+    overflow: visible;
+    z-index: 1;
+  }
+
+  .catalog-card:hover {
+    z-index: 25;
+  }
+
+  .mini-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    transform: translateY(-1px);
+  }
+
+  .category-badge {
+    background: #e2e8f0;
+    color: #1e293b;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+
+  .mini-card h5 {
+    margin: 0;
+    font-size: 1.02rem;
+    color: #1e293b;
+  }
+
+  .catalog-formula {
+    margin: 6px 0 0;
+    color: #334155;
+    font-size: 0.88rem;
+  }
+
+  .catalog-hint {
+    margin: 3px 0 0;
+    color: #475569;
     font-size: 0.8rem;
-    color: #64748b;
+  }
+
+  .glosa-popover {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: calc(100% + 6px);
+    z-index: 27;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.35);
+  }
+
+  .card-actions {
     display: flex;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 10px;
+    margin-left: 12px;
+    flex-shrink: 0;
+  }
+
+  .rules-indicator {
+    position: relative;
+    z-index: 26;
+  }
+
+  .rules-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  .dot-ok {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #bbf7d0;
+  }
+
+  .dot-warn {
+    background: #fef9c3;
+    color: #854d0e;
+    border-color: #fde047;
+  }
+
+  .dot-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
+
+  .rules-popover {
+    position: absolute;
+    top: 30px;
+    left: 0;
+    z-index: 30;
+    width: 250px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+    overflow-x: hidden;
+  }
+
+  .popover-header {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: #94a3b8;
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .popover-empty {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    padding: 10px;
+  }
+
+  .popover-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #334155;
+    padding: 8px 10px;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .popover-rule-row.row-error {
+    background: #fef2f2;
+    color: #991b1b;
+  }
+
+  .popover-rule-row.row-warn {
+    background: #fffbeb;
+    color: #92400e;
+  }
+
+  .popover-rule-row i {
+    width: 12px;
+    text-align: center;
+  }
+
+  .popover-rule-row span {
+    flex: 1;
+    min-width: 0;
   }
 
   .item-metrics {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .total-pill {
     font-weight: 700;
     color: #0f172a;
+    background: #ecfeff;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
   }
 
   .badge {
@@ -258,9 +420,19 @@
       padding: 16px;
     }
 
-    .item-row {
+    .mini-card {
       flex-direction: column;
-      align-items: flex-start;
+    }
+
+    .card-actions {
+      width: 100%;
+      justify-content: space-between;
+      margin-left: 0;
+    }
+
+    .rules-popover {
+      left: 0;
+      right: auto;
     }
   }
 </style>

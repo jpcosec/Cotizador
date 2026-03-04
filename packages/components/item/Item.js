@@ -551,7 +551,9 @@ export class Item {
       precio: this.#derived.unitDisplay,
       baseFijo: this.#derived.base,
       rateLabel: this.#derived.lineRateLabel,
-      rateValue: this.#derived.rate,
+      rateValue: this.#derived.pricingKind === PricingKind.NONE
+        ? this.#derived.base
+        : this.#derived.rate,
       rateSubtotal: this.#derived.lineRateSubtotal,
       pricingKind: this.#derived.pricingKind,
       basketLegend: this.#derived.basketLegendText,
@@ -597,9 +599,13 @@ export class Item {
       basketLegend: this.#derived.basketLegendText,
       isOverridden: this.#derived.isOverridden,
       lineRateLabel: this.#derived.lineRateLabel,
-      lineRateValue: this.#derived.rate,
+      lineRateValue: this.#derived.pricingKind === PricingKind.NONE
+        ? this.#derived.base
+        : this.#derived.rate,
       lineRateSubtotal: this.#derived.lineRateSubtotal,
-      lineBaseValue: this.#derived.base,
+      lineBaseValue: this.#derived.pricingKind === PricingKind.NONE
+        ? 0
+        : this.#derived.base,
       unitDisplay: this.#derived.unitDisplay,
       showPaxControl: this.#derived.showPaxControl,
       showUnitsControl: this.#derived.showUnitsControl,

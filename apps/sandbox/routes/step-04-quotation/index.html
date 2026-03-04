@@ -14,11 +14,11 @@
   </main>
 
   <script type="module">
-    import { mountQuotationFlow } from '/packages/components/quotation/logic/createQuotationFlowComponent.js';
+    import { mountQuotationPlayground } from '/apps/quotation/playground/mountQuotationFlow.js';
 
     window.addEventListener('DOMContentLoaded', async () => {
       const root = document.getElementById('app');
-      await mountQuotationFlow(root);
+      await mountQuotationPlayground(root);
     });
   </script>
 </body>

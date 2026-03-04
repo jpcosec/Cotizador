@@ -7,16 +7,17 @@
  * @param {HTMLElement} root - Container element
  */
 
-import { loadSeedFromCsvUrl } from '../src/csvSeed.browser.js';
-import { createDatabaseActor, BROWSER_TABLES } from '../src/machine/databaseMachine.js';
-import { DATA_SCHEMA } from '../src/Config_Schema.js';
+import { loadSeedFromCsvUrl } from '../../../../packages/database/src/csvSeed.browser.js';
+import { createDatabaseActor, BROWSER_TABLES } from '../../../../packages/database/src/machine/databaseMachine.js';
+import { DATA_SCHEMA } from '../../../../packages/database/src/Config_Schema.js';
+import { getPrimaryKeyForTable } from '../../../../packages/database/src/playgroundAdapter.js';
 
 const CSV_BASE_URL = '/data/init';
 
 export async function mountDatabasePlayground(root) {
   if (!root) return;
 
-  const templatePath = '/packages/database/ui/DatabasePlayground.html';
+  const templatePath = '/apps/sandbox/playground/database/DatabasePlayground.html';
   const html = await fetch(templatePath).then(r => r.text());
 
   const seed = await loadSeedFromCsvUrl(CSV_BASE_URL);
@@ -133,13 +134,8 @@ export async function mountDatabasePlayground(root) {
       isPendingDelete(rowId) {
         return this.ctx.deleteConfirm === rowId;
       },
-      getPrimaryKey(tableName) {
-        const schema = DATA_SCHEMA[tableName];
-        const pk = schema?.columns.find(c => c.type === 'PK' || c.type === 'PK/FK');
-        return pk ? pk.name : '_id';
-      },
       rowId(row) {
-        const pkField = this.getPrimaryKey(this.ctx.activeTable);
+        const pkField = getPrimaryKeyForTable(this.ctx.activeTable, DATA_SCHEMA);
         return row[pkField];
       },
       formatCell(value) {

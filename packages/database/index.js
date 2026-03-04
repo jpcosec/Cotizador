@@ -10,3 +10,4 @@ export { updateRow, addRow, deleteRow } from './src/services/editService.js';
 export { validateField, validateRow, isRowValid } from './src/validation.js';
 export { createDatabaseActor, BROWSER_TABLES } from './src/machine/databaseMachine.js';
 export { resolveItemDefinition } from './src/resolveItemDefinition.js';
+export { seedToResolverDb, getPrimaryKeyForTable } from './src/playgroundAdapter.js';

@@ -35,11 +35,11 @@
   </main>
 
   <script type="module">
-    import { mountCategoryStandalone } from '/packages/components/category/logic/createCategoryStandaloneComponent.js';
+    import { mountCategoryPlayground } from '/apps/sandbox/playground/category/mountCategoryPlayground.js';
 
     window.addEventListener('DOMContentLoaded', async () => {
       const root = document.getElementById('app');
-      await mountCategoryStandalone(root);
+      await mountCategoryPlayground(root);
     });
   </script>
 </body>

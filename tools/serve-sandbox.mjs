@@ -61,18 +61,6 @@ function resolveTarget(reqPath) {
     return path.join(sandboxDir, 'index.html');
   }
 
-  if (reqPath === '/step-01-counter' || reqPath === '/step-01-counter/') {
-    return path.join(routesDir, 'step-01-counter', 'index.html');
-  }
-
-  if (reqPath === '/step-02-counter-composed' || reqPath === '/step-02-counter-composed/') {
-    return path.join(routesDir, 'step-02-counter-composed', 'index.html');
-  }
-
-  if (reqPath === '/step-03-item' || reqPath === '/step-03-item/') {
-    return path.join(routesDir, 'step-03-item', 'index.html');
-  }
-
   if (reqPath === '/step-03b' || reqPath === '/step-03b/') {
     return path.join(routesDir, 'step-03b', 'index.html');
   }
@@ -94,6 +82,10 @@ function resolveTarget(reqPath) {
   }
 
   if (reqPath.startsWith('/packages/')) {
+    return safeJoin(rootDir, reqPath.slice(1));
+  }
+
+  if (reqPath.startsWith('/apps/')) {
     return safeJoin(rootDir, reqPath.slice(1));
   }
 
@@ -145,9 +137,6 @@ const server = http.createServer((req, res) => {
 server.listen(port, () => {
   console.log(`Sandbox server: http://localhost:${port}`);
   console.log('Routes:');
-  console.log('  /step-01-counter');
-  console.log('  /step-02-counter-composed');
-  console.log('  /step-03-item');
   console.log('  /step-03b (multi-item view)');
   console.log('  /step-I1-database');
   console.log('  /step-I3-category-01');

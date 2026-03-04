@@ -842,6 +842,33 @@ describe('Item', () => {
         expect(display.schedule).toBeDefined();
       });
 
+      it('should expose fixed-only pricing as a single "Fijo" rate line', () => {
+        const fixedSeed = {
+          ...createDefaultItemSeed(),
+          definition: {
+            ...defaultItemDefinition,
+            pricingProfile: {
+              baseFijo: 1500,
+              porPersona: 0,
+              porUnidad: 0,
+              porMinuto: 0
+            },
+            defaultQuantities: {
+              unidadesPorUsuario: 0,
+              unidadesPorHora: 0,
+              minutosPorUsuario: 0
+            }
+          }
+        };
+
+        const display = Item.fromSeed(fixedSeed).toDisplayObject();
+
+        expect(display.pricingKind).toBe(PricingKind.NONE);
+        expect(display.lineRateLabel).toBe('Fijo');
+        expect(display.lineRateValue).toBe(1500);
+        expect(display.lineBaseValue).toBe(0);
+      });
+
       it('should include user-set tracking fields', () => {
         const item = Item.fromSeed(defaultSeed);
         item.setOverride('cantidad', 100);

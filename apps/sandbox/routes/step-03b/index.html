@@ -35,11 +35,11 @@
   </main>
 
   <script type="module">
-    import { mountItemMulti } from '/packages/components/item/logic/createItemMultiComponent.js';
+    import { mountItemPlayground } from '/apps/sandbox/playground/item/mountItemPlayground.js';
 
     window.addEventListener('DOMContentLoaded', async () => {
       const root = document.getElementById('app');
-      await mountItemMulti(root);
+      await mountItemPlayground(root);
     });
   </script>
 </body>

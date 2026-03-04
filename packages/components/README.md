@@ -1,14 +1,17 @@
 # Components
 
-Each component follows this structure:
+Each component keeps reusable code only:
 
 - `machine/`
 - `ui/`
-- `logic/`
+- `domain/` (when needed)
 - `tests/`
 
-Current component:
+Playground mounting/context wiring lives in `apps/sandbox/playground/**`.
 
-- `counter-basic` (Step 01)
-- `counter-composed` (Step 02)
-- `item` (Step 03)
+Current component packages:
+
+- `item` (item domain + machine + UI)
+- `category` (category machine + UI)
+- `quotation` (reusable views/modals)
+- `common` (shared base + mixins)

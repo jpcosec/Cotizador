@@ -380,8 +380,12 @@ describe('lineRateLabel', () => {
     expect(lineRateLabel(PricingKind.TIME)).toBe('Duracion');
   });
 
-  it('should return "Cantidad" for NONE kind', () => {
-    expect(lineRateLabel(PricingKind.NONE)).toBe('Cantidad');
+  it('should return "Fijo" for NONE kind', () => {
+    expect(lineRateLabel(PricingKind.NONE)).toBe('Fijo');
+  });
+
+  it('should return "por Pax" for UNITS with CONTEXT_PAX init mode', () => {
+    expect(lineRateLabel(PricingKind.UNITS, InitializationMode.CONTEXT_PAX)).toBe('por Pax');
   });
 
   it('should return "Cantidad" for unknown kind', () => {

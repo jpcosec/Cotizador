@@ -198,8 +198,8 @@
                     <i class="fa-solid fa-rotate-left"></i> Reset
                   </button>
                   <div class="line-price-box">
-                    <div class="line-price-row">
-                      <span x-text="state.lineRateLabel || 'Rate'"></span>
+                    <div class="line-price-row" x-show="Number(state.lineRateValue || 0) > 0">
+                      <span x-text="state.lineRateLabel || 'Fijo'"></span>
                       <strong x-text="'$' + Number(state.lineRateValue ?? 0).toLocaleString('es-CL')"></strong>
                     </div>
                     <div class="line-price-row" x-show="state.lineBaseValue > 0">
