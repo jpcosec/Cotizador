@@ -101,14 +101,14 @@ function buildCategoryState(db, categoryId, runtimeEntries, loadErrors = []) {
   };
 }
 
-function createEntryRuntime(db, itemRow, globalContext, onSnapshot) {
+function createEntryRuntime(db, itemRow, globalContext, onSnapshot, createItemActorImpl) {
   const resolvedDef = resolveItemDefinition(itemRow.ID_Item, db);
   const seed = Item.fromDefinition(resolvedDef, {
     externalContext: { ...globalContext },
   }).toSeed();
   seed.mode = 'catalog';
 
-  const actor = createItemActor(seed);
+  const actor = createItemActorImpl(seed);
   const entry = {
     entryId: createEntryId(),
     itemId: resolvedDef.ID_Item,
@@ -142,6 +142,7 @@ export function createCategoryActor({
   db,
   initialCategoryId = null,
   initialContext = {},
+  createItemActorImpl = createItemActor,
 } = {}) {
   if (!db) {
     throw new Error('createCategoryActor: db is required');
@@ -164,7 +165,7 @@ export function createCategoryActor({
 
     for (const row of itemRows) {
       try {
-        const entry = createEntryRuntime(db, row, context, notifySnapshotUpdate);
+        const entry = createEntryRuntime(db, row, context, notifySnapshotUpdate, createItemActorImpl);
         runtimeEntries.set(entry.entryId, entry);
       } catch (error) {
         loadErrors.push({

@@ -27,13 +27,17 @@ Aggregation levels:
 
 All mutations stay entry-targeted (`entryId`).
 
+Reuse constraint:
+
+- Day partition logic stays in container orchestration only; item/database adapters remain shared and unchanged.
+
 ## Objectives
 
-- [ ] Support day selection and per-day entry views.
-- [ ] Add entries to selected day.
-- [ ] Remove entries from selected day.
-- [ ] Move entries between days.
-- [ ] Keep day and global totals consistent.
+- [x] Support day selection and per-day entry views.
+- [x] Add entries to selected day.
+- [x] Remove entries from selected day.
+- [x] Move entries between days.
+- [x] Keep day and global totals consistent.
 
 ## Detailed Subagent Instructions
 

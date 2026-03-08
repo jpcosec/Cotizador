@@ -30,13 +30,17 @@ Shipping contract:
 
 Mutations target `entryId` only.
 
+Reuse constraint:
+
+- Basket wiring must call shared item runtime/machine contracts; no duplicated pricing/rules logic and no local DB-shape forks.
+
 ## Objectives
 
-- [ ] Add shipping flow from category/catalog to basket.
-- [ ] Support duplicate same-item entries with independent states.
-- [ ] Support remove by `entryId`.
-- [ ] Support per-entry override/clear/reset.
-- [ ] Aggregate basket subtotal and rule status from basket entries.
+- [x] Add shipping flow from category/catalog to basket.
+- [x] Support duplicate same-item entries with independent states.
+- [x] Support remove by `entryId`.
+- [x] Support per-entry override/clear/reset.
+- [x] Aggregate basket subtotal and rule status from basket entries.
 
 ## Detailed Subagent Instructions
 

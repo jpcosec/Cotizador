@@ -1,0 +1,50 @@
+<script>
+(function() {
+  const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isLocalhost) return;
+  if (window.google && window.google.script && window.google.script.run) return;
+
+  function makeCaller() {
+    let successHandler = null;
+    let failureHandler = null;
+
+    const caller = {
+      withSuccessHandler(handler) {
+        successHandler = handler;
+        return caller;
+      },
+      withFailureHandler(handler) {
+        failureHandler = handler;
+        return caller;
+      },
+      healthcheck() {
+        setTimeout(() => {
+          if (successHandler) {
+            successHandler({ ok: true, runtime: 'local-shim' });
+          }
+        }, 0);
+      },
+    };
+
+    return new Proxy(caller, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        return function() {
+          setTimeout(() => {
+            if (failureHandler) {
+              failureHandler({ message: `Method not implemented in local shim: ${String(prop)}` });
+            }
+          }, 0);
+          return caller;
+        };
+      },
+    });
+  }
+
+  window.google = {
+    script: {
+      run: makeCaller(),
+    },
+  };
+})();
+</script>

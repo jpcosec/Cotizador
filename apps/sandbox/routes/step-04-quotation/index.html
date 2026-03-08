@@ -4,11 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Step 04 Quotation Flow</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="/packages/components/common/styles/claps-global.css" />
+  <script src="/node_modules/json-logic-js/logic.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "xstate": "/node_modules/xstate/dist/xstate.esm.js",
+      "json-logic-js": "/packages/components/item/domain/rulesEngine/json-logic-esm.js"
+    }
+  }
+  </script>
 </head>
 <body class="sandbox-page">
-  <main class="sandbox-shell" style="max-width: 980px;">
+  <main class="sandbox-shell" style="max-width: none; width: 100%;">
     <p><a class="btn btn-small btn-secondary" href="/">Back</a></p>
     <main id="app">Loading quotation flow...</main>
   </main>

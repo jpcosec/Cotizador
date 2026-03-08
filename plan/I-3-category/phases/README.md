@@ -12,12 +12,27 @@ Execution order is strict. Do not start a phase before the previous phase is com
 4. `04_basket_by_days.md` - day partition over basket
 5. `05_full_planned_ui_integration.md` - full planned HTML integration
 
+## Current Status
+
+- Step 01: complete
+- Step 02: complete
+- Step 03: complete
+- Step 04: complete
+- Step 05: pending
+
 ## Shared Constraints
 
 - Keep `claps_codelab_rebuild_components/` as source of truth.
 - Keep `claps_codelab/` as reference-only.
 - Do not move pricing or rules logic out of `Item` runtime.
 - Keep Alpine as display and event-dispatch layer.
+- Keep reusable code in packages, and playground context wiring in apps:
+  - reusable component/domain/machine code in `packages/components/**`
+  - reusable database adapters and store logic in `packages/database/**`
+  - playground mounts/context wiring in `apps/sandbox/playground/**` and `apps/quotation/playground/**`
+- Avoid duplication in playground wiring:
+  - use `seedToResolverDb()` from `packages/database/src/playgroundAdapter.js`
+  - use shared item HTML sections from `packages/components/item/ui/playgroundItemSections.js`
 - Preserve identity split everywhere:
   - `itemId` = definition identity
   - `entryId` = runtime instance identity

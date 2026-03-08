@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "npm run build:bundle && npm run build:gas",
+    "build:bundle": "node tools/generate_local_init_tables.mjs && rollup -c rollup.config.mjs",
+    "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
+    "serve:gas": "node tools/serve-gas.mjs",
+    "dev:gas": "npm run build && npm run serve:gas",
     "serve:sandbox": "node tools/serve-sandbox.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -14,7 +19,10 @@
     "xstate": "^5.28.0"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@playwright/test": "^1.55.0",
+    "rollup": "^4.34.0",
     "vitest": "^4.0.18"
   }
 }

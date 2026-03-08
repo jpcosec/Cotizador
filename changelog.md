@@ -2,6 +2,115 @@
 
 ## [Unreleased]
 
+### 2026-03-08 (build: GAS bundling pipeline)
+- Added full bundling pipeline scripts in `package.json`: `build`, `build:bundle`, `build:gas`, `serve:gas`, and `dev:gas`.
+- Added Rollup IIFE build for browser/GAS runtime in `rollup.config.mjs` and new bundling entrypoints:
+  - `bundling/entry.js`
+  - `bundling/createQuotationRuntime.js`
+  - `bundling/createQuotationFlowComponent.js`
+- Added build tooling for GAS artifacts:
+  - `tools/generate_local_init_tables.mjs`
+  - `tools/reset_gas_workspace.mjs`
+  - `tools/generate_gas_runtime_bundle.mjs`
+  - `tools/generate_gas_code.mjs`
+  - `tools/serve-gas.mjs`
+- Added GAS source templates and manifest under `apps/gas/` and wired quotation template generation from `apps/quotation/playground/QuotationFlowInternal.html` with injected shared runtime sections.
+- Added deployment documentation: `docs/DEPLOYMENT/gas-bundling.md`.
+
+### 2026-03-07 (docs: actor ownership drift diagnostics)
+- Added `docs/ARCHITECTURE/actor-ownership-drift-diagnostics.md` documenting the architecture drift between the intended actor-owned class pattern and current split/factory implementations.
+- Included evidence timeline, probable causes, impact analysis, and a staged convergence plan to migrate back to actor-owned component classes with compatibility wrappers.
+
+### 2026-03-07 (docs: mixins style-drift assessment)
+- Added `docs/ARCHITECTURE/mixins-style-drift-assessment.md` with a full diagnosis of the mixin strategy gap, its relationship to style drift, target mixin/base mapping per component role, and per-component drift scoring against an ideal mixin-integrated architecture.
+
+### 2026-03-07 (docs: ideal mixin migration idea)
+- Added `docs/ARCHITECTURE/mixin-arch/05_ideal_mixin_migration_idea.md` outlining a class-tree migration plan centered on a new `ComponentBase`, scenario/context ownership, and an `AppFlow` layer.
+- Included phased effort estimates (fast path and full alignment), reuse strategy for existing common mixins/base classes, and risk controls for incremental migration.
+
+### 2026-03-07 (docs: app flow state vs screen foundation)
+- Added `docs/ARCHITECTURE/app-flow-state-screen-foundation.md` to formalize the distinction between screen, state, and event/action for quotation flow design.
+- Captured the agreed node classification, baseline navigation flow, and initial AppFlow state set to guide upcoming per-screen detailing.
+
+### 2026-03-07 (docs: app flow screen-by-screen spec)
+- Added `docs/ARCHITECTURE/app-flow-screen-by-screen-spec.md` with full per-screen wireframes, state mapping, event contracts, guards, and transition matrix for the quotation flow.
+- Consolidated the agreed navigation (`Entry -> DB/New/Load`, `New -> Select/New Client -> Quotation`, `Quotation -> Save/Validate`, `Validate -> Print -> Save`) into implementation-ready state definitions.
+
+### 2026-03-04 (step-04 rebuild: full quotation internal flow, no persistence)
+- Added implementation plan doc `docs/plans/2026-03-04-quotation-internal-rebuild-plan.md` for urgent reconstruction scope (client + internal behavior now, save/load/PDF deferred).
+- Replaced quotation playground wiring with a runtime coordinator that composes catalog and basket actors:
+  - `apps/quotation/state/createQuotationInternalRuntime.js`
+  - `apps/quotation/playground/mountQuotationFlow.js`
+- Added full quotation internal UI template with legacy behavior-first layout:
+  - `apps/quotation/playground/QuotationFlowInternal.html`
+  - includes browse/client stage, basket stage (catalog + day tabs + line editor), validation preview stage, and client selector modal.
+- Simplified quotation basket UI controls per flow constraints:
+  - removed redundant entry transfer section,
+  - removed global/base hour input from header controls (hour remains item-level override only).
+- Improved quotation UI sizing and controller placement:
+  - moved global controllers (start date, days, pax global, copy day, validate) into the left sidebar,
+  - reduced typography and control sizing in quotation shell for denser, legacy-aligned readability.
+- Grouped client + quotation settings into a collapsible `global context` box in the sidebar; collapsed header now shows only selected client name and expander.
+- Adjusted sidebar layout behavior to prevent clipping: settings stack vertically, sidebar uses internal scroll, and two-column workspace is preserved until narrower breakpoints so the left area remains a real sidebar.
+- Imported I-3 draft visual language into Step-04 quotation flow: DM Sans/DM Mono typography, shared color tokens, denser catalog/timeline styling, and timeline header/hints.
+- Added draft-inspired drag behavior for catalog shipping: catalog cards are draggable and can be dropped into selected day timeline or specific day tabs.
+- Updated step-04 sandbox route imports for XState + json-logic runtime compatibility:
+  - `apps/sandbox/routes/step-04-quotation/index.html`.
+- Extended shared item playground sections for quotation interactions:
+  - catalog cards can ship entries via optional `shipCatalogEntry` handler,
+  - basket cards call optional `copyBasketEntry` / `duplicateBasketEntry` handlers.
+
+### 2026-03-04 (docs: legacy external quotation UI blueprint)
+- Added `docs/plans/2026-03-04-legacy-quotation-ui-blueprint.md` with a compact layout/control blueprint of the legacy `claps_codelab` UI (sidebar, timeline, validation/completion, and modal surfaces) for Step 05 integration reference.
+
+### 2026-03-04 (docs: legacy functionality recovery mapping)
+- Added `docs/plans/2026-03-04-legacy-functionality-recovery-mapping.md` with a parity matrix (legacy capability -> rebuild contract -> status -> remaining work), an event mapping section, and a concrete "what is left" recovery scope for Step 05.
+- Added a Mermaid recovery graph to the same mapping doc to visualize legacy capabilities, current rebuild contracts, and pending Step 05+ gaps.
+
+### 2026-03-04 (docs: synced I-3 phase completion status)
+- Updated checklists in `plan/I-3-category/phases/02_full_catalog.md`, `03_basket_single_day.md`, and `04_basket_by_days.md` to reflect implemented and verified scope.
+- Added current progress snapshot in `plan/I-3-category/phases/README.md` (steps 01-04 complete, step 05 pending).
+
+### 2026-03-04 (I-3 step-04: full basket composed by day-wide runtimes)
+- Added basket composition machine in `packages/components/basket/machine/basketMachine.js` that orchestrates multiple day runtimes (`createBasketDayActor`) into one full quotation basket.
+- Implemented day-level orchestration APIs/events: day selection, item shipping to selected/specific day, per-entry override/clear/reset dispatch, cross-day entry move, and global context fan-out to all days.
+- Added coverage in `packages/components/basket/tests/basketMachine.test.js` for day isolation, shipping behavior, cross-day move with override preservation, and multi-day context propagation.
+- Added full basket-by-days playground:
+  - template `packages/components/basket/ui/BasketStandalone.html`
+  - mount `apps/sandbox/playground/basket/mountBasketPlayground.js`
+  - route `apps/sandbox/routes/step-I3-basket-02/index.html`
+  - navigation + server wiring in `apps/sandbox/index.html` and `tools/serve-sandbox.mjs`.
+
+### 2026-03-04 (I-3 step-03 foundation: basket/day granular item unit)
+- Added day-basket runtime machine in `packages/components/basket-day/machine/basketDayMachine.js` as the granular basket unit owner (entry shipping, duplicate entry independence, per-entry override/clear/reset, context fan-out, and child rule aggregation).
+- Added machine coverage in `packages/components/basket-day/tests/basketDayMachine.test.js` for duplicate shipping, remove-by-entryId isolation, override lock/reset behavior under context changes, and warning/error aggregation.
+- Added dedicated playground for the basket/day granular unit:
+  - template `packages/components/basket-day/ui/BasketDayStandalone.html`
+  - mount `apps/sandbox/playground/basket-day/mountBasketDayPlayground.js`
+  - route `apps/sandbox/routes/step-I3-basket-day-01/index.html`
+  - navigation + server wiring in `apps/sandbox/index.html` and `tools/serve-sandbox.mjs`.
+
+### 2026-03-04 (I-3 step-02: catalog machine + playground route)
+- Removed all autogenerated hybrid-price warning rules (`Precio hibrido detectado ...`) from `data/init/REGLAS_NEGOCIO.csv` so catalog popovers only show real business restriction rules.
+- Added `createCatalogActor()` in `packages/components/catalog/machine/catalogMachine.js` as a composition layer over category runtimes with lazy expand/collapse lifecycle, context fan-out (`SET_CONTEXT`), and aggregated catalog summary state.
+- Added coverage in `packages/components/catalog/tests/catalogMachine.test.js` for lazy initialization, expand/collapse teardown, and child snapshot propagation.
+- Added full catalog playground UI and mount wiring:
+  - `packages/components/catalog/ui/CatalogStandalone.html`
+  - `apps/sandbox/playground/catalog/mountCatalogPlayground.js`
+  - route `apps/sandbox/routes/step-I3-category-02/index.html`
+  - navigation + server wiring in `apps/sandbox/index.html` and `tools/serve-sandbox.mjs`.
+- Fixed catalog item rendering after expand: shared item runtime section now reads a reactive `catalogEntries` getter per category expansion block, so expanded categories show their item cards immediately.
+- Removed subtotal display from catalog/category playground UI for now, since price collection is not owned at the category/catalog layer in this phase.
+
+### 2026-03-04 (docs: I-3 phase plan rewrite for shared adapters)
+- Updated `plan/I-3-category/phases/README.md` with explicit split constraints (packages reusable logic vs app playground wiring) and no-duplication rules for item/database integration.
+- Updated phase docs `01`-`05` under `plan/I-3-category/phases/` to require shared adapter/template reuse (`seedToResolverDb`, shared item catalog HTML sections) and avoid local DB/UI forks.
+
+### 2026-03-04 (phase-01 gate hardening: category teardown test)
+- Added dependency-injection hook `createItemActorImpl` to `createCategoryActor()` in `packages/components/category/machine/categoryMachine.js` for deterministic teardown testing.
+- Added teardown regression coverage in `packages/components/category/tests/categoryMachine.test.js` to assert child unsubscribe/stop on category switch and actor stop.
+- Marked Step 01 objectives as completed in `plan/I-3-category/phases/01_category_loader.md`.
+
 ### 2026-03-04 (structure split: components vs playground)
 - Moved sandbox orchestration out of component/database packages into app-level playground modules:
   - `apps/sandbox/playground/item/mountItemPlayground.js`

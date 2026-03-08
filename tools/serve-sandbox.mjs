@@ -77,6 +77,18 @@ function resolveTarget(reqPath) {
     return path.join(routesDir, 'step-I3-category-01', 'index.html');
   }
 
+  if (reqPath === '/step-I3-category-02' || reqPath === '/step-I3-category-02/') {
+    return path.join(routesDir, 'step-I3-category-02', 'index.html');
+  }
+
+  if (reqPath === '/step-I3-basket-day-01' || reqPath === '/step-I3-basket-day-01/') {
+    return path.join(routesDir, 'step-I3-basket-day-01', 'index.html');
+  }
+
+  if (reqPath === '/step-I3-basket-02' || reqPath === '/step-I3-basket-02/') {
+    return path.join(routesDir, 'step-I3-basket-02', 'index.html');
+  }
+
   if (reqPath.startsWith('/data/')) {
     return safeJoin(rootDir, reqPath.slice(1));
   }
@@ -140,5 +152,8 @@ server.listen(port, () => {
   console.log('  /step-03b (multi-item view)');
   console.log('  /step-I1-database');
   console.log('  /step-I3-category-01');
+  console.log('  /step-I3-category-02');
+  console.log('  /step-I3-basket-day-01');
+  console.log('  /step-I3-basket-02');
   console.log('  /step-04-quotation');
 });

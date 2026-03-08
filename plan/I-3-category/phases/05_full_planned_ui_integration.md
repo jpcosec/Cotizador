@@ -28,6 +28,10 @@ Integrate planned UI in subphases:
 
 No direct business-state mutation in Alpine.
 
+Reuse constraint:
+
+- Full planned UI must consume existing shared templates/adapters/contracts; do not duplicate item card HTML or DB mapping helpers inside the final UI layer.
+
 ## Objectives
 
 - [ ] Render full planned layout.

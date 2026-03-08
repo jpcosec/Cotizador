@@ -18,6 +18,12 @@ Roadmap: See `ROADMAP.md` for the agreed 10-step sequence and progress tracking.
 # Run dev server (http://localhost:8090)
 npm run serve:sandbox
 
+# Build GAS bundle + workspace
+npm run build
+
+# Preview GAS app locally (http://localhost:8082)
+npm run dev:gas
+
 # Run all tests
 npm test
 
@@ -37,6 +43,7 @@ Visit:
 - **[ROADMAP.md](./ROADMAP.md)** — 10-step sequence, current progress
 - **[PLAN_NEXT_STEPS.md](./PLAN_NEXT_STEPS.md)** — Detailed implementation plan for each step
 - **[changelog.md](./changelog.md)** — Version history and features added
+- **[docs/DEPLOYMENT/gas-bundling.md](./docs/DEPLOYMENT/gas-bundling.md)** — GAS bundling and deploy flow
 - **[PLAN_ITEM_REFACTOR.md](./PLAN_ITEM_REFACTOR.md)** — Architecture decision: one XState actor per item
 
 ## Test Suite

@@ -1,0 +1,12508 @@
+var QuotationEngine = (function (exports) {
+  'use strict';
+
+  // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/globalThis
+  function getGlobal() {
+    if (typeof globalThis !== 'undefined') {
+      return globalThis;
+    }
+    if (typeof self !== 'undefined') {
+      return self;
+    }
+    if (typeof window !== 'undefined') {
+      return window;
+    }
+    if (typeof global !== 'undefined') {
+      return global;
+    }
+  }
+  function getDevTools() {
+    const w = getGlobal();
+    if (w.__xstate__) {
+      return w.__xstate__;
+    }
+    return undefined;
+  }
+  const devToolsAdapter = service => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const devTools = getDevTools();
+    if (devTools) {
+      devTools.register(service);
+    }
+  };
+
+  class Mailbox {
+    constructor(_process) {
+      this._process = _process;
+      this._active = false;
+      this._current = null;
+      this._last = null;
+    }
+    start() {
+      this._active = true;
+      this.flush();
+    }
+    clear() {
+      // we can't set _current to null because we might be currently processing
+      // and enqueue following clear shouldn't start processing the enqueued item immediately
+      if (this._current) {
+        this._current.next = null;
+        this._last = this._current;
+      }
+    }
+    enqueue(event) {
+      const enqueued = {
+        value: event,
+        next: null
+      };
+      if (this._current) {
+        this._last.next = enqueued;
+        this._last = enqueued;
+        return;
+      }
+      this._current = enqueued;
+      this._last = enqueued;
+      if (this._active) {
+        this.flush();
+      }
+    }
+    flush() {
+      while (this._current) {
+        // atm the given _process is responsible for implementing proper try/catch handling
+        // we assume here that this won't throw in a way that can affect this mailbox
+        const consumed = this._current;
+        this._process(consumed.value);
+        this._current = consumed.next;
+      }
+      this._last = null;
+    }
+  }
+
+  const STATE_DELIMITER = '.';
+  const TARGETLESS_KEY = '';
+  const NULL_EVENT = '';
+  const STATE_IDENTIFIER$1 = '#';
+  const WILDCARD = '*';
+  const XSTATE_INIT = 'xstate.init';
+  const XSTATE_STOP = 'xstate.stop';
+
+  /**
+   * Returns an event that represents an implicit event that is sent after the
+   * specified `delay`.
+   *
+   * @param delayRef The delay in milliseconds
+   * @param id The state node ID where this event is handled
+   */
+  function createAfterEvent(delayRef, id) {
+    return {
+      type: `xstate.after.${delayRef}.${id}`
+    };
+  }
+
+  /**
+   * Returns an event that represents that a final state node has been reached in
+   * the parent state node.
+   *
+   * @param id The final state node's parent state node `id`
+   * @param output The data to pass into the event
+   */
+  function createDoneStateEvent(id, output) {
+    return {
+      type: `xstate.done.state.${id}`,
+      output
+    };
+  }
+
+  /**
+   * Returns an event that represents that an invoked service has terminated.
+   *
+   * An invoked service is terminated when it has reached a top-level final state
+   * node, but not when it is canceled.
+   *
+   * @param invokeId The invoked service ID
+   * @param output The data to pass into the event
+   */
+  function createDoneActorEvent(invokeId, output) {
+    return {
+      type: `xstate.done.actor.${invokeId}`,
+      output,
+      actorId: invokeId
+    };
+  }
+  function createErrorActorEvent(id, error) {
+    return {
+      type: `xstate.error.actor.${id}`,
+      error,
+      actorId: id
+    };
+  }
+  function createInitEvent(input) {
+    return {
+      type: XSTATE_INIT,
+      input
+    };
+  }
+
+  /**
+   * This function makes sure that unhandled errors are thrown in a separate
+   * macrotask. It allows those errors to be detected by global error handlers and
+   * reported to bug tracking services without interrupting our own stack of
+   * execution.
+   *
+   * @param err Error to be thrown
+   */
+  function reportUnhandledError(err) {
+    setTimeout(() => {
+      throw err;
+    });
+  }
+
+  const symbolObservable = (() => typeof Symbol === 'function' && Symbol.observable || '@@observable')();
+
+  function matchesState(parentStateId, childStateId) {
+    const parentStateValue = toStateValue(parentStateId);
+    const childStateValue = toStateValue(childStateId);
+    if (typeof childStateValue === 'string') {
+      if (typeof parentStateValue === 'string') {
+        return childStateValue === parentStateValue;
+      }
+
+      // Parent more specific than child
+      return false;
+    }
+    if (typeof parentStateValue === 'string') {
+      return parentStateValue in childStateValue;
+    }
+    return Object.keys(parentStateValue).every(key => {
+      if (!(key in childStateValue)) {
+        return false;
+      }
+      return matchesState(parentStateValue[key], childStateValue[key]);
+    });
+  }
+  function toStatePath(stateId) {
+    if (isArray(stateId)) {
+      return stateId;
+    }
+    const result = [];
+    let segment = '';
+    for (let i = 0; i < stateId.length; i++) {
+      const char = stateId.charCodeAt(i);
+      switch (char) {
+        // \
+        case 92:
+          // consume the next character
+          segment += stateId[i + 1];
+          // and skip over it
+          i++;
+          continue;
+        // .
+        case 46:
+          result.push(segment);
+          segment = '';
+          continue;
+      }
+      segment += stateId[i];
+    }
+    result.push(segment);
+    return result;
+  }
+  function toStateValue(stateValue) {
+    if (isMachineSnapshot(stateValue)) {
+      return stateValue.value;
+    }
+    if (typeof stateValue !== 'string') {
+      return stateValue;
+    }
+    const statePath = toStatePath(stateValue);
+    return pathToStateValue(statePath);
+  }
+  function pathToStateValue(statePath) {
+    if (statePath.length === 1) {
+      return statePath[0];
+    }
+    const value = {};
+    let marker = value;
+    for (let i = 0; i < statePath.length - 1; i++) {
+      if (i === statePath.length - 2) {
+        marker[statePath[i]] = statePath[i + 1];
+      } else {
+        const previous = marker;
+        marker = {};
+        previous[statePath[i]] = marker;
+      }
+    }
+    return value;
+  }
+  function mapValues(collection, iteratee) {
+    const result = {};
+    const collectionKeys = Object.keys(collection);
+    for (let i = 0; i < collectionKeys.length; i++) {
+      const key = collectionKeys[i];
+      result[key] = iteratee(collection[key], key, collection, i);
+    }
+    return result;
+  }
+  function toArrayStrict(value) {
+    if (isArray(value)) {
+      return value;
+    }
+    return [value];
+  }
+  function toArray(value) {
+    if (value === undefined) {
+      return [];
+    }
+    return toArrayStrict(value);
+  }
+  function resolveOutput(mapper, context, event, self) {
+    if (typeof mapper === 'function') {
+      return mapper({
+        context,
+        event,
+        self
+      });
+    }
+    return mapper;
+  }
+  function isArray(value) {
+    return Array.isArray(value);
+  }
+  function isErrorActorEvent(event) {
+    return event.type.startsWith('xstate.error.actor');
+  }
+  function toTransitionConfigArray(configLike) {
+    return toArrayStrict(configLike).map(transitionLike => {
+      if (typeof transitionLike === 'undefined' || typeof transitionLike === 'string') {
+        return {
+          target: transitionLike
+        };
+      }
+      return transitionLike;
+    });
+  }
+  function normalizeTarget(target) {
+    if (target === undefined || target === TARGETLESS_KEY) {
+      return undefined;
+    }
+    return toArray(target);
+  }
+  function toObserver(nextHandler, errorHandler, completionHandler) {
+    const isObserver = typeof nextHandler === 'object';
+    const self = isObserver ? nextHandler : undefined;
+    return {
+      next: (isObserver ? nextHandler.next : nextHandler)?.bind(self),
+      error: (isObserver ? nextHandler.error : errorHandler)?.bind(self),
+      complete: (isObserver ? nextHandler.complete : completionHandler)?.bind(self)
+    };
+  }
+  function createInvokeId(stateNodeId, index) {
+    return `${index}.${stateNodeId}`;
+  }
+  function resolveReferencedActor(machine, src) {
+    const match = src.match(/^xstate\.invoke\.(\d+)\.(.*)/);
+    if (!match) {
+      return machine.implementations.actors[src];
+    }
+    const [, indexStr, nodeId] = match;
+    const node = machine.getStateNodeById(nodeId);
+    const invokeConfig = node.config.invoke;
+    return (Array.isArray(invokeConfig) ? invokeConfig[indexStr] : invokeConfig).src;
+  }
+
+  /**
+   * Checks if an event type matches an event descriptor, supporting wildcards.
+   * Event descriptors can be:
+   *
+   * - Exact matches: "event.type"
+   * - Wildcard: "*"
+   * - Partial matches: "event.*"
+   *
+   * @param eventType - The actual event type string
+   * @param descriptor - The event descriptor to match against
+   * @returns True if the event type matches the descriptor
+   */
+  function matchesEventDescriptor(eventType, descriptor) {
+    if (descriptor === eventType) {
+      return true;
+    }
+    if (descriptor === WILDCARD) {
+      return true;
+    }
+    if (!descriptor.endsWith('.*')) {
+      return false;
+    }
+    const partialEventTokens = descriptor.split('.');
+    const eventTokens = eventType.split('.');
+    for (let tokenIndex = 0; tokenIndex < partialEventTokens.length; tokenIndex++) {
+      const partialEventToken = partialEventTokens[tokenIndex];
+      const eventToken = eventTokens[tokenIndex];
+      if (partialEventToken === '*') {
+        const isLastToken = tokenIndex === partialEventTokens.length - 1;
+        return isLastToken;
+      }
+      if (partialEventToken !== eventToken) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function createScheduledEventId(actorRef, id) {
+    return `${actorRef.sessionId}.${id}`;
+  }
+  let idCounter = 0;
+  function createSystem(rootActor, options) {
+    const children = new Map();
+    const keyedActors = new Map();
+    const reverseKeyedActors = new WeakMap();
+    const inspectionObservers = new Set();
+    const timerMap = {};
+    const {
+      clock,
+      logger
+    } = options;
+    const scheduler = {
+      schedule: (source, target, event, delay, id = Math.random().toString(36).slice(2)) => {
+        const scheduledEvent = {
+          source,
+          target,
+          event,
+          delay,
+          id,
+          startedAt: Date.now()
+        };
+        const scheduledEventId = createScheduledEventId(source, id);
+        system._snapshot._scheduledEvents[scheduledEventId] = scheduledEvent;
+        const timeout = clock.setTimeout(() => {
+          delete timerMap[scheduledEventId];
+          delete system._snapshot._scheduledEvents[scheduledEventId];
+          system._relay(source, target, event);
+        }, delay);
+        timerMap[scheduledEventId] = timeout;
+      },
+      cancel: (source, id) => {
+        const scheduledEventId = createScheduledEventId(source, id);
+        const timeout = timerMap[scheduledEventId];
+        delete timerMap[scheduledEventId];
+        delete system._snapshot._scheduledEvents[scheduledEventId];
+        if (timeout !== undefined) {
+          clock.clearTimeout(timeout);
+        }
+      },
+      cancelAll: actorRef => {
+        for (const scheduledEventId in system._snapshot._scheduledEvents) {
+          const scheduledEvent = system._snapshot._scheduledEvents[scheduledEventId];
+          if (scheduledEvent.source === actorRef) {
+            scheduler.cancel(actorRef, scheduledEvent.id);
+          }
+        }
+      }
+    };
+    const sendInspectionEvent = event => {
+      if (!inspectionObservers.size) {
+        return;
+      }
+      const resolvedInspectionEvent = {
+        ...event,
+        rootId: rootActor.sessionId
+      };
+      inspectionObservers.forEach(observer => observer.next?.(resolvedInspectionEvent));
+    };
+    const system = {
+      _snapshot: {
+        _scheduledEvents: (options?.snapshot && options.snapshot.scheduler) ?? {}
+      },
+      _bookId: () => `x:${idCounter++}`,
+      _register: (sessionId, actorRef) => {
+        children.set(sessionId, actorRef);
+        return sessionId;
+      },
+      _unregister: actorRef => {
+        children.delete(actorRef.sessionId);
+        const systemId = reverseKeyedActors.get(actorRef);
+        if (systemId !== undefined) {
+          keyedActors.delete(systemId);
+          reverseKeyedActors.delete(actorRef);
+        }
+      },
+      get: systemId => {
+        return keyedActors.get(systemId);
+      },
+      getAll: () => {
+        return Object.fromEntries(keyedActors.entries());
+      },
+      _set: (systemId, actorRef) => {
+        const existing = keyedActors.get(systemId);
+        if (existing && existing !== actorRef) {
+          throw new Error(`Actor with system ID '${systemId}' already exists.`);
+        }
+        keyedActors.set(systemId, actorRef);
+        reverseKeyedActors.set(actorRef, systemId);
+      },
+      inspect: observerOrFn => {
+        const observer = toObserver(observerOrFn);
+        inspectionObservers.add(observer);
+        return {
+          unsubscribe() {
+            inspectionObservers.delete(observer);
+          }
+        };
+      },
+      _sendInspectionEvent: sendInspectionEvent,
+      _relay: (source, target, event) => {
+        system._sendInspectionEvent({
+          type: '@xstate.event',
+          sourceRef: source,
+          actorRef: target,
+          event
+        });
+        target._send(event);
+      },
+      scheduler,
+      getSnapshot: () => {
+        return {
+          _scheduledEvents: {
+            ...system._snapshot._scheduledEvents
+          }
+        };
+      },
+      start: () => {
+        const scheduledEvents = system._snapshot._scheduledEvents;
+        system._snapshot._scheduledEvents = {};
+        for (const scheduledId in scheduledEvents) {
+          const {
+            source,
+            target,
+            event,
+            delay,
+            id
+          } = scheduledEvents[scheduledId];
+          scheduler.schedule(source, target, event, delay, id);
+        }
+      },
+      _clock: clock,
+      _logger: logger
+    };
+    return system;
+  }
+
+  // those are needed to make JSDoc `@link` work properly
+
+  let executingCustomAction = false;
+  const $$ACTOR_TYPE = 1;
+
+  // those values are currently used by @xstate/react directly so it's important to keep the assigned values in sync
+  let ProcessingStatus = /*#__PURE__*/function (ProcessingStatus) {
+    ProcessingStatus[ProcessingStatus["NotStarted"] = 0] = "NotStarted";
+    ProcessingStatus[ProcessingStatus["Running"] = 1] = "Running";
+    ProcessingStatus[ProcessingStatus["Stopped"] = 2] = "Stopped";
+    return ProcessingStatus;
+  }({});
+  const defaultOptions = {
+    clock: {
+      setTimeout: (fn, ms) => {
+        return setTimeout(fn, ms);
+      },
+      clearTimeout: id => {
+        return clearTimeout(id);
+      }
+    },
+    logger: console.log.bind(console),
+    devTools: false
+  };
+
+  /**
+   * An Actor is a running process that can receive events, send events and change
+   * its behavior based on the events it receives, which can cause effects outside
+   * of the actor. When you run a state machine, it becomes an actor.
+   */
+  class Actor {
+    /**
+     * Creates a new actor instance for the given logic with the provided options,
+     * if any.
+     *
+     * @param logic The logic to create an actor from
+     * @param options Actor options
+     */
+    constructor(logic, options) {
+      this.logic = logic;
+      /** The current internal state of the actor. */
+      this._snapshot = void 0;
+      /**
+       * The clock that is responsible for setting and clearing timeouts, such as
+       * delayed events and transitions.
+       */
+      this.clock = void 0;
+      this.options = void 0;
+      /** The unique identifier for this actor relative to its parent. */
+      this.id = void 0;
+      this.mailbox = new Mailbox(this._process.bind(this));
+      this.observers = new Set();
+      this.eventListeners = new Map();
+      this.logger = void 0;
+      /** @internal */
+      this._processingStatus = ProcessingStatus.NotStarted;
+      // Actor Ref
+      this._parent = void 0;
+      /** @internal */
+      this._syncSnapshot = void 0;
+      this.ref = void 0;
+      // TODO: add typings for system
+      this._actorScope = void 0;
+      this.systemId = void 0;
+      /** The globally unique process ID for this invocation. */
+      this.sessionId = void 0;
+      /** The system to which this actor belongs. */
+      this.system = void 0;
+      this._doneEvent = void 0;
+      this.src = void 0;
+      // array of functions to defer
+      this._deferred = [];
+      const resolvedOptions = {
+        ...defaultOptions,
+        ...options
+      };
+      const {
+        clock,
+        logger,
+        parent,
+        syncSnapshot,
+        id,
+        systemId,
+        inspect
+      } = resolvedOptions;
+      this.system = parent ? parent.system : createSystem(this, {
+        clock,
+        logger
+      });
+      if (inspect && !parent) {
+        // Always inspect at the system-level
+        this.system.inspect(toObserver(inspect));
+      }
+      this.sessionId = this.system._bookId();
+      this.id = id ?? this.sessionId;
+      this.logger = options?.logger ?? this.system._logger;
+      this.clock = options?.clock ?? this.system._clock;
+      this._parent = parent;
+      this._syncSnapshot = syncSnapshot;
+      this.options = resolvedOptions;
+      this.src = resolvedOptions.src ?? logic;
+      this.ref = this;
+      this._actorScope = {
+        self: this,
+        id: this.id,
+        sessionId: this.sessionId,
+        logger: this.logger,
+        defer: fn => {
+          this._deferred.push(fn);
+        },
+        system: this.system,
+        stopChild: child => {
+          if (child._parent !== this) {
+            throw new Error(`Cannot stop child actor ${child.id} of ${this.id} because it is not a child`);
+          }
+          child._stop();
+        },
+        emit: emittedEvent => {
+          const listeners = this.eventListeners.get(emittedEvent.type);
+          const wildcardListener = this.eventListeners.get('*');
+          if (!listeners && !wildcardListener) {
+            return;
+          }
+          const allListeners = [...(listeners ? listeners.values() : []), ...(wildcardListener ? wildcardListener.values() : [])];
+          for (const handler of allListeners) {
+            try {
+              handler(emittedEvent);
+            } catch (err) {
+              reportUnhandledError(err);
+            }
+          }
+        },
+        actionExecutor: action => {
+          const exec = () => {
+            this._actorScope.system._sendInspectionEvent({
+              type: '@xstate.action',
+              actorRef: this,
+              action: {
+                type: action.type,
+                params: action.params
+              }
+            });
+            if (!action.exec) {
+              return;
+            }
+            const saveExecutingCustomAction = executingCustomAction;
+            try {
+              executingCustomAction = true;
+              action.exec(action.info, action.params);
+            } finally {
+              executingCustomAction = saveExecutingCustomAction;
+            }
+          };
+          if (this._processingStatus === ProcessingStatus.Running) {
+            exec();
+          } else {
+            this._deferred.push(exec);
+          }
+        }
+      };
+
+      // Ensure that the send method is bound to this Actor instance
+      // if destructured
+      this.send = this.send.bind(this);
+      this.system._sendInspectionEvent({
+        type: '@xstate.actor',
+        actorRef: this
+      });
+      if (systemId) {
+        this.systemId = systemId;
+        this.system._set(systemId, this);
+      }
+      this._initState(options?.snapshot ?? options?.state);
+      if (systemId && this._snapshot.status !== 'active') {
+        this.system._unregister(this);
+      }
+    }
+    _initState(persistedState) {
+      try {
+        this._snapshot = persistedState ? this.logic.restoreSnapshot ? this.logic.restoreSnapshot(persistedState, this._actorScope) : persistedState : this.logic.getInitialSnapshot(this._actorScope, this.options?.input);
+      } catch (err) {
+        // if we get here then it means that we assign a value to this._snapshot that is not of the correct type
+        // we can't get the true `TSnapshot & { status: 'error'; }`, it's impossible
+        // so right now this is a lie of sorts
+        this._snapshot = {
+          status: 'error',
+          output: undefined,
+          error: err
+        };
+      }
+    }
+    update(snapshot, event) {
+      // Update state
+      this._snapshot = snapshot;
+
+      // Execute deferred effects
+      let deferredFn;
+      while (deferredFn = this._deferred.shift()) {
+        try {
+          deferredFn();
+        } catch (err) {
+          // this error can only be caught when executing *initial* actions
+          // it's the only time when we call actions provided by the user through those deferreds
+          // when the actor is already running we always execute them synchronously while transitioning
+          // no "builtin deferred" should actually throw an error since they are either safe
+          // or the control flow is passed through the mailbox and errors should be caught by the `_process` used by the mailbox
+          this._deferred.length = 0;
+          this._snapshot = {
+            ...snapshot,
+            status: 'error',
+            error: err
+          };
+        }
+      }
+      switch (this._snapshot.status) {
+        case 'active':
+          for (const observer of this.observers) {
+            try {
+              observer.next?.(snapshot);
+            } catch (err) {
+              reportUnhandledError(err);
+            }
+          }
+          break;
+        case 'done':
+          // next observers are meant to be notified about done snapshots
+          // this can be seen as something that is different from how observable work
+          // but with observables `complete` callback is called without any arguments
+          // it's more ergonomic for XState to treat a done snapshot as a "next" value
+          // and the completion event as something that is separate,
+          // something that merely follows emitting that done snapshot
+          for (const observer of this.observers) {
+            try {
+              observer.next?.(snapshot);
+            } catch (err) {
+              reportUnhandledError(err);
+            }
+          }
+          this._stopProcedure();
+          this._complete();
+          this._doneEvent = createDoneActorEvent(this.id, this._snapshot.output);
+          if (this._parent) {
+            this.system._relay(this, this._parent, this._doneEvent);
+          }
+          break;
+        case 'error':
+          this._error(this._snapshot.error);
+          break;
+      }
+      this.system._sendInspectionEvent({
+        type: '@xstate.snapshot',
+        actorRef: this,
+        event,
+        snapshot
+      });
+    }
+
+    /**
+     * Subscribe an observer to an actor’s snapshot values.
+     *
+     * @remarks
+     * The observer will receive the actor’s snapshot value when it is emitted.
+     * The observer can be:
+     *
+     * - A plain function that receives the latest snapshot, or
+     * - An observer object whose `.next(snapshot)` method receives the latest
+     *   snapshot
+     *
+     * @example
+     *
+     * ```ts
+     * // Observer as a plain function
+     * const subscription = actor.subscribe((snapshot) => {
+     *   console.log(snapshot);
+     * });
+     * ```
+     *
+     * @example
+     *
+     * ```ts
+     * // Observer as an object
+     * const subscription = actor.subscribe({
+     *   next(snapshot) {
+     *     console.log(snapshot);
+     *   },
+     *   error(err) {
+     *     // ...
+     *   },
+     *   complete() {
+     *     // ...
+     *   }
+     * });
+     * ```
+     *
+     * The return value of `actor.subscribe(observer)` is a subscription object
+     * that has an `.unsubscribe()` method. You can call
+     * `subscription.unsubscribe()` to unsubscribe the observer:
+     *
+     * @example
+     *
+     * ```ts
+     * const subscription = actor.subscribe((snapshot) => {
+     *   // ...
+     * });
+     *
+     * // Unsubscribe the observer
+     * subscription.unsubscribe();
+     * ```
+     *
+     * When the actor is stopped, all of its observers will automatically be
+     * unsubscribed.
+     *
+     * @param observer - Either a plain function that receives the latest
+     *   snapshot, or an observer object whose `.next(snapshot)` method receives
+     *   the latest snapshot
+     */
+
+    subscribe(nextListenerOrObserver, errorListener, completeListener) {
+      const observer = toObserver(nextListenerOrObserver, errorListener, completeListener);
+      if (this._processingStatus !== ProcessingStatus.Stopped) {
+        this.observers.add(observer);
+      } else {
+        switch (this._snapshot.status) {
+          case 'done':
+            try {
+              observer.complete?.();
+            } catch (err) {
+              reportUnhandledError(err);
+            }
+            break;
+          case 'error':
+            {
+              const err = this._snapshot.error;
+              if (!observer.error) {
+                reportUnhandledError(err);
+              } else {
+                try {
+                  observer.error(err);
+                } catch (err) {
+                  reportUnhandledError(err);
+                }
+              }
+              break;
+            }
+        }
+      }
+      return {
+        unsubscribe: () => {
+          this.observers.delete(observer);
+        }
+      };
+    }
+    on(type, handler) {
+      let listeners = this.eventListeners.get(type);
+      if (!listeners) {
+        listeners = new Set();
+        this.eventListeners.set(type, listeners);
+      }
+      const wrappedHandler = handler.bind(undefined);
+      listeners.add(wrappedHandler);
+      return {
+        unsubscribe: () => {
+          listeners.delete(wrappedHandler);
+        }
+      };
+    }
+
+    /** Starts the Actor from the initial state */
+    start() {
+      if (this._processingStatus === ProcessingStatus.Running) {
+        // Do not restart the service if it is already started
+        return this;
+      }
+      if (this._syncSnapshot) {
+        this.subscribe({
+          next: snapshot => {
+            if (snapshot.status === 'active') {
+              this.system._relay(this, this._parent, {
+                type: `xstate.snapshot.${this.id}`,
+                snapshot
+              });
+            }
+          },
+          error: () => {}
+        });
+      }
+      this.system._register(this.sessionId, this);
+      if (this.systemId) {
+        this.system._set(this.systemId, this);
+      }
+      this._processingStatus = ProcessingStatus.Running;
+
+      // TODO: this isn't correct when rehydrating
+      const initEvent = createInitEvent(this.options.input);
+      this.system._sendInspectionEvent({
+        type: '@xstate.event',
+        sourceRef: this._parent,
+        actorRef: this,
+        event: initEvent
+      });
+      const status = this._snapshot.status;
+      switch (status) {
+        case 'done':
+          // a state machine can be "done" upon initialization (it could reach a final state using initial microsteps)
+          // we still need to complete observers, flush deferreds etc
+          this.update(this._snapshot, initEvent);
+          // TODO: rethink cleanup of observers, mailbox, etc
+          return this;
+        case 'error':
+          this._error(this._snapshot.error);
+          return this;
+      }
+      if (!this._parent) {
+        this.system.start();
+      }
+      if (this.logic.start) {
+        try {
+          this.logic.start(this._snapshot, this._actorScope);
+        } catch (err) {
+          this._snapshot = {
+            ...this._snapshot,
+            status: 'error',
+            error: err
+          };
+          this._error(err);
+          return this;
+        }
+      }
+
+      // TODO: this notifies all subscribers but usually this is redundant
+      // there is no real change happening here
+      // we need to rethink if this needs to be refactored
+      this.update(this._snapshot, initEvent);
+      if (this.options.devTools) {
+        this.attachDevTools();
+      }
+      this.mailbox.start();
+      return this;
+    }
+    _process(event) {
+      let nextState;
+      let caughtError;
+      try {
+        nextState = this.logic.transition(this._snapshot, event, this._actorScope);
+      } catch (err) {
+        // we wrap it in a box so we can rethrow it later even if falsy value gets caught here
+        caughtError = {
+          err
+        };
+      }
+      if (caughtError) {
+        const {
+          err
+        } = caughtError;
+        this._snapshot = {
+          ...this._snapshot,
+          status: 'error',
+          error: err
+        };
+        this._error(err);
+        return;
+      }
+      this.update(nextState, event);
+      if (event.type === XSTATE_STOP) {
+        this._stopProcedure();
+        this._complete();
+      }
+    }
+    _stop() {
+      if (this._processingStatus === ProcessingStatus.Stopped) {
+        return this;
+      }
+      this.mailbox.clear();
+      if (this._processingStatus === ProcessingStatus.NotStarted) {
+        this._processingStatus = ProcessingStatus.Stopped;
+        return this;
+      }
+      this.mailbox.enqueue({
+        type: XSTATE_STOP
+      });
+      return this;
+    }
+
+    /** Stops the Actor and unsubscribe all listeners. */
+    stop() {
+      if (this._parent) {
+        throw new Error('A non-root actor cannot be stopped directly.');
+      }
+      return this._stop();
+    }
+    _complete() {
+      for (const observer of this.observers) {
+        try {
+          observer.complete?.();
+        } catch (err) {
+          reportUnhandledError(err);
+        }
+      }
+      this.observers.clear();
+      this.eventListeners.clear();
+    }
+    _reportError(err) {
+      if (!this.observers.size) {
+        if (!this._parent) {
+          reportUnhandledError(err);
+        }
+        this.eventListeners.clear();
+        return;
+      }
+      let reportError = false;
+      for (const observer of this.observers) {
+        const errorListener = observer.error;
+        reportError ||= !errorListener;
+        try {
+          errorListener?.(err);
+        } catch (err2) {
+          reportUnhandledError(err2);
+        }
+      }
+      this.observers.clear();
+      this.eventListeners.clear();
+      if (reportError) {
+        reportUnhandledError(err);
+      }
+    }
+    _error(err) {
+      this._stopProcedure();
+      this._reportError(err);
+      if (this._parent) {
+        this.system._relay(this, this._parent, createErrorActorEvent(this.id, err));
+      }
+    }
+    // TODO: atm children don't belong entirely to the actor so
+    // in a way - it's not even super aware of them
+    // so we can't stop them from here but we really should!
+    // right now, they are being stopped within the machine's transition
+    // but that could throw and leave us with "orphaned" active actors
+    _stopProcedure() {
+      if (this._processingStatus !== ProcessingStatus.Running) {
+        // Actor already stopped; do nothing
+        return this;
+      }
+
+      // Cancel all delayed events
+      this.system.scheduler.cancelAll(this);
+
+      // TODO: mailbox.reset
+      this.mailbox.clear();
+      // TODO: after `stop` we must prepare ourselves for receiving events again
+      // events sent *after* stop signal must be queued
+      // it seems like this should be the common behavior for all of our consumers
+      // so perhaps this should be unified somehow for all of them
+      this.mailbox = new Mailbox(this._process.bind(this));
+      this._processingStatus = ProcessingStatus.Stopped;
+      this.system._unregister(this);
+      return this;
+    }
+
+    /** @internal */
+    _send(event) {
+      if (this._processingStatus === ProcessingStatus.Stopped) {
+        return;
+      }
+      this.mailbox.enqueue(event);
+    }
+
+    /**
+     * Sends an event to the running Actor to trigger a transition.
+     *
+     * @param event The event to send
+     */
+    send(event) {
+      this.system._relay(undefined, this, event);
+    }
+    attachDevTools() {
+      const {
+        devTools
+      } = this.options;
+      if (devTools) {
+        const resolvedDevToolsAdapter = typeof devTools === 'function' ? devTools : devToolsAdapter;
+        resolvedDevToolsAdapter(this);
+      }
+    }
+    toJSON() {
+      return {
+        xstate$$type: $$ACTOR_TYPE,
+        id: this.id
+      };
+    }
+
+    /**
+     * Obtain the internal state of the actor, which can be persisted.
+     *
+     * @remarks
+     * The internal state can be persisted from any actor, not only machines.
+     *
+     * Note that the persisted state is not the same as the snapshot from
+     * {@link Actor.getSnapshot}. Persisted state represents the internal state of
+     * the actor, while snapshots represent the actor's last emitted value.
+     *
+     * Can be restored with {@link ActorOptions.state}
+     * @see https://stately.ai/docs/persistence
+     */
+
+    getPersistedSnapshot(options) {
+      return this.logic.getPersistedSnapshot(this._snapshot, options);
+    }
+    [symbolObservable]() {
+      return this;
+    }
+
+    /**
+     * Read an actor’s snapshot synchronously.
+     *
+     * @remarks
+     * The snapshot represent an actor's last emitted value.
+     *
+     * When an actor receives an event, its internal state may change. An actor
+     * may emit a snapshot when a state transition occurs.
+     *
+     * Note that some actors, such as callback actors generated with
+     * `fromCallback`, will not emit snapshots.
+     * @see {@link Actor.subscribe} to subscribe to an actor’s snapshot values.
+     * @see {@link Actor.getPersistedSnapshot} to persist the internal state of an actor (which is more than just a snapshot).
+     */
+    getSnapshot() {
+      return this._snapshot;
+    }
+  }
+  /**
+   * Creates a new actor instance for the given actor logic with the provided
+   * options, if any.
+   *
+   * @remarks
+   * When you create an actor from actor logic via `createActor(logic)`, you
+   * implicitly create an actor system where the created actor is the root actor.
+   * Any actors spawned from this root actor and its descendants are part of that
+   * actor system.
+   * @example
+   *
+   * ```ts
+   * import { createActor } from 'xstate';
+   * import { someActorLogic } from './someActorLogic.ts';
+   *
+   * // Creating the actor, which implicitly creates an actor system with itself as the root actor
+   * const actor = createActor(someActorLogic);
+   *
+   * actor.subscribe((snapshot) => {
+   *   console.log(snapshot);
+   * });
+   *
+   * // Actors must be started by calling `actor.start()`, which will also start the actor system.
+   * actor.start();
+   *
+   * // Actors can receive events
+   * actor.send({ type: 'someEvent' });
+   *
+   * // You can stop root actors by calling `actor.stop()`, which will also stop the actor system and all actors in that system.
+   * actor.stop();
+   * ```
+   *
+   * @param logic - The actor logic to create an actor from. For a state machine
+   *   actor logic creator, see {@link createMachine}. Other actor logic creators
+   *   include {@link fromCallback}, {@link fromEventObservable},
+   *   {@link fromObservable}, {@link fromPromise}, and {@link fromTransition}.
+   * @param options - Actor options
+   */
+  function createActor(logic, ...[options]) {
+    return new Actor(logic, options);
+  }
+
+  /**
+   * @deprecated Use `Actor` instead.
+   * @alias
+   */
+
+  function resolveCancel(_, snapshot, actionArgs, actionParams, {
+    sendId
+  }) {
+    const resolvedSendId = typeof sendId === 'function' ? sendId(actionArgs, actionParams) : sendId;
+    return [snapshot, {
+      sendId: resolvedSendId
+    }, undefined];
+  }
+  function executeCancel(actorScope, params) {
+    actorScope.defer(() => {
+      actorScope.system.scheduler.cancel(actorScope.self, params.sendId);
+    });
+  }
+  /**
+   * Cancels a delayed `sendTo(...)` action that is waiting to be executed. The
+   * canceled `sendTo(...)` action will not send its event or execute, unless the
+   * `delay` has already elapsed before `cancel(...)` is called.
+   *
+   * @example
+   *
+   * ```ts
+   * import { createMachine, sendTo, cancel } from 'xstate';
+   *
+   * const machine = createMachine({
+   *   // ...
+   *   on: {
+   *     sendEvent: {
+   *       actions: sendTo(
+   *         'some-actor',
+   *         { type: 'someEvent' },
+   *         {
+   *           id: 'some-id',
+   *           delay: 1000
+   *         }
+   *       )
+   *     },
+   *     cancelEvent: {
+   *       actions: cancel('some-id')
+   *     }
+   *   }
+   * });
+   * ```
+   *
+   * @param sendId The `id` of the `sendTo(...)` action to cancel.
+   */
+  function cancel(sendId) {
+    function cancel(_args, _params) {
+    }
+    cancel.type = 'xstate.cancel';
+    cancel.sendId = sendId;
+    cancel.resolve = resolveCancel;
+    cancel.execute = executeCancel;
+    return cancel;
+  }
+
+  function resolveSpawn(actorScope, snapshot, actionArgs, _actionParams, {
+    id,
+    systemId,
+    src,
+    input,
+    syncSnapshot
+  }) {
+    const logic = typeof src === 'string' ? resolveReferencedActor(snapshot.machine, src) : src;
+    const resolvedId = typeof id === 'function' ? id(actionArgs) : id;
+    let actorRef;
+    let resolvedInput = undefined;
+    if (logic) {
+      resolvedInput = typeof input === 'function' ? input({
+        context: snapshot.context,
+        event: actionArgs.event,
+        self: actorScope.self
+      }) : input;
+      actorRef = createActor(logic, {
+        id: resolvedId,
+        src,
+        parent: actorScope.self,
+        syncSnapshot,
+        systemId,
+        input: resolvedInput
+      });
+    }
+    return [cloneMachineSnapshot(snapshot, {
+      children: {
+        ...snapshot.children,
+        [resolvedId]: actorRef
+      }
+    }), {
+      id,
+      systemId,
+      actorRef,
+      src,
+      input: resolvedInput
+    }, undefined];
+  }
+  function executeSpawn(actorScope, {
+    actorRef
+  }) {
+    if (!actorRef) {
+      return;
+    }
+    actorScope.defer(() => {
+      if (actorRef._processingStatus === ProcessingStatus.Stopped) {
+        return;
+      }
+      actorRef.start();
+    });
+  }
+  function spawnChild(...[src, {
+    id,
+    systemId,
+    input,
+    syncSnapshot = false
+  } = {}]) {
+    function spawnChild(_args, _params) {
+    }
+    spawnChild.type = 'xstate.spawnChild';
+    spawnChild.id = id;
+    spawnChild.systemId = systemId;
+    spawnChild.src = src;
+    spawnChild.input = input;
+    spawnChild.syncSnapshot = syncSnapshot;
+    spawnChild.resolve = resolveSpawn;
+    spawnChild.execute = executeSpawn;
+    return spawnChild;
+  }
+
+  function resolveStop(_, snapshot, args, actionParams, {
+    actorRef
+  }) {
+    const actorRefOrString = typeof actorRef === 'function' ? actorRef(args, actionParams) : actorRef;
+    const resolvedActorRef = typeof actorRefOrString === 'string' ? snapshot.children[actorRefOrString] : actorRefOrString;
+    let children = snapshot.children;
+    if (resolvedActorRef) {
+      children = {
+        ...children
+      };
+      delete children[resolvedActorRef.id];
+    }
+    return [cloneMachineSnapshot(snapshot, {
+      children
+    }), resolvedActorRef, undefined];
+  }
+  function unregisterRecursively(actorScope, actorRef) {
+    // unregister children first (depth-first)
+    const snapshot = actorRef.getSnapshot();
+    if (snapshot && 'children' in snapshot) {
+      for (const child of Object.values(snapshot.children)) {
+        unregisterRecursively(actorScope, child);
+      }
+    }
+    actorScope.system._unregister(actorRef);
+  }
+  function executeStop(actorScope, actorRef) {
+    if (!actorRef) {
+      return;
+    }
+
+    // we need to eagerly unregister it here so a new actor with the same systemId can be registered immediately
+    // since we defer actual stopping of the actor but we don't defer actor creations (and we can't do that)
+    // this could throw on `systemId` collision, for example, when dealing with reentering transitions
+    // we also need to recursively unregister all nested children's systemIds
+    unregisterRecursively(actorScope, actorRef);
+
+    // this allows us to prevent an actor from being started if it gets stopped within the same macrostep
+    // this can happen, for example, when the invoking state is being exited immediately by an always transition
+    if (actorRef._processingStatus !== ProcessingStatus.Running) {
+      actorScope.stopChild(actorRef);
+      return;
+    }
+    // stopping a child enqueues a stop event in the child actor's mailbox
+    // we need for all of the already enqueued events to be processed before we stop the child
+    // the parent itself might want to send some events to a child (for example from exit actions on the invoking state)
+    // and we don't want to ignore those events
+    actorScope.defer(() => {
+      actorScope.stopChild(actorRef);
+    });
+  }
+  /**
+   * Stops a child actor.
+   *
+   * @param actorRef The actor to stop.
+   */
+  function stopChild(actorRef) {
+    function stop(_args, _params) {
+    }
+    stop.type = 'xstate.stopChild';
+    stop.actorRef = actorRef;
+    stop.resolve = resolveStop;
+    stop.execute = executeStop;
+    return stop;
+  }
+
+  // TODO: throw on cycles (depth check should be enough)
+  function evaluateGuard(guard, context, event, snapshot) {
+    const {
+      machine
+    } = snapshot;
+    const isInline = typeof guard === 'function';
+    const resolved = isInline ? guard : machine.implementations.guards[typeof guard === 'string' ? guard : guard.type];
+    if (!isInline && !resolved) {
+      throw new Error(`Guard '${typeof guard === 'string' ? guard : guard.type}' is not implemented.'.`);
+    }
+    if (typeof resolved !== 'function') {
+      return evaluateGuard(resolved, context, event, snapshot);
+    }
+    const guardArgs = {
+      context,
+      event
+    };
+    const guardParams = isInline || typeof guard === 'string' ? undefined : 'params' in guard ? typeof guard.params === 'function' ? guard.params({
+      context,
+      event
+    }) : guard.params : undefined;
+    if (!('check' in resolved)) {
+      // the existing type of `.guards` assumes non-nullable `TExpressionGuard`
+      // inline guards expect `TExpressionGuard` to be set to `undefined`
+      // it's fine to cast this here, our logic makes sure that we call those 2 "variants" correctly
+      return resolved(guardArgs, guardParams);
+    }
+    const builtinGuard = resolved;
+    return builtinGuard.check(snapshot, guardArgs, resolved // this holds all params
+    );
+  }
+
+  function isAtomicStateNode(stateNode) {
+    return stateNode.type === 'atomic' || stateNode.type === 'final';
+  }
+  function getChildren(stateNode) {
+    return Object.values(stateNode.states).filter(sn => sn.type !== 'history');
+  }
+  function getProperAncestors(stateNode, toStateNode) {
+    const ancestors = [];
+    if (toStateNode === stateNode) {
+      return ancestors;
+    }
+
+    // add all ancestors
+    let m = stateNode.parent;
+    while (m && m !== toStateNode) {
+      ancestors.push(m);
+      m = m.parent;
+    }
+    return ancestors;
+  }
+  function getAllStateNodes(stateNodes) {
+    const nodeSet = new Set(stateNodes);
+    const adjList = getAdjList(nodeSet);
+
+    // add descendants
+    for (const s of nodeSet) {
+      // if previously active, add existing child nodes
+      if (s.type === 'compound' && (!adjList.get(s) || !adjList.get(s).length)) {
+        getInitialStateNodesWithTheirAncestors(s).forEach(sn => nodeSet.add(sn));
+      } else {
+        if (s.type === 'parallel') {
+          for (const child of getChildren(s)) {
+            if (child.type === 'history') {
+              continue;
+            }
+            if (!nodeSet.has(child)) {
+              const initialStates = getInitialStateNodesWithTheirAncestors(child);
+              for (const initialStateNode of initialStates) {
+                nodeSet.add(initialStateNode);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // add all ancestors
+    for (const s of nodeSet) {
+      let m = s.parent;
+      while (m) {
+        nodeSet.add(m);
+        m = m.parent;
+      }
+    }
+    return nodeSet;
+  }
+  function getValueFromAdj(baseNode, adjList) {
+    const childStateNodes = adjList.get(baseNode);
+    if (!childStateNodes) {
+      return {}; // todo: fix?
+    }
+    if (baseNode.type === 'compound') {
+      const childStateNode = childStateNodes[0];
+      if (childStateNode) {
+        if (isAtomicStateNode(childStateNode)) {
+          return childStateNode.key;
+        }
+      } else {
+        return {};
+      }
+    }
+    const stateValue = {};
+    for (const childStateNode of childStateNodes) {
+      stateValue[childStateNode.key] = getValueFromAdj(childStateNode, adjList);
+    }
+    return stateValue;
+  }
+  function getAdjList(stateNodes) {
+    const adjList = new Map();
+    for (const s of stateNodes) {
+      if (!adjList.has(s)) {
+        adjList.set(s, []);
+      }
+      if (s.parent) {
+        if (!adjList.has(s.parent)) {
+          adjList.set(s.parent, []);
+        }
+        adjList.get(s.parent).push(s);
+      }
+    }
+    return adjList;
+  }
+  function getStateValue(rootNode, stateNodes) {
+    const config = getAllStateNodes(stateNodes);
+    return getValueFromAdj(rootNode, getAdjList(config));
+  }
+  function isInFinalState(stateNodeSet, stateNode) {
+    if (stateNode.type === 'compound') {
+      return getChildren(stateNode).some(s => s.type === 'final' && stateNodeSet.has(s));
+    }
+    if (stateNode.type === 'parallel') {
+      return getChildren(stateNode).every(sn => isInFinalState(stateNodeSet, sn));
+    }
+    return stateNode.type === 'final';
+  }
+  const isStateId = str => str[0] === STATE_IDENTIFIER$1;
+  function getCandidates(stateNode, receivedEventType) {
+    const candidates = stateNode.transitions.get(receivedEventType) || [...stateNode.transitions.keys()].filter(eventDescriptor => matchesEventDescriptor(receivedEventType, eventDescriptor)).sort((a, b) => b.length - a.length).flatMap(key => stateNode.transitions.get(key));
+    return candidates;
+  }
+
+  /** All delayed transitions from the config. */
+  function getDelayedTransitions(stateNode) {
+    const afterConfig = stateNode.config.after;
+    if (!afterConfig) {
+      return [];
+    }
+    const mutateEntryExit = delay => {
+      const afterEvent = createAfterEvent(delay, stateNode.id);
+      const eventType = afterEvent.type;
+      stateNode.entry.push(raise(afterEvent, {
+        id: eventType,
+        delay
+      }));
+      stateNode.exit.push(cancel(eventType));
+      return eventType;
+    };
+    const delayedTransitions = Object.keys(afterConfig).flatMap(delay => {
+      const configTransition = afterConfig[delay];
+      const resolvedTransition = typeof configTransition === 'string' ? {
+        target: configTransition
+      } : configTransition;
+      const resolvedDelay = Number.isNaN(+delay) ? delay : +delay;
+      const eventType = mutateEntryExit(resolvedDelay);
+      return toArray(resolvedTransition).map(transition => ({
+        ...transition,
+        event: eventType,
+        delay: resolvedDelay
+      }));
+    });
+    return delayedTransitions.map(delayedTransition => {
+      const {
+        delay
+      } = delayedTransition;
+      return {
+        ...formatTransition(stateNode, delayedTransition.event, delayedTransition),
+        delay
+      };
+    });
+  }
+  function formatTransition(stateNode, descriptor, transitionConfig) {
+    const normalizedTarget = normalizeTarget(transitionConfig.target);
+    const reenter = transitionConfig.reenter ?? false;
+    const target = resolveTarget(stateNode, normalizedTarget);
+    const transition = {
+      ...transitionConfig,
+      actions: toArray(transitionConfig.actions),
+      guard: transitionConfig.guard,
+      target,
+      source: stateNode,
+      reenter,
+      eventType: descriptor,
+      toJSON: () => ({
+        ...transition,
+        source: `#${stateNode.id}`,
+        target: target ? target.map(t => `#${t.id}`) : undefined
+      })
+    };
+    return transition;
+  }
+  function formatTransitions(stateNode) {
+    const transitions = new Map();
+    if (stateNode.config.on) {
+      for (const descriptor of Object.keys(stateNode.config.on)) {
+        if (descriptor === NULL_EVENT) {
+          throw new Error('Null events ("") cannot be specified as a transition key. Use `always: { ... }` instead.');
+        }
+        const transitionsConfig = stateNode.config.on[descriptor];
+        transitions.set(descriptor, toTransitionConfigArray(transitionsConfig).map(t => formatTransition(stateNode, descriptor, t)));
+      }
+    }
+    if (stateNode.config.onDone) {
+      const descriptor = `xstate.done.state.${stateNode.id}`;
+      transitions.set(descriptor, toTransitionConfigArray(stateNode.config.onDone).map(t => formatTransition(stateNode, descriptor, t)));
+    }
+    for (const invokeDef of stateNode.invoke) {
+      if (invokeDef.onDone) {
+        const descriptor = `xstate.done.actor.${invokeDef.id}`;
+        transitions.set(descriptor, toTransitionConfigArray(invokeDef.onDone).map(t => formatTransition(stateNode, descriptor, t)));
+      }
+      if (invokeDef.onError) {
+        const descriptor = `xstate.error.actor.${invokeDef.id}`;
+        transitions.set(descriptor, toTransitionConfigArray(invokeDef.onError).map(t => formatTransition(stateNode, descriptor, t)));
+      }
+      if (invokeDef.onSnapshot) {
+        const descriptor = `xstate.snapshot.${invokeDef.id}`;
+        transitions.set(descriptor, toTransitionConfigArray(invokeDef.onSnapshot).map(t => formatTransition(stateNode, descriptor, t)));
+      }
+    }
+    for (const delayedTransition of stateNode.after) {
+      let existing = transitions.get(delayedTransition.eventType);
+      if (!existing) {
+        existing = [];
+        transitions.set(delayedTransition.eventType, existing);
+      }
+      existing.push(delayedTransition);
+    }
+    return transitions;
+  }
+
+  /**
+   * Collects route transitions from all descendants with explicit IDs. Called
+   * once on the root node to avoid O(N²) repeated traversals.
+   */
+  function formatRouteTransitions(rootStateNode) {
+    const routeTransitions = [];
+    const collectRoutes = states => {
+      Object.values(states).forEach(sn => {
+        if (sn.config.route && sn.config.id) {
+          const routeId = sn.config.id;
+          const userGuard = sn.config.route.guard;
+          const routeGuard = (args, params) => {
+            if (args.event.to !== `#${routeId}`) {
+              return false;
+            }
+            if (!userGuard) {
+              return true;
+            }
+            if (typeof userGuard === 'function') {
+              return userGuard(args, params);
+            }
+            return true;
+          };
+          const transition = {
+            ...sn.config.route,
+            guard: routeGuard,
+            target: `#${routeId}`
+          };
+          routeTransitions.push(formatTransition(rootStateNode, 'xstate.route', transition));
+        }
+        if (sn.states) {
+          collectRoutes(sn.states);
+        }
+      });
+    };
+    collectRoutes(rootStateNode.states);
+    if (routeTransitions.length > 0) {
+      rootStateNode.transitions.set('xstate.route', routeTransitions);
+    }
+  }
+  function formatInitialTransition(stateNode, _target) {
+    const resolvedTarget = typeof _target === 'string' ? stateNode.states[_target] : _target ? stateNode.states[_target.target] : undefined;
+    if (!resolvedTarget && _target) {
+      throw new Error(
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-base-to-string
+      `Initial state node "${_target}" not found on parent state node #${stateNode.id}`);
+    }
+    const transition = {
+      source: stateNode,
+      actions: !_target || typeof _target === 'string' ? [] : toArray(_target.actions),
+      eventType: null,
+      reenter: false,
+      target: resolvedTarget ? [resolvedTarget] : [],
+      toJSON: () => ({
+        ...transition,
+        source: `#${stateNode.id}`,
+        target: resolvedTarget ? [`#${resolvedTarget.id}`] : []
+      })
+    };
+    return transition;
+  }
+  function resolveTarget(stateNode, targets) {
+    if (targets === undefined) {
+      // an undefined target signals that the state node should not transition from that state when receiving that event
+      return undefined;
+    }
+    return targets.map(target => {
+      if (typeof target !== 'string') {
+        return target;
+      }
+      if (isStateId(target)) {
+        return stateNode.machine.getStateNodeById(target);
+      }
+      const isInternalTarget = target[0] === STATE_DELIMITER;
+      // If internal target is defined on machine,
+      // do not include machine key on target
+      if (isInternalTarget && !stateNode.parent) {
+        return getStateNodeByPath(stateNode, target.slice(1));
+      }
+      const resolvedTarget = isInternalTarget ? stateNode.key + target : target;
+      if (stateNode.parent) {
+        try {
+          const targetStateNode = getStateNodeByPath(stateNode.parent, resolvedTarget);
+          return targetStateNode;
+        } catch (err) {
+          throw new Error(`Invalid transition definition for state node '${stateNode.id}':\n${err.message}`);
+        }
+      } else {
+        throw new Error(`Invalid target: "${target}" is not a valid target from the root node. Did you mean ".${target}"?`);
+      }
+    });
+  }
+  function resolveHistoryDefaultTransition(stateNode) {
+    const normalizedTarget = normalizeTarget(stateNode.config.target);
+    if (!normalizedTarget) {
+      return stateNode.parent.initial;
+    }
+    return {
+      target: normalizedTarget.map(t => typeof t === 'string' ? getStateNodeByPath(stateNode.parent, t) : t)
+    };
+  }
+  function isHistoryNode(stateNode) {
+    return stateNode.type === 'history';
+  }
+  function getInitialStateNodesWithTheirAncestors(stateNode) {
+    const states = getInitialStateNodes(stateNode);
+    for (const initialState of states) {
+      for (const ancestor of getProperAncestors(initialState, stateNode)) {
+        states.add(ancestor);
+      }
+    }
+    return states;
+  }
+  function getInitialStateNodes(stateNode) {
+    const set = new Set();
+    function iter(descStateNode) {
+      if (set.has(descStateNode)) {
+        return;
+      }
+      set.add(descStateNode);
+      if (descStateNode.type === 'compound') {
+        iter(descStateNode.initial.target[0]);
+      } else if (descStateNode.type === 'parallel') {
+        for (const child of getChildren(descStateNode)) {
+          iter(child);
+        }
+      }
+    }
+    iter(stateNode);
+    return set;
+  }
+  /** Returns the child state node from its relative `stateKey`, or throws. */
+  function getStateNode(stateNode, stateKey) {
+    if (isStateId(stateKey)) {
+      return stateNode.machine.getStateNodeById(stateKey);
+    }
+    if (!stateNode.states) {
+      throw new Error(`Unable to retrieve child state '${stateKey}' from '${stateNode.id}'; no child states exist.`);
+    }
+    const result = stateNode.states[stateKey];
+    if (!result) {
+      throw new Error(`Child state '${stateKey}' does not exist on '${stateNode.id}'`);
+    }
+    return result;
+  }
+
+  /**
+   * Returns the relative state node from the given `statePath`, or throws.
+   *
+   * @param statePath The string or string array relative path to the state node.
+   */
+  function getStateNodeByPath(stateNode, statePath) {
+    if (typeof statePath === 'string' && isStateId(statePath)) {
+      try {
+        return stateNode.machine.getStateNodeById(statePath);
+      } catch {
+        // try individual paths
+        // throw e;
+      }
+    }
+    const arrayStatePath = toStatePath(statePath).slice();
+    let currentStateNode = stateNode;
+    while (arrayStatePath.length) {
+      const key = arrayStatePath.shift();
+      if (!key.length) {
+        break;
+      }
+      currentStateNode = getStateNode(currentStateNode, key);
+    }
+    return currentStateNode;
+  }
+
+  /**
+   * Returns the state nodes represented by the current state value.
+   *
+   * @param stateValue The state value or State instance
+   */
+  function getStateNodes(stateNode, stateValue) {
+    if (typeof stateValue === 'string') {
+      const childStateNode = stateNode.states[stateValue];
+      if (!childStateNode) {
+        throw new Error(`State '${stateValue}' does not exist on '${stateNode.id}'`);
+      }
+      return [stateNode, childStateNode];
+    }
+    const childStateKeys = Object.keys(stateValue);
+    const childStateNodes = childStateKeys.map(subStateKey => getStateNode(stateNode, subStateKey)).filter(Boolean);
+    return [stateNode.machine.root, stateNode].concat(childStateNodes, childStateKeys.reduce((allSubStateNodes, subStateKey) => {
+      const subStateNode = getStateNode(stateNode, subStateKey);
+      if (!subStateNode) {
+        return allSubStateNodes;
+      }
+      const subStateNodes = getStateNodes(subStateNode, stateValue[subStateKey]);
+      return allSubStateNodes.concat(subStateNodes);
+    }, []));
+  }
+  function transitionAtomicNode(stateNode, stateValue, snapshot, event) {
+    const childStateNode = getStateNode(stateNode, stateValue);
+    const next = childStateNode.next(snapshot, event);
+    if (!next || !next.length) {
+      return stateNode.next(snapshot, event);
+    }
+    return next;
+  }
+  function transitionCompoundNode(stateNode, stateValue, snapshot, event) {
+    const subStateKeys = Object.keys(stateValue);
+    const childStateNode = getStateNode(stateNode, subStateKeys[0]);
+    const next = transitionNode(childStateNode, stateValue[subStateKeys[0]], snapshot, event);
+    if (!next || !next.length) {
+      return stateNode.next(snapshot, event);
+    }
+    return next;
+  }
+  function transitionParallelNode(stateNode, stateValue, snapshot, event) {
+    const allInnerTransitions = [];
+    for (const subStateKey of Object.keys(stateValue)) {
+      const subStateValue = stateValue[subStateKey];
+      if (!subStateValue) {
+        continue;
+      }
+      const subStateNode = getStateNode(stateNode, subStateKey);
+      const innerTransitions = transitionNode(subStateNode, subStateValue, snapshot, event);
+      if (innerTransitions) {
+        allInnerTransitions.push(...innerTransitions);
+      }
+    }
+    if (!allInnerTransitions.length) {
+      return stateNode.next(snapshot, event);
+    }
+    return allInnerTransitions;
+  }
+  function transitionNode(stateNode, stateValue, snapshot, event) {
+    // leaf node
+    if (typeof stateValue === 'string') {
+      return transitionAtomicNode(stateNode, stateValue, snapshot, event);
+    }
+
+    // compound node
+    if (Object.keys(stateValue).length === 1) {
+      return transitionCompoundNode(stateNode, stateValue, snapshot, event);
+    }
+
+    // parallel node
+    return transitionParallelNode(stateNode, stateValue, snapshot, event);
+  }
+  function getHistoryNodes(stateNode) {
+    return Object.keys(stateNode.states).map(key => stateNode.states[key]).filter(sn => sn.type === 'history');
+  }
+  function isDescendant(childStateNode, parentStateNode) {
+    let marker = childStateNode;
+    while (marker.parent && marker.parent !== parentStateNode) {
+      marker = marker.parent;
+    }
+    return marker.parent === parentStateNode;
+  }
+  function hasIntersection(s1, s2) {
+    const set1 = new Set(s1);
+    const set2 = new Set(s2);
+    for (const item of set1) {
+      if (set2.has(item)) {
+        return true;
+      }
+    }
+    for (const item of set2) {
+      if (set1.has(item)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function removeConflictingTransitions(enabledTransitions, stateNodeSet, historyValue) {
+    const filteredTransitions = new Set();
+    for (const t1 of enabledTransitions) {
+      let t1Preempted = false;
+      const transitionsToRemove = new Set();
+      for (const t2 of filteredTransitions) {
+        if (hasIntersection(computeExitSet([t1], stateNodeSet, historyValue), computeExitSet([t2], stateNodeSet, historyValue))) {
+          if (isDescendant(t1.source, t2.source)) {
+            transitionsToRemove.add(t2);
+          } else {
+            t1Preempted = true;
+            break;
+          }
+        }
+      }
+      if (!t1Preempted) {
+        for (const t3 of transitionsToRemove) {
+          filteredTransitions.delete(t3);
+        }
+        filteredTransitions.add(t1);
+      }
+    }
+    return Array.from(filteredTransitions);
+  }
+  function findLeastCommonAncestor(stateNodes) {
+    const [head, ...tail] = stateNodes;
+    for (const ancestor of getProperAncestors(head, undefined)) {
+      if (tail.every(sn => isDescendant(sn, ancestor))) {
+        return ancestor;
+      }
+    }
+  }
+  function getEffectiveTargetStates(transition, historyValue) {
+    if (!transition.target) {
+      return [];
+    }
+    const targets = new Set();
+    for (const targetNode of transition.target) {
+      if (isHistoryNode(targetNode)) {
+        if (historyValue[targetNode.id]) {
+          for (const node of historyValue[targetNode.id]) {
+            targets.add(node);
+          }
+        } else {
+          for (const node of getEffectiveTargetStates(resolveHistoryDefaultTransition(targetNode), historyValue)) {
+            targets.add(node);
+          }
+        }
+      } else {
+        targets.add(targetNode);
+      }
+    }
+    return [...targets];
+  }
+  function getTransitionDomain(transition, historyValue) {
+    const targetStates = getEffectiveTargetStates(transition, historyValue);
+    if (!targetStates) {
+      return;
+    }
+    if (!transition.reenter && targetStates.every(target => target === transition.source || isDescendant(target, transition.source))) {
+      return transition.source;
+    }
+    const lca = findLeastCommonAncestor(targetStates.concat(transition.source));
+    if (lca) {
+      return lca;
+    }
+
+    // at this point we know that it's a root transition since LCA couldn't be found
+    if (transition.reenter) {
+      return;
+    }
+    return transition.source.machine.root;
+  }
+  function computeExitSet(transitions, stateNodeSet, historyValue) {
+    const statesToExit = new Set();
+    for (const t of transitions) {
+      if (t.target?.length) {
+        const domain = getTransitionDomain(t, historyValue);
+        if (t.reenter && t.source === domain) {
+          statesToExit.add(domain);
+        }
+        for (const stateNode of stateNodeSet) {
+          if (isDescendant(stateNode, domain)) {
+            statesToExit.add(stateNode);
+          }
+        }
+      }
+    }
+    return [...statesToExit];
+  }
+  function areStateNodeCollectionsEqual(prevStateNodes, nextStateNodeSet) {
+    if (prevStateNodes.length !== nextStateNodeSet.size) {
+      return false;
+    }
+    for (const node of prevStateNodes) {
+      if (!nextStateNodeSet.has(node)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function initialMicrostep(root, preInitialState, actorScope, initEvent, internalQueue) {
+    return microstep([{
+      target: [...getInitialStateNodes(root)],
+      source: root,
+      reenter: true,
+      actions: [],
+      eventType: null,
+      toJSON: null
+    }], preInitialState, actorScope, initEvent, true, internalQueue);
+  }
+
+  /** https://www.w3.org/TR/scxml/#microstepProcedure */
+  function microstep(transitions, currentSnapshot, actorScope, event, isInitial, internalQueue) {
+    const actions = [];
+    if (!transitions.length) {
+      return [currentSnapshot, actions];
+    }
+    const originalExecutor = actorScope.actionExecutor;
+    actorScope.actionExecutor = action => {
+      actions.push(action);
+      originalExecutor(action);
+    };
+    try {
+      const mutStateNodeSet = new Set(currentSnapshot._nodes);
+      let historyValue = currentSnapshot.historyValue;
+      const filteredTransitions = removeConflictingTransitions(transitions, mutStateNodeSet, historyValue);
+      let nextState = currentSnapshot;
+
+      // Exit states
+      if (!isInitial) {
+        [nextState, historyValue] = exitStates(nextState, event, actorScope, filteredTransitions, mutStateNodeSet, historyValue, internalQueue, actorScope.actionExecutor);
+      }
+
+      // Execute transition content
+      nextState = resolveActionsAndContext(nextState, event, actorScope, filteredTransitions.flatMap(t => t.actions), internalQueue, undefined);
+
+      // Enter states
+      nextState = enterStates(nextState, event, actorScope, filteredTransitions, mutStateNodeSet, internalQueue, historyValue, isInitial);
+      const nextStateNodes = [...mutStateNodeSet];
+      if (nextState.status === 'done') {
+        nextState = resolveActionsAndContext(nextState, event, actorScope, nextStateNodes.sort((a, b) => b.order - a.order).flatMap(state => state.exit), internalQueue, undefined);
+      }
+
+      // eslint-disable-next-line no-useless-catch
+      try {
+        if (historyValue === currentSnapshot.historyValue && areStateNodeCollectionsEqual(currentSnapshot._nodes, mutStateNodeSet)) {
+          return [nextState, actions];
+        }
+        return [cloneMachineSnapshot(nextState, {
+          _nodes: nextStateNodes,
+          historyValue
+        }), actions];
+      } catch (e) {
+        // TODO: Refactor this once proper error handling is implemented.
+        // See https://github.com/statelyai/rfcs/pull/4
+        throw e;
+      }
+    } finally {
+      actorScope.actionExecutor = originalExecutor;
+    }
+  }
+  function getMachineOutput(snapshot, event, actorScope, rootNode, rootCompletionNode) {
+    if (rootNode.output === undefined) {
+      return;
+    }
+    const doneStateEvent = createDoneStateEvent(rootCompletionNode.id, rootCompletionNode.output !== undefined && rootCompletionNode.parent ? resolveOutput(rootCompletionNode.output, snapshot.context, event, actorScope.self) : undefined);
+    return resolveOutput(rootNode.output, snapshot.context, doneStateEvent, actorScope.self);
+  }
+  function enterStates(currentSnapshot, event, actorScope, filteredTransitions, mutStateNodeSet, internalQueue, historyValue, isInitial) {
+    let nextSnapshot = currentSnapshot;
+    const statesToEnter = new Set();
+    // those are states that were directly targeted or indirectly targeted by the explicit target
+    // in other words, those are states for which initial actions should be executed
+    // when we target `#deep_child` initial actions of its ancestors shouldn't be executed
+    const statesForDefaultEntry = new Set();
+    computeEntrySet(filteredTransitions, historyValue, statesForDefaultEntry, statesToEnter);
+
+    // In the initial state, the root state node is "entered".
+    if (isInitial) {
+      statesForDefaultEntry.add(currentSnapshot.machine.root);
+    }
+    const completedNodes = new Set();
+    for (const stateNodeToEnter of [...statesToEnter].sort((a, b) => a.order - b.order)) {
+      mutStateNodeSet.add(stateNodeToEnter);
+      const actions = [];
+
+      // Add entry actions
+      actions.push(...stateNodeToEnter.entry);
+      for (const invokeDef of stateNodeToEnter.invoke) {
+        actions.push(spawnChild(invokeDef.src, {
+          ...invokeDef,
+          syncSnapshot: !!invokeDef.onSnapshot
+        }));
+      }
+      if (statesForDefaultEntry.has(stateNodeToEnter)) {
+        const initialActions = stateNodeToEnter.initial.actions;
+        actions.push(...initialActions);
+      }
+      nextSnapshot = resolveActionsAndContext(nextSnapshot, event, actorScope, actions, internalQueue, stateNodeToEnter.invoke.map(invokeDef => invokeDef.id));
+      if (stateNodeToEnter.type === 'final') {
+        const parent = stateNodeToEnter.parent;
+        let ancestorMarker = parent?.type === 'parallel' ? parent : parent?.parent;
+        let rootCompletionNode = ancestorMarker || stateNodeToEnter;
+        if (parent?.type === 'compound') {
+          internalQueue.push(createDoneStateEvent(parent.id, stateNodeToEnter.output !== undefined ? resolveOutput(stateNodeToEnter.output, nextSnapshot.context, event, actorScope.self) : undefined));
+        }
+        while (ancestorMarker?.type === 'parallel' && !completedNodes.has(ancestorMarker) && isInFinalState(mutStateNodeSet, ancestorMarker)) {
+          completedNodes.add(ancestorMarker);
+          internalQueue.push(createDoneStateEvent(ancestorMarker.id));
+          rootCompletionNode = ancestorMarker;
+          ancestorMarker = ancestorMarker.parent;
+        }
+        if (ancestorMarker) {
+          continue;
+        }
+        nextSnapshot = cloneMachineSnapshot(nextSnapshot, {
+          status: 'done',
+          output: getMachineOutput(nextSnapshot, event, actorScope, nextSnapshot.machine.root, rootCompletionNode)
+        });
+      }
+    }
+    return nextSnapshot;
+  }
+  function computeEntrySet(transitions, historyValue, statesForDefaultEntry, statesToEnter) {
+    for (const t of transitions) {
+      const domain = getTransitionDomain(t, historyValue);
+      for (const s of t.target || []) {
+        if (!isHistoryNode(s) && (
+        // if the target is different than the source then it will *definitely* be entered
+        t.source !== s ||
+        // we know that the domain can't lie within the source
+        // if it's different than the source then it's outside of it and it means that the target has to be entered as well
+        t.source !== domain ||
+        // reentering transitions always enter the target, even if it's the source itself
+        t.reenter)) {
+          statesToEnter.add(s);
+          statesForDefaultEntry.add(s);
+        }
+        addDescendantStatesToEnter(s, historyValue, statesForDefaultEntry, statesToEnter);
+      }
+      const targetStates = getEffectiveTargetStates(t, historyValue);
+      for (const s of targetStates) {
+        const ancestors = getProperAncestors(s, domain);
+        if (domain?.type === 'parallel') {
+          ancestors.push(domain);
+        }
+        addAncestorStatesToEnter(statesToEnter, historyValue, statesForDefaultEntry, ancestors, !t.source.parent && t.reenter ? undefined : domain);
+      }
+    }
+  }
+  function addDescendantStatesToEnter(stateNode, historyValue, statesForDefaultEntry, statesToEnter) {
+    if (isHistoryNode(stateNode)) {
+      if (historyValue[stateNode.id]) {
+        const historyStateNodes = historyValue[stateNode.id];
+        for (const s of historyStateNodes) {
+          statesToEnter.add(s);
+          addDescendantStatesToEnter(s, historyValue, statesForDefaultEntry, statesToEnter);
+        }
+        for (const s of historyStateNodes) {
+          addProperAncestorStatesToEnter(s, stateNode.parent, statesToEnter, historyValue, statesForDefaultEntry);
+        }
+      } else {
+        const historyDefaultTransition = resolveHistoryDefaultTransition(stateNode);
+        for (const s of historyDefaultTransition.target) {
+          statesToEnter.add(s);
+          if (historyDefaultTransition === stateNode.parent?.initial) {
+            statesForDefaultEntry.add(stateNode.parent);
+          }
+          addDescendantStatesToEnter(s, historyValue, statesForDefaultEntry, statesToEnter);
+        }
+        for (const s of historyDefaultTransition.target) {
+          addProperAncestorStatesToEnter(s, stateNode.parent, statesToEnter, historyValue, statesForDefaultEntry);
+        }
+      }
+    } else {
+      if (stateNode.type === 'compound') {
+        const [initialState] = stateNode.initial.target;
+        if (!isHistoryNode(initialState)) {
+          statesToEnter.add(initialState);
+          statesForDefaultEntry.add(initialState);
+        }
+        addDescendantStatesToEnter(initialState, historyValue, statesForDefaultEntry, statesToEnter);
+        addProperAncestorStatesToEnter(initialState, stateNode, statesToEnter, historyValue, statesForDefaultEntry);
+      } else {
+        if (stateNode.type === 'parallel') {
+          for (const child of getChildren(stateNode).filter(sn => !isHistoryNode(sn))) {
+            if (![...statesToEnter].some(s => isDescendant(s, child))) {
+              if (!isHistoryNode(child)) {
+                statesToEnter.add(child);
+                statesForDefaultEntry.add(child);
+              }
+              addDescendantStatesToEnter(child, historyValue, statesForDefaultEntry, statesToEnter);
+            }
+          }
+        }
+      }
+    }
+  }
+  function addAncestorStatesToEnter(statesToEnter, historyValue, statesForDefaultEntry, ancestors, reentrancyDomain) {
+    for (const anc of ancestors) {
+      if (!reentrancyDomain || isDescendant(anc, reentrancyDomain)) {
+        statesToEnter.add(anc);
+      }
+      if (anc.type === 'parallel') {
+        for (const child of getChildren(anc).filter(sn => !isHistoryNode(sn))) {
+          if (![...statesToEnter].some(s => isDescendant(s, child))) {
+            statesToEnter.add(child);
+            addDescendantStatesToEnter(child, historyValue, statesForDefaultEntry, statesToEnter);
+          }
+        }
+      }
+    }
+  }
+  function addProperAncestorStatesToEnter(stateNode, toStateNode, statesToEnter, historyValue, statesForDefaultEntry) {
+    addAncestorStatesToEnter(statesToEnter, historyValue, statesForDefaultEntry, getProperAncestors(stateNode, toStateNode));
+  }
+  function exitStates(currentSnapshot, event, actorScope, transitions, mutStateNodeSet, historyValue, internalQueue, _actionExecutor) {
+    let nextSnapshot = currentSnapshot;
+    const statesToExit = computeExitSet(transitions, mutStateNodeSet, historyValue);
+    statesToExit.sort((a, b) => b.order - a.order);
+    let changedHistory;
+
+    // From SCXML algorithm: https://www.w3.org/TR/scxml/#exitStates
+    for (const exitStateNode of statesToExit) {
+      for (const historyNode of getHistoryNodes(exitStateNode)) {
+        let predicate;
+        if (historyNode.history === 'deep') {
+          predicate = sn => isAtomicStateNode(sn) && isDescendant(sn, exitStateNode);
+        } else {
+          predicate = sn => {
+            return sn.parent === exitStateNode;
+          };
+        }
+        changedHistory ??= {
+          ...historyValue
+        };
+        changedHistory[historyNode.id] = Array.from(mutStateNodeSet).filter(predicate);
+      }
+    }
+    for (const s of statesToExit) {
+      nextSnapshot = resolveActionsAndContext(nextSnapshot, event, actorScope, [...s.exit, ...s.invoke.map(def => stopChild(def.id))], internalQueue, undefined);
+      mutStateNodeSet.delete(s);
+    }
+    return [nextSnapshot, changedHistory || historyValue];
+  }
+  function getAction(machine, actionType) {
+    return machine.implementations.actions[actionType];
+  }
+  function resolveAndExecuteActionsWithContext(currentSnapshot, event, actorScope, actions, extra, retries) {
+    const {
+      machine
+    } = currentSnapshot;
+    let intermediateSnapshot = currentSnapshot;
+    for (const action of actions) {
+      const isInline = typeof action === 'function';
+      const resolvedAction = isInline ? action :
+      // the existing type of `.actions` assumes non-nullable `TExpressionAction`
+      // it's fine to cast this here to get a common type and lack of errors in the rest of the code
+      // our logic below makes sure that we call those 2 "variants" correctly
+
+      getAction(machine, typeof action === 'string' ? action : action.type);
+      const actionArgs = {
+        context: intermediateSnapshot.context,
+        event,
+        self: actorScope.self,
+        system: actorScope.system
+      };
+      const actionParams = isInline || typeof action === 'string' ? undefined : 'params' in action ? typeof action.params === 'function' ? action.params({
+        context: intermediateSnapshot.context,
+        event
+      }) : action.params : undefined;
+      if (!resolvedAction || !('resolve' in resolvedAction)) {
+        actorScope.actionExecutor({
+          type: typeof action === 'string' ? action : typeof action === 'object' ? action.type : action.name || '(anonymous)',
+          info: actionArgs,
+          params: actionParams,
+          exec: resolvedAction
+        });
+        continue;
+      }
+      const builtinAction = resolvedAction;
+      const [nextState, params, actions] = builtinAction.resolve(actorScope, intermediateSnapshot, actionArgs, actionParams, resolvedAction,
+      // this holds all params
+      extra);
+      intermediateSnapshot = nextState;
+      if ('retryResolve' in builtinAction) {
+        retries?.push([builtinAction, params]);
+      }
+      if ('execute' in builtinAction) {
+        actorScope.actionExecutor({
+          type: builtinAction.type,
+          info: actionArgs,
+          params,
+          exec: builtinAction.execute.bind(null, actorScope, params)
+        });
+      }
+      if (actions) {
+        intermediateSnapshot = resolveAndExecuteActionsWithContext(intermediateSnapshot, event, actorScope, actions, extra, retries);
+      }
+    }
+    return intermediateSnapshot;
+  }
+  function resolveActionsAndContext(currentSnapshot, event, actorScope, actions, internalQueue, deferredActorIds) {
+    const retries = deferredActorIds ? [] : undefined;
+    const nextState = resolveAndExecuteActionsWithContext(currentSnapshot, event, actorScope, actions, {
+      internalQueue,
+      deferredActorIds
+    }, retries);
+    retries?.forEach(([builtinAction, params]) => {
+      builtinAction.retryResolve(actorScope, nextState, params);
+    });
+    return nextState;
+  }
+  function macrostep(snapshot, event, actorScope, internalQueue) {
+    let nextSnapshot = snapshot;
+    const microsteps = [];
+    function addMicrostep(step, event, transitions) {
+      actorScope.system._sendInspectionEvent({
+        type: '@xstate.microstep',
+        actorRef: actorScope.self,
+        event,
+        snapshot: step[0],
+        _transitions: transitions
+      });
+      microsteps.push(step);
+    }
+
+    // Handle stop event
+    if (event.type === XSTATE_STOP) {
+      nextSnapshot = cloneMachineSnapshot(stopChildren(nextSnapshot, event, actorScope), {
+        status: 'stopped'
+      });
+      addMicrostep([nextSnapshot, []], event, []);
+      return {
+        snapshot: nextSnapshot,
+        microsteps
+      };
+    }
+    let nextEvent = event;
+
+    // Assume the state is at rest (no raised events)
+    // Determine the next state based on the next microstep
+    if (nextEvent.type !== XSTATE_INIT) {
+      const currentEvent = nextEvent;
+      const isErr = isErrorActorEvent(currentEvent);
+      const transitions = selectTransitions(currentEvent, nextSnapshot);
+      if (isErr && !transitions.length) {
+        // TODO: we should likely only allow transitions selected by very explicit descriptors
+        // `*` shouldn't be matched, likely `xstate.error.*` shouldn't be either
+        // similarly `xstate.error.actor.*` and `xstate.error.actor.todo.*` have to be considered too
+        nextSnapshot = cloneMachineSnapshot(snapshot, {
+          status: 'error',
+          error: currentEvent.error
+        });
+        addMicrostep([nextSnapshot, []], currentEvent, []);
+        return {
+          snapshot: nextSnapshot,
+          microsteps
+        };
+      }
+      const step = microstep(transitions, snapshot, actorScope, nextEvent, false,
+      // isInitial
+      internalQueue);
+      nextSnapshot = step[0];
+      addMicrostep(step, currentEvent, transitions);
+    }
+    let shouldSelectEventlessTransitions = true;
+    while (nextSnapshot.status === 'active') {
+      let enabledTransitions = shouldSelectEventlessTransitions ? selectEventlessTransitions(nextSnapshot, nextEvent) : [];
+
+      // eventless transitions should always be selected after selecting *regular* transitions
+      // by assigning `undefined` to `previousState` we ensure that `shouldSelectEventlessTransitions` gets always computed to true in such a case
+      const previousState = enabledTransitions.length ? nextSnapshot : undefined;
+      if (!enabledTransitions.length) {
+        if (!internalQueue.length) {
+          break;
+        }
+        nextEvent = internalQueue.shift();
+        enabledTransitions = selectTransitions(nextEvent, nextSnapshot);
+      }
+      const step = microstep(enabledTransitions, nextSnapshot, actorScope, nextEvent, false, internalQueue);
+      nextSnapshot = step[0];
+      shouldSelectEventlessTransitions = nextSnapshot !== previousState;
+      addMicrostep(step, nextEvent, enabledTransitions);
+    }
+    if (nextSnapshot.status !== 'active') {
+      stopChildren(nextSnapshot, nextEvent, actorScope);
+    }
+    return {
+      snapshot: nextSnapshot,
+      microsteps
+    };
+  }
+  function stopChildren(nextState, event, actorScope) {
+    return resolveActionsAndContext(nextState, event, actorScope, Object.values(nextState.children).map(child => stopChild(child)), [], undefined);
+  }
+  function selectTransitions(event, nextState) {
+    return nextState.machine.getTransitionData(nextState, event);
+  }
+  function selectEventlessTransitions(nextState, event) {
+    const enabledTransitionSet = new Set();
+    const atomicStates = nextState._nodes.filter(isAtomicStateNode);
+    for (const stateNode of atomicStates) {
+      loop: for (const s of [stateNode].concat(getProperAncestors(stateNode, undefined))) {
+        if (!s.always) {
+          continue;
+        }
+        for (const transition of s.always) {
+          if (transition.guard === undefined || evaluateGuard(transition.guard, nextState.context, event, nextState)) {
+            enabledTransitionSet.add(transition);
+            break loop;
+          }
+        }
+      }
+    }
+    return removeConflictingTransitions(Array.from(enabledTransitionSet), new Set(nextState._nodes), nextState.historyValue);
+  }
+
+  /**
+   * Resolves a partial state value with its full representation in the state
+   * node's machine.
+   *
+   * @param stateValue The partial state value to resolve.
+   */
+  function resolveStateValue(rootNode, stateValue) {
+    const allStateNodes = getAllStateNodes(getStateNodes(rootNode, stateValue));
+    return getStateValue(rootNode, [...allStateNodes]);
+  }
+
+  function isMachineSnapshot(value) {
+    return !!value && typeof value === 'object' && 'machine' in value && 'value' in value;
+  }
+  const machineSnapshotMatches = function matches(testValue) {
+    return matchesState(testValue, this.value);
+  };
+  const machineSnapshotHasTag = function hasTag(tag) {
+    return this.tags.has(tag);
+  };
+  const machineSnapshotCan = function can(event) {
+    const transitionData = this.machine.getTransitionData(this, event);
+    return !!transitionData?.length &&
+    // Check that at least one transition is not forbidden
+    transitionData.some(t => t.target !== undefined || t.actions.length);
+  };
+  const machineSnapshotToJSON = function toJSON() {
+    const {
+      _nodes: nodes,
+      tags,
+      machine,
+      getMeta,
+      toJSON,
+      can,
+      hasTag,
+      matches,
+      ...jsonValues
+    } = this;
+    return {
+      ...jsonValues,
+      tags: Array.from(tags)
+    };
+  };
+  const machineSnapshotGetMeta = function getMeta() {
+    return this._nodes.reduce((acc, stateNode) => {
+      if (stateNode.meta !== undefined) {
+        acc[stateNode.id] = stateNode.meta;
+      }
+      return acc;
+    }, {});
+  };
+  function createMachineSnapshot(config, machine) {
+    return {
+      status: config.status,
+      output: config.output,
+      error: config.error,
+      machine,
+      context: config.context,
+      _nodes: config._nodes,
+      value: getStateValue(machine.root, config._nodes),
+      tags: new Set(config._nodes.flatMap(sn => sn.tags)),
+      children: config.children,
+      historyValue: config.historyValue || {},
+      matches: machineSnapshotMatches,
+      hasTag: machineSnapshotHasTag,
+      can: machineSnapshotCan,
+      getMeta: machineSnapshotGetMeta,
+      toJSON: machineSnapshotToJSON
+    };
+  }
+  function cloneMachineSnapshot(snapshot, config = {}) {
+    return createMachineSnapshot({
+      ...snapshot,
+      ...config
+    }, snapshot.machine);
+  }
+  function serializeHistoryValue(historyValue) {
+    if (typeof historyValue !== 'object' || historyValue === null) {
+      return {};
+    }
+    const result = {};
+    for (const key in historyValue) {
+      const value = historyValue[key];
+      if (Array.isArray(value)) {
+        result[key] = value.map(item => ({
+          id: item.id
+        }));
+      }
+    }
+    return result;
+  }
+  function getPersistedSnapshot(snapshot, options) {
+    const {
+      _nodes: nodes,
+      tags,
+      machine,
+      children,
+      context,
+      can,
+      hasTag,
+      matches,
+      getMeta,
+      toJSON,
+      ...jsonValues
+    } = snapshot;
+    const childrenJson = {};
+    for (const id in children) {
+      const child = children[id];
+      childrenJson[id] = {
+        snapshot: child.getPersistedSnapshot(options),
+        src: child.src,
+        systemId: child.systemId,
+        syncSnapshot: child._syncSnapshot
+      };
+    }
+    const persisted = {
+      ...jsonValues,
+      context: persistContext(context),
+      children: childrenJson,
+      historyValue: serializeHistoryValue(jsonValues.historyValue)
+    };
+    return persisted;
+  }
+  function persistContext(contextPart) {
+    let copy;
+    for (const key in contextPart) {
+      const value = contextPart[key];
+      if (value && typeof value === 'object') {
+        if ('sessionId' in value && 'send' in value && 'ref' in value) {
+          copy ??= Array.isArray(contextPart) ? contextPart.slice() : {
+            ...contextPart
+          };
+          copy[key] = {
+            xstate$$type: $$ACTOR_TYPE,
+            id: value.id
+          };
+        } else {
+          const result = persistContext(value);
+          if (result !== value) {
+            copy ??= Array.isArray(contextPart) ? contextPart.slice() : {
+              ...contextPart
+            };
+            copy[key] = result;
+          }
+        }
+      }
+    }
+    return copy ?? contextPart;
+  }
+
+  function resolveRaise(_, snapshot, args, actionParams, {
+    event: eventOrExpr,
+    id,
+    delay
+  }, {
+    internalQueue
+  }) {
+    const delaysMap = snapshot.machine.implementations.delays;
+    if (typeof eventOrExpr === 'string') {
+      throw new Error(
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      `Only event objects may be used with raise; use raise({ type: "${eventOrExpr}" }) instead`);
+    }
+    const resolvedEvent = typeof eventOrExpr === 'function' ? eventOrExpr(args, actionParams) : eventOrExpr;
+    let resolvedDelay;
+    if (typeof delay === 'string') {
+      const configDelay = delaysMap && delaysMap[delay];
+      resolvedDelay = typeof configDelay === 'function' ? configDelay(args, actionParams) : configDelay;
+    } else {
+      resolvedDelay = typeof delay === 'function' ? delay(args, actionParams) : delay;
+    }
+    if (typeof resolvedDelay !== 'number') {
+      internalQueue.push(resolvedEvent);
+    }
+    return [snapshot, {
+      event: resolvedEvent,
+      id,
+      delay: resolvedDelay
+    }, undefined];
+  }
+  function executeRaise(actorScope, params) {
+    const {
+      event,
+      delay,
+      id
+    } = params;
+    if (typeof delay === 'number') {
+      actorScope.defer(() => {
+        const self = actorScope.self;
+        actorScope.system.scheduler.schedule(self, self, event, delay, id);
+      });
+      return;
+    }
+  }
+  /**
+   * Raises an event. This places the event in the internal event queue, so that
+   * the event is immediately consumed by the machine in the current step.
+   *
+   * @param eventType The event to raise.
+   */
+  function raise(eventOrExpr, options) {
+    function raise(_args, _params) {
+    }
+    raise.type = 'xstate.raise';
+    raise.event = eventOrExpr;
+    raise.id = options?.id;
+    raise.delay = options?.delay;
+    raise.resolve = resolveRaise;
+    raise.execute = executeRaise;
+    return raise;
+  }
+
+  function createSpawner(actorScope, {
+    machine,
+    context
+  }, event, spawnedChildren) {
+    const spawn = (src, options) => {
+      if (typeof src === 'string') {
+        const logic = resolveReferencedActor(machine, src);
+        if (!logic) {
+          throw new Error(`Actor logic '${src}' not implemented in machine '${machine.id}'`);
+        }
+        const actorRef = createActor(logic, {
+          id: options?.id,
+          parent: actorScope.self,
+          syncSnapshot: options?.syncSnapshot,
+          input: typeof options?.input === 'function' ? options.input({
+            context,
+            event,
+            self: actorScope.self
+          }) : options?.input,
+          src,
+          systemId: options?.systemId
+        });
+        spawnedChildren[actorRef.id] = actorRef;
+        return actorRef;
+      } else {
+        const actorRef = createActor(src, {
+          id: options?.id,
+          parent: actorScope.self,
+          syncSnapshot: options?.syncSnapshot,
+          input: options?.input,
+          src,
+          systemId: options?.systemId
+        });
+        return actorRef;
+      }
+    };
+    return (src, options) => {
+      const actorRef = spawn(src, options); // TODO: fix types
+      spawnedChildren[actorRef.id] = actorRef;
+      actorScope.defer(() => {
+        if (actorRef._processingStatus === ProcessingStatus.Stopped) {
+          return;
+        }
+        actorRef.start();
+      });
+      return actorRef;
+    };
+  }
+
+  function resolveAssign(actorScope, snapshot, actionArgs, actionParams, {
+    assignment
+  }) {
+    if (!snapshot.context) {
+      throw new Error('Cannot assign to undefined `context`. Ensure that `context` is defined in the machine config.');
+    }
+    const spawnedChildren = {};
+    const assignArgs = {
+      context: snapshot.context,
+      event: actionArgs.event,
+      spawn: createSpawner(actorScope, snapshot, actionArgs.event, spawnedChildren),
+      self: actorScope.self,
+      system: actorScope.system
+    };
+    let partialUpdate = {};
+    if (typeof assignment === 'function') {
+      partialUpdate = assignment(assignArgs, actionParams);
+    } else {
+      for (const key of Object.keys(assignment)) {
+        const propAssignment = assignment[key];
+        partialUpdate[key] = typeof propAssignment === 'function' ? propAssignment(assignArgs, actionParams) : propAssignment;
+      }
+    }
+    const updatedContext = Object.assign({}, snapshot.context, partialUpdate);
+    return [cloneMachineSnapshot(snapshot, {
+      context: updatedContext,
+      children: Object.keys(spawnedChildren).length ? {
+        ...snapshot.children,
+        ...spawnedChildren
+      } : snapshot.children
+    }), undefined, undefined];
+  }
+  /**
+   * Updates the current context of the machine.
+   *
+   * @example
+   *
+   * ```ts
+   * import { createMachine, assign } from 'xstate';
+   *
+   * const countMachine = createMachine({
+   *   context: {
+   *     count: 0,
+   *     message: ''
+   *   },
+   *   on: {
+   *     inc: {
+   *       actions: assign({
+   *         count: ({ context }) => context.count + 1
+   *       })
+   *     },
+   *     updateMessage: {
+   *       actions: assign(({ context, event }) => {
+   *         return {
+   *           message: event.message.trim()
+   *         };
+   *       })
+   *     }
+   *   }
+   * });
+   * ```
+   *
+   * @param assignment An object that represents the partial context to update, or
+   *   a function that returns an object that represents the partial context to
+   *   update.
+   */
+  function assign(assignment) {
+    function assign(_args, _params) {
+    }
+    assign.type = 'xstate.assign';
+    assign.assignment = assignment;
+    assign.resolve = resolveAssign;
+    return assign;
+  }
+
+  const cache = new WeakMap();
+  function memo(object, key, fn) {
+    let memoizedData = cache.get(object);
+    if (!memoizedData) {
+      memoizedData = {
+        [key]: fn()
+      };
+      cache.set(object, memoizedData);
+    } else if (!(key in memoizedData)) {
+      memoizedData[key] = fn();
+    }
+    return memoizedData[key];
+  }
+
+  const EMPTY_OBJECT = {};
+  const toSerializableAction = action => {
+    if (typeof action === 'string') {
+      return {
+        type: action
+      };
+    }
+    if (typeof action === 'function') {
+      if ('resolve' in action) {
+        return {
+          type: action.type
+        };
+      }
+      return {
+        type: action.name
+      };
+    }
+    return action;
+  };
+  class StateNode {
+    constructor(/** The raw config used to create the machine. */
+    config, options) {
+      this.config = config;
+      /**
+       * The relative key of the state node, which represents its location in the
+       * overall state value.
+       */
+      this.key = void 0;
+      /** The unique ID of the state node. */
+      this.id = void 0;
+      /**
+       * The type of this state node:
+       *
+       * - `'atomic'` - no child state nodes
+       * - `'compound'` - nested child state nodes (XOR)
+       * - `'parallel'` - orthogonal nested child state nodes (AND)
+       * - `'history'` - history state node
+       * - `'final'` - final state node
+       */
+      this.type = void 0;
+      /** The string path from the root machine node to this node. */
+      this.path = void 0;
+      /** The child state nodes. */
+      this.states = void 0;
+      /**
+       * The type of history on this state node. Can be:
+       *
+       * - `'shallow'` - recalls only top-level historical state value
+       * - `'deep'` - recalls historical state value at all levels
+       */
+      this.history = void 0;
+      /** The action(s) to be executed upon entering the state node. */
+      this.entry = void 0;
+      /** The action(s) to be executed upon exiting the state node. */
+      this.exit = void 0;
+      /** The parent state node. */
+      this.parent = void 0;
+      /** The root machine node. */
+      this.machine = void 0;
+      /**
+       * The meta data associated with this state node, which will be returned in
+       * State instances.
+       */
+      this.meta = void 0;
+      /**
+       * The output data sent with the "xstate.done.state._id_" event if this is a
+       * final state node.
+       */
+      this.output = void 0;
+      /**
+       * The order this state node appears. Corresponds to the implicit document
+       * order.
+       */
+      this.order = -1;
+      this.description = void 0;
+      this.tags = [];
+      this.transitions = void 0;
+      this.always = void 0;
+      this.parent = options._parent;
+      this.key = options._key;
+      this.machine = options._machine;
+      this.path = this.parent ? this.parent.path.concat(this.key) : [];
+      this.id = this.config.id || [this.machine.id, ...this.path].join(STATE_DELIMITER);
+      this.type = this.config.type || (this.config.states && Object.keys(this.config.states).length ? 'compound' : this.config.history ? 'history' : 'atomic');
+      this.description = this.config.description;
+      this.order = this.machine.idMap.size;
+      this.machine.idMap.set(this.id, this);
+      this.states = this.config.states ? mapValues(this.config.states, (stateConfig, key) => {
+        const stateNode = new StateNode(stateConfig, {
+          _parent: this,
+          _key: key,
+          _machine: this.machine
+        });
+        return stateNode;
+      }) : EMPTY_OBJECT;
+      if (this.type === 'compound' && !this.config.initial) {
+        throw new Error(`No initial state specified for compound state node "#${this.id}". Try adding { initial: "${Object.keys(this.states)[0]}" } to the state config.`);
+      }
+
+      // History config
+      this.history = this.config.history === true ? 'shallow' : this.config.history || false;
+      this.entry = toArray(this.config.entry).slice();
+      this.exit = toArray(this.config.exit).slice();
+      this.meta = this.config.meta;
+      this.output = this.type === 'final' || !this.parent ? this.config.output : undefined;
+      this.tags = toArray(config.tags).slice();
+    }
+
+    /** @internal */
+    _initialize() {
+      this.transitions = formatTransitions(this);
+      if (this.config.always) {
+        this.always = toTransitionConfigArray(this.config.always).map(t => formatTransition(this, NULL_EVENT, t));
+      }
+      Object.keys(this.states).forEach(key => {
+        this.states[key]._initialize();
+      });
+    }
+
+    /** The well-structured state node definition. */
+    get definition() {
+      return {
+        id: this.id,
+        key: this.key,
+        version: this.machine.version,
+        type: this.type,
+        initial: this.initial ? {
+          target: this.initial.target,
+          source: this,
+          actions: this.initial.actions.map(toSerializableAction),
+          eventType: null,
+          reenter: false,
+          toJSON: () => ({
+            target: this.initial.target.map(t => `#${t.id}`),
+            source: `#${this.id}`,
+            actions: this.initial.actions.map(toSerializableAction),
+            eventType: null
+          })
+        } : undefined,
+        history: this.history,
+        states: mapValues(this.states, state => {
+          return state.definition;
+        }),
+        on: this.on,
+        transitions: [...this.transitions.values()].flat().map(t => ({
+          ...t,
+          actions: t.actions.map(toSerializableAction)
+        })),
+        entry: this.entry.map(toSerializableAction),
+        exit: this.exit.map(toSerializableAction),
+        meta: this.meta,
+        order: this.order || -1,
+        output: this.output,
+        invoke: this.invoke,
+        description: this.description,
+        tags: this.tags
+      };
+    }
+
+    /** @internal */
+    toJSON() {
+      return this.definition;
+    }
+
+    /** The logic invoked as actors by this state node. */
+    get invoke() {
+      return memo(this, 'invoke', () => toArray(this.config.invoke).map((invokeConfig, i) => {
+        const {
+          src,
+          systemId
+        } = invokeConfig;
+        const resolvedId = invokeConfig.id ?? createInvokeId(this.id, i);
+        const sourceName = typeof src === 'string' ? src : `xstate.invoke.${createInvokeId(this.id, i)}`;
+        return {
+          ...invokeConfig,
+          src: sourceName,
+          id: resolvedId,
+          systemId: systemId,
+          toJSON() {
+            const {
+              onDone,
+              onError,
+              ...invokeDefValues
+            } = invokeConfig;
+            return {
+              ...invokeDefValues,
+              type: 'xstate.invoke',
+              src: sourceName,
+              id: resolvedId
+            };
+          }
+        };
+      }));
+    }
+
+    /** The mapping of events to transitions. */
+    get on() {
+      return memo(this, 'on', () => {
+        const transitions = this.transitions;
+        return [...transitions].flatMap(([descriptor, t]) => t.map(t => [descriptor, t])).reduce((map, [descriptor, transition]) => {
+          map[descriptor] = map[descriptor] || [];
+          map[descriptor].push(transition);
+          return map;
+        }, {});
+      });
+    }
+    get after() {
+      return memo(this, 'delayedTransitions', () => getDelayedTransitions(this));
+    }
+    get initial() {
+      return memo(this, 'initial', () => formatInitialTransition(this, this.config.initial));
+    }
+
+    /** @internal */
+    next(snapshot, event) {
+      const eventType = event.type;
+      const actions = [];
+      let selectedTransition;
+      const candidates = memo(this, `candidates-${eventType}`, () => getCandidates(this, eventType));
+      for (const candidate of candidates) {
+        const {
+          guard
+        } = candidate;
+        const resolvedContext = snapshot.context;
+        let guardPassed = false;
+        try {
+          guardPassed = !guard || evaluateGuard(guard, resolvedContext, event, snapshot);
+        } catch (err) {
+          const guardType = typeof guard === 'string' ? guard : typeof guard === 'object' ? guard.type : undefined;
+          throw new Error(`Unable to evaluate guard ${guardType ? `'${guardType}' ` : ''}in transition for event '${eventType}' in state node '${this.id}':\n${err.message}`);
+        }
+        if (guardPassed) {
+          actions.push(...candidate.actions);
+          selectedTransition = candidate;
+          break;
+        }
+      }
+      return selectedTransition ? [selectedTransition] : undefined;
+    }
+
+    /** All the event types accepted by this state node and its descendants. */
+    get events() {
+      return memo(this, 'events', () => {
+        const {
+          states
+        } = this;
+        const events = new Set(this.ownEvents);
+        if (states) {
+          for (const stateId of Object.keys(states)) {
+            const state = states[stateId];
+            if (state.states) {
+              for (const event of state.events) {
+                events.add(`${event}`);
+              }
+            }
+          }
+        }
+        return Array.from(events);
+      });
+    }
+
+    /**
+     * All the events that have transitions directly from this state node.
+     *
+     * Excludes any inert events.
+     */
+    get ownEvents() {
+      const keys = Object.keys(Object.fromEntries(this.transitions));
+      const events = new Set(keys.filter(descriptor => {
+        return this.transitions.get(descriptor).some(transition => !(!transition.target && !transition.actions.length && !transition.reenter));
+      }));
+      return Array.from(events);
+    }
+  }
+
+  const STATE_IDENTIFIER = '#';
+  class StateMachine {
+    constructor(/** The raw config used to create the machine. */
+    config, implementations) {
+      this.config = config;
+      /** The machine's own version. */
+      this.version = void 0;
+      this.schemas = void 0;
+      this.implementations = void 0;
+      /** @internal */
+      this.__xstatenode = true;
+      /** @internal */
+      this.idMap = new Map();
+      this.root = void 0;
+      this.id = void 0;
+      this.states = void 0;
+      this.events = void 0;
+      this.id = config.id || '(machine)';
+      this.implementations = {
+        actors: implementations?.actors ?? {},
+        actions: implementations?.actions ?? {},
+        delays: implementations?.delays ?? {},
+        guards: implementations?.guards ?? {}
+      };
+      this.version = this.config.version;
+      this.schemas = this.config.schemas;
+      this.transition = this.transition.bind(this);
+      this.getInitialSnapshot = this.getInitialSnapshot.bind(this);
+      this.getPersistedSnapshot = this.getPersistedSnapshot.bind(this);
+      this.restoreSnapshot = this.restoreSnapshot.bind(this);
+      this.start = this.start.bind(this);
+      this.root = new StateNode(config, {
+        _key: this.id,
+        _machine: this
+      });
+      this.root._initialize();
+      formatRouteTransitions(this.root);
+      this.states = this.root.states; // TODO: remove!
+      this.events = this.root.events;
+    }
+
+    /**
+     * Clones this state machine with the provided implementations.
+     *
+     * @param implementations Options (`actions`, `guards`, `actors`, `delays`) to
+     *   recursively merge with the existing options.
+     * @returns A new `StateMachine` instance with the provided implementations.
+     */
+    provide(implementations) {
+      const {
+        actions,
+        guards,
+        actors,
+        delays
+      } = this.implementations;
+      return new StateMachine(this.config, {
+        actions: {
+          ...actions,
+          ...implementations.actions
+        },
+        guards: {
+          ...guards,
+          ...implementations.guards
+        },
+        actors: {
+          ...actors,
+          ...implementations.actors
+        },
+        delays: {
+          ...delays,
+          ...implementations.delays
+        }
+      });
+    }
+    resolveState(config) {
+      const resolvedStateValue = resolveStateValue(this.root, config.value);
+      const nodeSet = getAllStateNodes(getStateNodes(this.root, resolvedStateValue));
+      return createMachineSnapshot({
+        _nodes: [...nodeSet],
+        context: config.context || {},
+        children: {},
+        status: isInFinalState(nodeSet, this.root) ? 'done' : config.status || 'active',
+        output: config.output,
+        error: config.error,
+        historyValue: config.historyValue
+      }, this);
+    }
+
+    /**
+     * Determines the next snapshot given the current `snapshot` and received
+     * `event`. Calculates a full macrostep from all microsteps.
+     *
+     * @param snapshot The current snapshot
+     * @param event The received event
+     */
+    transition(snapshot, event, actorScope) {
+      return macrostep(snapshot, event, actorScope, []).snapshot;
+    }
+
+    /**
+     * Determines the next state given the current `state` and `event`. Calculates
+     * a microstep.
+     *
+     * @param state The current state
+     * @param event The received event
+     */
+    microstep(snapshot, event, actorScope) {
+      return macrostep(snapshot, event, actorScope, []).microsteps.map(([s]) => s);
+    }
+    getTransitionData(snapshot, event) {
+      return transitionNode(this.root, snapshot.value, snapshot, event) || [];
+    }
+
+    /**
+     * The initial state _before_ evaluating any microsteps. This "pre-initial"
+     * state is provided to initial actions executed in the initial state.
+     *
+     * @internal
+     */
+    _getPreInitialState(actorScope, initEvent, internalQueue) {
+      const {
+        context
+      } = this.config;
+      const preInitial = createMachineSnapshot({
+        context: typeof context !== 'function' && context ? context : {},
+        _nodes: [this.root],
+        children: {},
+        status: 'active'
+      }, this);
+      if (typeof context === 'function') {
+        const assignment = ({
+          spawn,
+          event,
+          self
+        }) => context({
+          spawn,
+          input: event.input,
+          self
+        });
+        return resolveActionsAndContext(preInitial, initEvent, actorScope, [assign(assignment)], internalQueue, undefined);
+      }
+      return preInitial;
+    }
+
+    /**
+     * Returns the initial `State` instance, with reference to `self` as an
+     * `ActorRef`.
+     */
+    getInitialSnapshot(actorScope, input) {
+      const initEvent = createInitEvent(input); // TODO: fix;
+      const internalQueue = [];
+      const preInitialState = this._getPreInitialState(actorScope, initEvent, internalQueue);
+      const [nextState] = initialMicrostep(this.root, preInitialState, actorScope, initEvent, internalQueue);
+      const {
+        snapshot: macroState
+      } = macrostep(nextState, initEvent, actorScope, internalQueue);
+      return macroState;
+    }
+    start(snapshot) {
+      Object.values(snapshot.children).forEach(child => {
+        if (child.getSnapshot().status === 'active') {
+          child.start();
+        }
+      });
+    }
+    getStateNodeById(stateId) {
+      const fullPath = toStatePath(stateId);
+      const relativePath = fullPath.slice(1);
+      const resolvedStateId = isStateId(fullPath[0]) ? fullPath[0].slice(STATE_IDENTIFIER.length) : fullPath[0];
+      const stateNode = this.idMap.get(resolvedStateId);
+      if (!stateNode) {
+        throw new Error(`Child state node '#${resolvedStateId}' does not exist on machine '${this.id}'`);
+      }
+      return getStateNodeByPath(stateNode, relativePath);
+    }
+    get definition() {
+      return this.root.definition;
+    }
+    toJSON() {
+      return this.definition;
+    }
+    getPersistedSnapshot(snapshot, options) {
+      return getPersistedSnapshot(snapshot, options);
+    }
+    restoreSnapshot(snapshot, _actorScope) {
+      const children = {};
+      const snapshotChildren = snapshot.children;
+      Object.keys(snapshotChildren).forEach(actorId => {
+        const actorData = snapshotChildren[actorId];
+        const childState = actorData.snapshot;
+        const src = actorData.src;
+        const logic = typeof src === 'string' ? resolveReferencedActor(this, src) : src;
+        if (!logic) {
+          return;
+        }
+        const actorRef = createActor(logic, {
+          id: actorId,
+          parent: _actorScope.self,
+          syncSnapshot: actorData.syncSnapshot,
+          snapshot: childState,
+          src,
+          systemId: actorData.systemId
+        });
+        children[actorId] = actorRef;
+      });
+      function resolveHistoryReferencedState(root, referenced) {
+        if (referenced instanceof StateNode) {
+          return referenced;
+        }
+        try {
+          return root.machine.getStateNodeById(referenced.id);
+        } catch {
+        }
+      }
+      function reviveHistoryValue(root, historyValue) {
+        if (!historyValue || typeof historyValue !== 'object') {
+          return {};
+        }
+        const revived = {};
+        for (const key in historyValue) {
+          const arr = historyValue[key];
+          for (const item of arr) {
+            const resolved = resolveHistoryReferencedState(root, item);
+            if (!resolved) {
+              continue;
+            }
+            revived[key] ??= [];
+            revived[key].push(resolved);
+          }
+        }
+        return revived;
+      }
+      const revivedHistoryValue = reviveHistoryValue(this.root, snapshot.historyValue);
+      const restoredSnapshot = createMachineSnapshot({
+        ...snapshot,
+        children,
+        _nodes: Array.from(getAllStateNodes(getStateNodes(this.root, snapshot.value))),
+        historyValue: revivedHistoryValue
+      }, this);
+      const seen = new Set();
+      function reviveContext(contextPart, children) {
+        if (seen.has(contextPart)) {
+          return;
+        }
+        seen.add(contextPart);
+        for (const key in contextPart) {
+          const value = contextPart[key];
+          if (value && typeof value === 'object') {
+            if ('xstate$$type' in value && value.xstate$$type === $$ACTOR_TYPE) {
+              contextPart[key] = children[value.id];
+              continue;
+            }
+            reviveContext(value, children);
+          }
+        }
+      }
+      reviveContext(restoredSnapshot.context, children);
+      return restoredSnapshot;
+    }
+  }
+
+  /**
+   * Creates a state machine (statechart) with the given configuration.
+   *
+   * The state machine represents the pure logic of a state machine actor.
+   *
+   * @example
+   *
+   * ```ts
+   * import { createMachine } from 'xstate';
+   *
+   * const lightMachine = createMachine({
+   *   id: 'light',
+   *   initial: 'green',
+   *   states: {
+   *     green: {
+   *       on: {
+   *         TIMER: { target: 'yellow' }
+   *       }
+   *     },
+   *     yellow: {
+   *       on: {
+   *         TIMER: { target: 'red' }
+   *       }
+   *     },
+   *     red: {
+   *       on: {
+   *         TIMER: { target: 'green' }
+   *       }
+   *     }
+   *   }
+   * });
+   *
+   * const lightActor = createActor(lightMachine);
+   * lightActor.start();
+   *
+   * lightActor.send({ type: 'TIMER' });
+   * ```
+   *
+   * @param config The state machine configuration.
+   * @param options DEPRECATED: use `setup({ ... })` or `machine.provide({ ... })`
+   *   to provide machine implementations instead.
+   */
+  function createMachine(config, implementations) {
+    return new StateMachine(config, implementations);
+  }
+
+  /**
+   * Enum for the variable pricing dimension of an item.
+   * Determines which quantity axis drives the per-unit cost.
+   * @enum {string}
+   */
+  const PricingKind = {
+    NONE: 'NONE',
+    PAX: 'PAX',
+    UNITS: 'UNITS',
+    TIME: 'TIME'
+  };
+
+  /**
+   * Enum for how the initial quantity is resolved.
+   * - NONE: no variable quantity.
+   * - FIXED_AMOUNT: quantity comes from a hardcoded default.
+   * - CONTEXT_PAX: quantity derived from the global pax count.
+   * - CONTEXT_TIME: quantity derived from the event duration.
+   * @enum {string}
+   */
+  const InitializationMode = {
+    NONE: 'NONE',
+    FIXED_AMOUNT: 'FIXED_AMOUNT',
+    CONTEXT_PAX: 'CONTEXT_PAX',
+    CONTEXT_TIME: 'CONTEXT_TIME'
+  };
+
+  /**
+   * Coerce a value to a finite number, returning fallback if NaN/Infinity.
+   * @param {*} value
+   * @param {number} [fallback=0]
+   * @returns {number}
+   */
+  function toNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  /**
+   * Coerce a value to the nearest integer, returning fallback if invalid.
+   * @param {*} value
+   * @param {number} [fallback=0]
+   * @returns {number}
+   */
+  function toInteger(value, fallback = 0) {
+    return Math.round(toNumber(value, fallback));
+  }
+
+  /**
+   * Normalize a raw pricing profile into canonical field names.
+   * Supports both camelCase (`baseFijo`) and schema-style (`Costo_Base_Fijo`) keys.
+   * @param {Object} [raw={}]
+   * @returns {{ baseFijo: number, porPersona: number, porUnidad: number, porMinuto: number }}
+   */
+  function normalizeProfile(raw = {}) {
+    return {
+      baseFijo: toNumber(raw.baseFijo ?? raw.Costo_Base_Fijo ?? 0),
+      porPersona: toNumber(raw.porPersona ?? raw.Costo_Unitario_Pax ?? 0),
+      porUnidad: toNumber(raw.porUnidad ?? raw.Costo_Unitario_Item ?? 0),
+      porMinuto: toNumber(raw.porMinuto ?? raw.Costo_Unitario_Tiempo ?? 0)
+    };
+  }
+
+  /**
+   * Determine the pricing kind from a normalized profile.
+   * Priority: PAX > UNITS > TIME > NONE.
+   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
+   * @returns {PricingKind}
+   */
+  function detectPricingKind(profile) {
+    if (toNumber(profile.porPersona, 0) > 0) return PricingKind.PAX;
+    if (toNumber(profile.porUnidad, 0) > 0) return PricingKind.UNITS;
+    if (toNumber(profile.porMinuto, 0) > 0) return PricingKind.TIME;
+    return PricingKind.NONE;
+  }
+
+  /**
+   * Determine how the initial quantity should be resolved based on the
+   * pricing kind and the available default quantity fields.
+   * @param {PricingKind} kind
+   * @param {Object} [defaults={}] - Default quantity configuration.
+   * @returns {InitializationMode}
+   */
+  function detectInitializationMode(kind, defaults = {}) {
+    if (kind === PricingKind.NONE) return InitializationMode.NONE;
+
+    if (kind === PricingKind.PAX) {
+      if (toNumber(defaults.pax, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+      return InitializationMode.CONTEXT_PAX;
+    }
+
+    if (kind === PricingKind.UNITS) {
+      if (toNumber(defaults.cantidad, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+      if (toNumber(defaults.unidadesPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
+      if (toNumber(defaults.unidadesPorHora, 0) > 0) return InitializationMode.CONTEXT_TIME;
+      return InitializationMode.NONE;
+    }
+
+    if (kind === PricingKind.TIME) {
+      if (toNumber(defaults.duracionMin, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+      if (toNumber(defaults.minutosPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
+      return InitializationMode.CONTEXT_TIME;
+    }
+
+    return InitializationMode.NONE;
+  }
+
+  /**
+   * Extract the per-unit rate from the profile for the given pricing kind.
+   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
+   * @param {PricingKind} kind
+   * @returns {number}
+   */
+  function rateForKind(profile, kind) {
+    if (kind === PricingKind.PAX) return toNumber(profile.porPersona, 0);
+    if (kind === PricingKind.UNITS) return toNumber(profile.porUnidad, 0);
+    if (kind === PricingKind.TIME) return toNumber(profile.porMinuto, 0);
+    return 0;
+  }
+
+  /**
+   * Map a pricing kind to the override field name used in the overrides object.
+   * @param {PricingKind} kind
+   * @returns {'pax'|'cantidad'|'duracionMin'|null}
+   */
+  function overrideFieldForKind(kind) {
+    if (kind === PricingKind.PAX) return 'pax';
+    if (kind === PricingKind.UNITS) return 'cantidad';
+    if (kind === PricingKind.TIME) return 'duracionMin';
+    return null;
+  }
+
+  /**
+   * Get the fixed default quantity for the given pricing kind.
+   * @param {PricingKind} kind
+   * @param {Object} [defaults={}]
+   * @returns {number}
+   */
+  function fixedAmountForKind(kind, defaults = {}) {
+    if (kind === PricingKind.PAX) return toNumber(defaults.pax, 0);
+    if (kind === PricingKind.UNITS) return toNumber(defaults.cantidad, 0);
+    if (kind === PricingKind.TIME) return toNumber(defaults.duracionMin, 0);
+    return 0;
+  }
+
+  /**
+   * Quantity resolution logic for items.
+   *
+   * Standalone functions for resolving item quantities based on:
+   * - pricing kind (PAX, UNITS, TIME, NONE)
+   * - initialization mode (FIXED_AMOUNT, CONTEXT_PAX, CONTEXT_TIME, NONE)
+   * - default quantities from item definition
+   * - external context (paxGlobal, duracionMin)
+   * - user overrides (pax, cantidad, duracionMin)
+   *
+   * @module quantity
+   */
+
+
+  /**
+   * Resolve the quantity from external context (paxGlobal, duracionMin)
+   * and default multipliers (e.g. unidadesPorUsuario).
+   *
+   * @param {PricingKind} kind - The pricing dimension (PAX, UNITS, TIME, NONE)
+   * @param {InitializationMode} mode - How to derive the quantity
+   * @param {Object} [defaults={}] - Default quantity configuration
+   * @param {Object} [context={}] - External context with paxGlobal, duracionMin
+   * @returns {number} - The computed quantity
+   *
+   * @example
+   * // Context-based PAX: returns global pax count
+   * resolveContextQuantity(PricingKind.PAX, InitializationMode.CONTEXT_PAX, {}, { paxGlobal: 50 })
+   * // => 50
+   *
+   * @example
+   * // Context-based UNITS: returns pax * multiplier
+   * resolveContextQuantity(
+   *   PricingKind.UNITS,
+   *   InitializationMode.CONTEXT_PAX,
+   *   { unidadesPorUsuario: 3 },
+   *   { paxGlobal: 50 }
+   * )
+   * // => 150
+   *
+   * @example
+   * // Time-based UNITS: returns (hours) * multiplier
+   * resolveContextQuantity(
+   *   PricingKind.UNITS,
+   *   InitializationMode.CONTEXT_TIME,
+   *   { unidadesPorHora: 12 },
+   *   { duracionMin: 120 }
+   * )
+   * // => 24 (2 hours * 12)
+   */
+  function resolveContextQuantity(kind, mode, defaults = {}, context = {}) {
+    const paxGlobal = toNumber(context.paxGlobal, 0);
+    const durationMin = toNumber(context.duracionMin, 0);
+
+    if (mode === InitializationMode.CONTEXT_PAX) {
+      if (kind === PricingKind.PAX) return paxGlobal;
+      if (kind === PricingKind.UNITS) return paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
+      if (kind === PricingKind.TIME) return paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
+    }
+
+    if (mode === InitializationMode.CONTEXT_TIME) {
+      if (kind === PricingKind.UNITS) return (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
+      if (kind === PricingKind.TIME) return durationMin;
+    }
+
+    return 0;
+  }
+
+  /**
+   * Resolve the final basket quantity, considering user overrides first,
+   * then fixed defaults, then context-derived values.
+   *
+   * Returns structured result with quantity, override status, and field name.
+   *
+   * @param {PricingKind} kind - The pricing dimension (PAX, UNITS, TIME, NONE)
+   * @param {InitializationMode} mode - How to derive the quantity
+   * @param {Object} [defaults={}] - Default quantity configuration
+   * @param {Object} [context={}] - External context with paxGlobal, duracionMin
+   * @param {Object} [overrides={}] - User overrides (pax, cantidad, duracionMin, etc.)
+   * @returns {Object} - Object with quantity, isOverridden, overrideField
+   * @returns {number} result.quantity - The final computed quantity
+   * @returns {boolean} result.isOverridden - Whether user provided an override
+   * @returns {string|null} result.overrideField - Field name if overridden (pax/cantidad/duracionMin)
+   *
+   * @example
+   * // User override takes precedence
+   * resolveBasketQuantity(
+   *   PricingKind.PAX,
+   *   InitializationMode.CONTEXT_PAX,
+   *   {},
+   *   { paxGlobal: 50 },
+   *   { pax: 100 }
+   * )
+   * // => { quantity: 100, isOverridden: true, overrideField: 'pax' }
+   *
+   * @example
+   * // Fixed default (no override)
+   * resolveBasketQuantity(
+   *   PricingKind.UNITS,
+   *   InitializationMode.FIXED_AMOUNT,
+   *   { cantidad: 5 },
+   *   {},
+   *   {}
+   * )
+   * // => { quantity: 5, isOverridden: false, overrideField: 'cantidad' }
+   *
+   * @example
+   * // Context derivation (no override)
+   * resolveBasketQuantity(
+   *   PricingKind.PAX,
+   *   InitializationMode.CONTEXT_PAX,
+   *   {},
+   *   { paxGlobal: 50 },
+   *   {}
+   * )
+   * // => { quantity: 50, isOverridden: false, overrideField: 'pax' }
+   */
+  function resolveBasketQuantity(kind, mode, defaults = {}, context = {}, overrides = {}) {
+    const overrideField = overrideFieldForKind(kind);
+    const overrideValue = overrideField ? overrides[overrideField] : null;
+
+    if (overrideField && overrideValue != null) {
+      return {
+        quantity: toInteger(overrideValue, 0),
+        isOverridden: true,
+        overrideField
+      };
+    }
+
+    if (mode === InitializationMode.FIXED_AMOUNT) {
+      return {
+        quantity: toInteger(fixedAmountForKind(kind, defaults), 0),
+        isOverridden: false,
+        overrideField
+      };
+    }
+
+    return {
+      quantity: toInteger(resolveContextQuantity(kind, mode, defaults, context), 0),
+      isOverridden: false,
+      overrideField
+    };
+  }
+
+  /**
+   * Enforce exclusive initialization modes when setting one default key.
+   *
+   * Business rule: Only one initialization mode can be active per pricing kind.
+   * Setting one key deletes conflicting keys:
+   * - `cantidad` conflicts with `unidadesPorUsuario`, `unidadesPorHora`
+   * - `unidadesPorUsuario` or `unidadesPorHora` conflict with `cantidad`
+   * - `duracionMin` conflicts with `minutosPorUsuario`
+   * - `minutosPorUsuario` conflicts with `duracionMin`
+   *
+   * @param {Object} [defaultQuantities={}] - Current default quantities
+   * @param {string} key - The field being set (cantidad, unidadesPorUsuario, etc.)
+   * @param {number|string} rawValue - The value to set
+   * @returns {Object} - Updated defaultQuantities with conflicts resolved
+   *
+   * @example
+   * // Setting cantidad clears unit multipliers
+   * applyExclusiveDefaultMode(
+   *   { unidadesPorUsuario: 2, unidadesPorHora: 12 },
+   *   'cantidad',
+   *   5
+   * )
+   * // => { cantidad: 5 }
+   *
+   * @example
+   * // Negative or zero values remove the key
+   * applyExclusiveDefaultMode(
+   *   { cantidad: 5 },
+   *   'cantidad',
+   *   0
+   * )
+   * // => {}
+   *
+   * @example
+   * // Setting multiplier clears fixed value
+   * applyExclusiveDefaultMode(
+   *   { cantidad: 10 },
+   *   'unidadesPorUsuario',
+   *   3
+   * )
+   * // => { unidadesPorUsuario: 3 }
+   */
+  function applyExclusiveDefaultMode(defaultQuantities = {}, key, rawValue) {
+    const value = toNumber(rawValue, 0);
+    const next = { ...(defaultQuantities || {}) };
+
+    if (value <= 0) {
+      delete next[key];
+      return next;
+    }
+
+    next[key] = value;
+
+    if (key === 'cantidad') {
+      delete next.unidadesPorUsuario;
+      delete next.unidadesPorHora;
+    }
+    if (key === 'unidadesPorUsuario' || key === 'unidadesPorHora') {
+      delete next.cantidad;
+    }
+    if (key === 'duracionMin') {
+      delete next.minutosPorUsuario;
+    }
+    if (key === 'minutosPorUsuario') {
+      delete next.duracionMin;
+    }
+
+    return next;
+  }
+
+  /**
+   * Formatting functions for pricing display.
+   * Extracted from ItemLogic for use in templates and UI components.
+   * All functions are pure and stateless.
+   */
+
+
+  /**
+   * Format a numeric value as Chilean peso currency string (e.g. "$1.200").
+   * @param {number} value
+   * @returns {string}
+   */
+  function money(value) {
+    return `$${toInteger(value, 0).toLocaleString('es-CL')}`;
+  }
+
+  /**
+   * Build a human-readable pricing formula string for catalog display.
+   * Example: "$400 fijo + 3 und/pax x $1"
+   * @param {number} base - Fixed base cost.
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {number} rate - Per-unit rate.
+   * @param {Object} defaults - Default quantities for label formatting.
+   * @returns {string}
+   */
+  function formatCatalogTerms(base, kind, mode, rate, defaults) {
+    const parts = [];
+    if (base > 0) parts.push(`${money(base)} fijo`);
+
+    if (kind === PricingKind.NONE) {
+      return parts.join(' + ') || '$0';
+    }
+
+    if (kind === PricingKind.PAX) {
+      if (mode === InitializationMode.FIXED_AMOUNT) {
+        parts.push(`${toInteger(defaults.pax, 0)} pax x ${money(rate)}`);
+      } else {
+        parts.push(`${money(rate)} por pax`);
+      }
+      return parts.join(' + ');
+    }
+
+    if (kind === PricingKind.UNITS) {
+      if (mode === InitializationMode.FIXED_AMOUNT) {
+        parts.push(`${toInteger(defaults.cantidad, 0)} und x ${money(rate)}`);
+      } else if (mode === InitializationMode.CONTEXT_PAX) {
+        parts.push(`${toNumber(defaults.unidadesPorUsuario, 0)} und/pax x ${money(rate)}`);
+      } else if (mode === InitializationMode.CONTEXT_TIME) {
+        parts.push(`${toNumber(defaults.unidadesPorHora, 0)} und/h x ${money(rate)}`);
+      } else {
+        parts.push(`${money(rate)} por unidad`);
+      }
+      return parts.join(' + ');
+    }
+
+    if (kind === PricingKind.TIME) {
+      if (mode === InitializationMode.FIXED_AMOUNT) {
+        parts.push(`${toInteger(defaults.duracionMin, 0)} min x ${money(rate)}`);
+      } else if (mode === InitializationMode.CONTEXT_PAX) {
+        parts.push(`${toNumber(defaults.minutosPorUsuario, 0)} min/pax x ${money(rate)}`);
+      } else {
+        parts.push(`${money(rate)} por minuto`);
+      }
+      return parts.join(' + ');
+    }
+
+    return parts.join(' + ') || '$0';
+  }
+
+  /**
+   * Generate a short policy hint describing the initialization rule.
+   * Example: "3 und/persona" or "10 min/persona".
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {Object} [defaults={}]
+   * @returns {string} Empty string if no hint applies.
+   */
+  function policyHint(kind, mode, defaults = {}) {
+    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_PAX) {
+      return `${toNumber(defaults.unidadesPorUsuario, 0)} und/persona`;
+    }
+    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_TIME) {
+      return `${toNumber(defaults.unidadesPorHora, 0)} und/hora`;
+    }
+    if (kind === PricingKind.TIME && mode === InitializationMode.CONTEXT_PAX) {
+      return `${toNumber(defaults.minutosPorUsuario, 0)} min/persona`;
+    }
+    return '';
+  }
+
+  /**
+   * Build a human-readable breakdown legend for basket display.
+   * Example: "$400 + (60 und x $1) = $460"
+   * @param {number} base - Fixed base cost.
+   * @param {PricingKind} kind
+   * @param {number} quantity
+   * @param {number} rate
+   * @param {number} total
+   * @returns {string}
+   */
+  function legendForBasket(base, kind, quantity, rate, total) {
+    if (kind === PricingKind.NONE) return `${money(base)} fijo`;
+
+    const qtyLabel = kind === PricingKind.PAX
+      ? `${quantity} pax`
+      : kind === PricingKind.UNITS
+        ? `${quantity} und`
+        : `${quantity} min`;
+
+    return `${money(base)} + (${qtyLabel} x ${money(rate)}) = ${money(total)}`;
+  }
+
+  /**
+   * Build a human-readable profile description for pricing display.
+   * Example: "$400 fijo + $1 por pax"
+   * @param {number} base - Fixed base cost.
+   * @param {PricingKind} kind
+   * @param {number} rate - Per-unit rate.
+   * @returns {string}
+   */
+  function profileHumanText(base, kind, rate) {
+    const parts = [];
+    if (base > 0) parts.push(`${money(base)} fijo`);
+    if (kind === PricingKind.PAX && rate > 0) parts.push(`${money(rate)} por pax`);
+    if (kind === PricingKind.UNITS && rate > 0) parts.push(`${money(rate)} por unidad`);
+    if (kind === PricingKind.TIME && rate > 0) parts.push(`${money(rate)} por minuto`);
+    return parts.join(' + ') || '$0';
+  }
+
+  /**
+   * Map pricing kind to a human-readable rate label for line items.
+   * Example: PAX → "Pax", UNITS → "Unidades", TIME → "Duracion"
+   * @param {PricingKind} kind
+   * @returns {string}
+   */
+  function lineRateLabel(kind, initMode = null) {
+    // For items priced by quantity but controlled by pax, show "per Pax"
+    if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
+      return 'por Pax';
+    }
+
+    if (kind === PricingKind.NONE) return 'Fijo';
+    
+    if (kind === PricingKind.PAX) return 'Pax';
+    if (kind === PricingKind.UNITS) return 'Unidades';
+    if (kind === PricingKind.TIME) return 'Duracion';
+    return 'Cantidad';
+  }
+
+  /**
+   * Event-aware time utilities.
+   *
+   * The venue operates on an "event day" that may cross midnight.
+   * A configurable day boundary (default 09:00) anchors the day:
+   * times before the boundary are treated as next-day overflow (+1440 minutes).
+   *
+   * This yields a monotonic integer ("event minutes") suitable for
+   * plain numeric comparisons in JSON Logic:
+   *
+   *   09:00  →  540   (day start, boundary)
+   *   21:00  → 1260   (normal evening)
+   *   01:00  → 1500   (1 AM next day — correctly > 1260)
+   *   08:59  → 1979   (8:59 AM next day)
+   */
+
+  const DEFAULT_BOUNDARY = '09:00';
+
+  /**
+   * Parse a time string to minutes from midnight (0–1439).
+   * Accepts 24h ('21:30', '09:00', '00:00') and
+   * 12h ('9:00 AM', '9:00 PM', '12:00 AM', '12:00 PM').
+   *
+   * @param {string} str
+   * @returns {number} minutes 0–1439
+   * @throws {Error} if the string cannot be parsed or is out of range
+   */
+  function parseTimeString(str) {
+    if (typeof str !== 'string') {
+      throw new Error(`parseTimeString: expected string, got ${typeof str}`);
+    }
+    const s = str.trim();
+
+    // 12h format: "9:00 AM", "9:00 PM", "12:00 AM", "12:00 PM"
+    const h12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (h12) {
+      let h = parseInt(h12[1], 10);
+      const m = parseInt(h12[2], 10);
+      const meridiem = h12[3].toUpperCase();
+      if (h < 1 || h > 12 || m < 0 || m > 59) {
+        throw new Error(`parseTimeString: invalid 12h time '${str}'`);
+      }
+      if (meridiem === 'AM') {
+        h = h === 12 ? 0 : h;        // 12:xx AM → 0:xx (midnight)
+      } else {
+        h = h === 12 ? 12 : h + 12;  // 12:xx PM → 12:xx (noon), 1:xx PM → 13:xx
+      }
+      return h * 60 + m;
+    }
+
+    // 24h format: "21:30", "09:00", "00:00"
+    const h24 = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (h24) {
+      const h = parseInt(h24[1], 10);
+      const m = parseInt(h24[2], 10);
+      if (h < 0 || h > 23 || m < 0 || m > 59) {
+        throw new Error(`parseTimeString: invalid 24h time '${str}'`);
+      }
+      return h * 60 + m;
+    }
+
+    throw new Error(`parseTimeString: unrecognized format '${str}'`);
+  }
+
+  /**
+   * Convert a time string to event minutes — a monotonic integer
+   * anchored to the start of the venue's event day.
+   *
+   * Times before the boundary are treated as next-day overflow (+1440).
+   *
+   * @param {string} timeStr   - Any supported time string
+   * @param {string} [boundary='09:00'] - Day start boundary (24h string)
+   * @returns {number} event minutes (≥ boundaryMinutes, possibly > 1440)
+   */
+  function eventMinutes(timeStr, boundary = DEFAULT_BOUNDARY) {
+    const minutes = parseTimeString(timeStr);
+    const boundaryMin = parseTimeString(boundary);
+    return minutes < boundaryMin ? minutes + 1440 : minutes;
+  }
+
+  /**
+   * Resolves scheduling parameters using a precedence hierarchy.
+   *
+   * Precedence: overrides > externalContext > defaults
+   *
+   * Returns:
+   *   dia      - day number (1-based)
+   *   hora     - time string as-given, for display (e.g. '21:30')
+   *   horaMin  - event minutes: boundary-aware integer for JSON Logic comparisons
+   *              Times before boundary (default 09:00) are treated as next-day (+1440).
+   *              Examples: '09:00' → 540, '21:00' → 1260, '01:00' → 1500
+   *
+   * @param {Object} [externalContext={}]
+   * @param {Object} [overrides={}]
+   * @returns {{ dia: number, hora: string, horaMin: number }}
+   */
+  function resolveSchedule(externalContext = {}, overrides = {}) {
+    const hora = overrides.hora ?? externalContext.hora ?? '09:00';
+    return {
+      dia: overrides.dia ?? externalContext.dia ?? 1,
+      hora,
+      horaMin: eventMinutes(hora)
+    };
+  }
+
+  function getDefaultExportFromCjs (x) {
+  	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+  }
+
+  var logic$1 = {exports: {}};
+
+  /* globals define,module */
+  var logic = logic$1.exports;
+
+  var hasRequiredLogic;
+
+  function requireLogic () {
+  	if (hasRequiredLogic) return logic$1.exports;
+  	hasRequiredLogic = 1;
+  	(function (module, exports$1) {
+  (function(root, factory) {
+  		  {
+  		    module.exports = factory();
+  		  }
+  		}(logic, function() {
+  		  /* globals console:false */
+
+  		  if ( ! Array.isArray) {
+  		    Array.isArray = function(arg) {
+  		      return Object.prototype.toString.call(arg) === "[object Array]";
+  		    };
+  		  }
+
+  		  /**
+  		   * Return an array that contains no duplicates (original not modified)
+  		   * @param  {array} array   Original reference array
+  		   * @return {array}         New array with no duplicates
+  		   */
+  		  function arrayUnique(array) {
+  		    var a = [];
+  		    for (var i=0, l=array.length; i<l; i++) {
+  		      if (a.indexOf(array[i]) === -1) {
+  		        a.push(array[i]);
+  		      }
+  		    }
+  		    return a;
+  		  }
+
+  		  var jsonLogic = {};
+  		  var operations = {
+  		    "==": function(a, b) {
+  		      return a == b;
+  		    },
+  		    "===": function(a, b) {
+  		      return a === b;
+  		    },
+  		    "!=": function(a, b) {
+  		      return a != b;
+  		    },
+  		    "!==": function(a, b) {
+  		      return a !== b;
+  		    },
+  		    ">": function(a, b) {
+  		      return a > b;
+  		    },
+  		    ">=": function(a, b) {
+  		      return a >= b;
+  		    },
+  		    "<": function(a, b, c) {
+  		      return (c === undefined) ? a < b : (a < b) && (b < c);
+  		    },
+  		    "<=": function(a, b, c) {
+  		      return (c === undefined) ? a <= b : (a <= b) && (b <= c);
+  		    },
+  		    "!!": function(a) {
+  		      return jsonLogic.truthy(a);
+  		    },
+  		    "!": function(a) {
+  		      return !jsonLogic.truthy(a);
+  		    },
+  		    "%": function(a, b) {
+  		      return a % b;
+  		    },
+  		    "log": function(a) {
+  		      console.log(a); return a;
+  		    },
+  		    "in": function(a, b) {
+  		      if (!b || typeof b.indexOf === "undefined") return false;
+  		      return (b.indexOf(a) !== -1);
+  		    },
+  		    "cat": function() {
+  		      return Array.prototype.join.call(arguments, "");
+  		    },
+  		    "substr": function(source, start, end) {
+  		      if (end < 0) {
+  		        // JavaScript doesn't support negative end, this emulates PHP behavior
+  		        var temp = String(source).substr(start);
+  		        return temp.substr(0, temp.length + end);
+  		      }
+  		      return String(source).substr(start, end);
+  		    },
+  		    "+": function() {
+  		      return Array.prototype.reduce.call(arguments, function(a, b) {
+  		        return parseFloat(a, 10) + parseFloat(b, 10);
+  		      }, 0);
+  		    },
+  		    "*": function() {
+  		      return Array.prototype.reduce.call(arguments, function(a, b) {
+  		        return parseFloat(a, 10) * parseFloat(b, 10);
+  		      });
+  		    },
+  		    "-": function(a, b) {
+  		      if (b === undefined) {
+  		        return -a;
+  		      } else {
+  		        return a - b;
+  		      }
+  		    },
+  		    "/": function(a, b) {
+  		      return a / b;
+  		    },
+  		    "min": function() {
+  		      return Math.min.apply(this, arguments);
+  		    },
+  		    "max": function() {
+  		      return Math.max.apply(this, arguments);
+  		    },
+  		    "merge": function() {
+  		      return Array.prototype.reduce.call(arguments, function(a, b) {
+  		        return a.concat(b);
+  		      }, []);
+  		    },
+  		    "var": function(a, b) {
+  		      var not_found = (b === undefined) ? null : b;
+  		      var data = this;
+  		      if (typeof a === "undefined" || a==="" || a===null) {
+  		        return data;
+  		      }
+  		      var sub_props = String(a).split(".");
+  		      for (var i = 0; i < sub_props.length; i++) {
+  		        if (data === null || data === undefined) {
+  		          return not_found;
+  		        }
+  		        // Descending into data
+  		        data = data[sub_props[i]];
+  		        if (data === undefined) {
+  		          return not_found;
+  		        }
+  		      }
+  		      return data;
+  		    },
+  		    "missing": function() {
+  		      /*
+  		      Missing can receive many keys as many arguments, like {"missing:[1,2]}
+  		      Missing can also receive *one* argument that is an array of keys,
+  		      which typically happens if it's actually acting on the output of another command
+  		      (like 'if' or 'merge')
+  		      */
+
+  		      var missing = [];
+  		      var keys = Array.isArray(arguments[0]) ? arguments[0] : arguments;
+
+  		      for (var i = 0; i < keys.length; i++) {
+  		        var key = keys[i];
+  		        var value = jsonLogic.apply({"var": key}, this);
+  		        if (value === null || value === "") {
+  		          missing.push(key);
+  		        }
+  		      }
+
+  		      return missing;
+  		    },
+  		    "missing_some": function(need_count, options) {
+  		      // missing_some takes two arguments, how many (minimum) items must be present, and an array of keys (just like 'missing') to check for presence.
+  		      var are_missing = jsonLogic.apply({"missing": options}, this);
+
+  		      if (options.length - are_missing.length >= need_count) {
+  		        return [];
+  		      } else {
+  		        return are_missing;
+  		      }
+  		    },
+  		  };
+
+  		  jsonLogic.is_logic = function(logic) {
+  		    return (
+  		      typeof logic === "object" && // An object
+  		      logic !== null && // but not null
+  		      ! Array.isArray(logic) && // and not an array
+  		      Object.keys(logic).length === 1 // with exactly one key
+  		    );
+  		  };
+
+  		  /*
+  		  This helper will defer to the JsonLogic spec as a tie-breaker when different language interpreters define different behavior for the truthiness of primitives.  E.g., PHP considers empty arrays to be falsy, but Javascript considers them to be truthy. JsonLogic, as an ecosystem, needs one consistent answer.
+
+  		  Spec and rationale here: http://jsonlogic.com/truthy
+  		  */
+  		  jsonLogic.truthy = function(value) {
+  		    if (Array.isArray(value) && value.length === 0) {
+  		      return false;
+  		    }
+  		    return !! value;
+  		  };
+
+
+  		  jsonLogic.get_operator = function(logic) {
+  		    return Object.keys(logic)[0];
+  		  };
+
+  		  jsonLogic.get_values = function(logic) {
+  		    return logic[jsonLogic.get_operator(logic)];
+  		  };
+
+  		  jsonLogic.apply = function(logic, data) {
+  		    // Does this array contain logic? Only one way to find out.
+  		    if (Array.isArray(logic)) {
+  		      return logic.map(function(l) {
+  		        return jsonLogic.apply(l, data);
+  		      });
+  		    }
+  		    // You've recursed to a primitive, stop!
+  		    if ( ! jsonLogic.is_logic(logic) ) {
+  		      return logic;
+  		    }
+
+  		    var op = jsonLogic.get_operator(logic);
+  		    var values = logic[op];
+  		    var i;
+  		    var current;
+  		    var scopedLogic;
+  		    var scopedData;
+  		    var initial;
+
+  		    // easy syntax for unary operators, like {"var" : "x"} instead of strict {"var" : ["x"]}
+  		    if ( ! Array.isArray(values)) {
+  		      values = [values];
+  		    }
+
+  		    // 'if', 'and', and 'or' violate the normal rule of depth-first calculating consequents, let each manage recursion as needed.
+  		    if (op === "if" || op == "?:") {
+  		      /* 'if' should be called with a odd number of parameters, 3 or greater
+  		      This works on the pattern:
+  		      if( 0 ){ 1 }else{ 2 };
+  		      if( 0 ){ 1 }else if( 2 ){ 3 }else{ 4 };
+  		      if( 0 ){ 1 }else if( 2 ){ 3 }else if( 4 ){ 5 }else{ 6 };
+
+  		      The implementation is:
+  		      For pairs of values (0,1 then 2,3 then 4,5 etc)
+  		      If the first evaluates truthy, evaluate and return the second
+  		      If the first evaluates falsy, jump to the next pair (e.g, 0,1 to 2,3)
+  		      given one parameter, evaluate and return it. (it's an Else and all the If/ElseIf were false)
+  		      given 0 parameters, return NULL (not great practice, but there was no Else)
+  		      */
+  		      for (i = 0; i < values.length - 1; i += 2) {
+  		        if ( jsonLogic.truthy( jsonLogic.apply(values[i], data) ) ) {
+  		          return jsonLogic.apply(values[i+1], data);
+  		        }
+  		      }
+  		      if (values.length === i+1) {
+  		        return jsonLogic.apply(values[i], data);
+  		      }
+  		      return null;
+  		    } else if (op === "and") { // Return first falsy, or last
+  		      for (i=0; i < values.length; i+=1) {
+  		        current = jsonLogic.apply(values[i], data);
+  		        if ( ! jsonLogic.truthy(current)) {
+  		          return current;
+  		        }
+  		      }
+  		      return current; // Last
+  		    } else if (op === "or") {// Return first truthy, or last
+  		      for (i=0; i < values.length; i+=1) {
+  		        current = jsonLogic.apply(values[i], data);
+  		        if ( jsonLogic.truthy(current) ) {
+  		          return current;
+  		        }
+  		      }
+  		      return current; // Last
+  		    } else if (op === "filter") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+
+  		      if ( ! Array.isArray(scopedData)) {
+  		        return [];
+  		      }
+  		      // Return only the elements from the array in the first argument,
+  		      // that return truthy when passed to the logic in the second argument.
+  		      // For parity with JavaScript, reindex the returned array
+  		      return scopedData.filter(function(datum) {
+  		        return jsonLogic.truthy( jsonLogic.apply(scopedLogic, datum));
+  		      });
+  		    } else if (op === "map") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+
+  		      if ( ! Array.isArray(scopedData)) {
+  		        return [];
+  		      }
+
+  		      return scopedData.map(function(datum) {
+  		        return jsonLogic.apply(scopedLogic, datum);
+  		      });
+  		    } else if (op === "reduce") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+  		      initial = typeof values[2] !== "undefined" ? jsonLogic.apply(values[2], data) : null;
+
+  		      if ( ! Array.isArray(scopedData)) {
+  		        return initial;
+  		      }
+
+  		      return scopedData.reduce(
+  		        function(accumulator, current) {
+  		          return jsonLogic.apply(
+  		            scopedLogic,
+  		            {current: current, accumulator: accumulator}
+  		          );
+  		        },
+  		        initial
+  		      );
+  		    } else if (op === "all") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+  		      // All of an empty set is false. Note, some and none have correct fallback after the for loop
+  		      if ( ! Array.isArray(scopedData) || ! scopedData.length) {
+  		        return false;
+  		      }
+  		      for (i=0; i < scopedData.length; i+=1) {
+  		        if ( ! jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+  		          return false; // First falsy, short circuit
+  		        }
+  		      }
+  		      return true; // All were truthy
+  		    } else if (op === "none") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+
+  		      if ( ! Array.isArray(scopedData) || ! scopedData.length) {
+  		        return true;
+  		      }
+  		      for (i=0; i < scopedData.length; i+=1) {
+  		        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+  		          return false; // First truthy, short circuit
+  		        }
+  		      }
+  		      return true; // None were truthy
+  		    } else if (op === "some") {
+  		      scopedData = jsonLogic.apply(values[0], data);
+  		      scopedLogic = values[1];
+
+  		      if ( ! Array.isArray(scopedData) || ! scopedData.length) {
+  		        return false;
+  		      }
+  		      for (i=0; i < scopedData.length; i+=1) {
+  		        if ( jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+  		          return true; // First truthy, short circuit
+  		        }
+  		      }
+  		      return false; // None were truthy
+  		    }
+
+  		    // Everyone else gets immediate depth-first recursion
+  		    values = values.map(function(val) {
+  		      return jsonLogic.apply(val, data);
+  		    });
+
+
+  		    // The operation is called with "data" bound to its "this" and "values" passed as arguments.
+  		    // Structured commands like % or > can name formal arguments while flexible commands (like missing or merge) can operate on the pseudo-array arguments
+  		    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/arguments
+  		    if (operations.hasOwnProperty(op) && typeof operations[op] === "function") {
+  		      return operations[op].apply(data, values);
+  		    } else if (op.indexOf(".") > 0) { // Contains a dot, and not in the 0th position
+  		      var sub_ops = String(op).split(".");
+  		      var operation = operations;
+  		      for (i = 0; i < sub_ops.length; i++) {
+  		        if (!operation.hasOwnProperty(sub_ops[i])) {
+  		          throw new Error("Unrecognized operation " + op +
+  		            " (failed at " + sub_ops.slice(0, i+1).join(".") + ")");
+  		        }
+  		        // Descending into operations
+  		        operation = operation[sub_ops[i]];
+  		      }
+
+  		      return operation.apply(data, values);
+  		    }
+
+  		    throw new Error("Unrecognized operation " + op );
+  		  };
+
+  		  jsonLogic.uses_data = function(logic) {
+  		    var collection = [];
+
+  		    if (jsonLogic.is_logic(logic)) {
+  		      var op = jsonLogic.get_operator(logic);
+  		      var values = logic[op];
+
+  		      if ( ! Array.isArray(values)) {
+  		        values = [values];
+  		      }
+
+  		      if (op === "var") {
+  		        // This doesn't cover the case where the arg to var is itself a rule.
+  		        collection.push(values[0]);
+  		      } else {
+  		        // Recursion!
+  		        values.forEach(function(val) {
+  		          collection.push.apply(collection, jsonLogic.uses_data(val) );
+  		        });
+  		      }
+  		    }
+
+  		    return arrayUnique(collection);
+  		  };
+
+  		  jsonLogic.add_operation = function(name, code) {
+  		    operations[name] = code;
+  		  };
+
+  		  jsonLogic.rm_operation = function(name) {
+  		    delete operations[name];
+  		  };
+
+  		  jsonLogic.rule_like = function(rule, pattern) {
+  		    // console.log("Is ". JSON.stringify(rule) . " like " . JSON.stringify(pattern) . "?");
+  		    if (pattern === rule) {
+  		      return true;
+  		    } // TODO : Deep object equivalency?
+  		    if (pattern === "@") {
+  		      return true;
+  		    } // Wildcard!
+  		    if (pattern === "number") {
+  		      return (typeof rule === "number");
+  		    }
+  		    if (pattern === "string") {
+  		      return (typeof rule === "string");
+  		    }
+  		    if (pattern === "array") {
+  		      // !logic test might be superfluous in JavaScript
+  		      return Array.isArray(rule) && ! jsonLogic.is_logic(rule);
+  		    }
+
+  		    if (jsonLogic.is_logic(pattern)) {
+  		      if (jsonLogic.is_logic(rule)) {
+  		        var pattern_op = jsonLogic.get_operator(pattern);
+  		        var rule_op = jsonLogic.get_operator(rule);
+
+  		        if (pattern_op === "@" || pattern_op === rule_op) {
+  		          // echo "\nOperators match, go deeper\n";
+  		          return jsonLogic.rule_like(
+  		            jsonLogic.get_values(rule, false),
+  		            jsonLogic.get_values(pattern, false)
+  		          );
+  		        }
+  		      }
+  		      return false; // pattern is logic, rule isn't, can't be eq
+  		    }
+
+  		    if (Array.isArray(pattern)) {
+  		      if (Array.isArray(rule)) {
+  		        if (pattern.length !== rule.length) {
+  		          return false;
+  		        }
+  		        /*
+  		          Note, array order MATTERS, because we're using this array test logic to consider arguments, where order can matter. (e.g., + is commutative, but '-' or 'if' or 'var' are NOT)
+  		        */
+  		        for (var i = 0; i < pattern.length; i += 1) {
+  		          // If any fail, we fail
+  		          if ( ! jsonLogic.rule_like(rule[i], pattern[i])) {
+  		            return false;
+  		          }
+  		        }
+  		        return true; // If they *all* passed, we pass
+  		      } else {
+  		        return false; // Pattern is array, rule isn't
+  		      }
+  		    }
+
+  		    // Not logic, not array, not a === match for rule.
+  		    return false;
+  		  };
+
+  		  return jsonLogic;
+  		})); 
+  	} (logic$1));
+  	return logic$1.exports;
+  }
+
+  var logicExports = requireLogic();
+  var jsonLogic = /*@__PURE__*/getDefaultExportFromCjs(logicExports);
+
+  /**
+   * Human-readable formatting for REGLAS_NEGOCIO rows.
+   * Used for debug logging and UI display.
+   */
+
+  // ── Condition ────────────────────────────────────────────────────────────────
+
+  const COMPARATORS = {
+    '===': '=',
+    '!==': '≠',
+    '>':   '>',
+    '>=':  '≥',
+    '<':   '<',
+    '<=':  '≤',
+  };
+
+  function resolveValue(node) {
+    if (node === null) return 'not set';
+    if (typeof node !== 'object') return String(node);
+    if ('var' in node) return node.var;
+    return humanizeCondition(node);
+  }
+
+  function humanizeBinaryOp(op, args) {
+    const [left, right] = args;
+    const leftStr = resolveValue(left);
+    const rightStr = right === null ? 'not set' : resolveValue(right);
+    const sym = COMPARATORS[op];
+    return sym ? `${leftStr} ${sym} ${rightStr}` : `${leftStr} ${op} ${rightStr}`;
+  }
+
+  function humanizeLogicalOp(op, args) {
+    const joiner = op === 'and' ? ' AND ' : ' OR ';
+    const parts = args.map(a => {
+      const inner = humanizeCondition(a);
+      // Wrap compound expressions in parens for clarity
+      return typeof a === 'object' && !('var' in a) ? `(${inner})` : inner;
+    });
+    return parts.join(joiner);
+  }
+
+  function humanizeCondition(condJson) {
+    const logic = typeof condJson === 'string' ? JSON.parse(condJson) : condJson;
+
+    if (logic === true || logic === 'true') return 'always';
+    if (logic === false || logic === 'false') return 'never';
+    if (typeof logic !== 'object' || logic === null) return String(logic);
+
+    const [op] = Object.keys(logic);
+    const args = logic[op];
+
+    if (op === 'and' || op === 'or') return humanizeLogicalOp(op, args);
+    if (op === '!')                   return `NOT (${humanizeCondition(args)})`;
+    if (op in COMPARATORS)            return humanizeBinaryOp(op, args);
+    if (op === 'in')                  return `${resolveValue(args[0])} in [${args[1].join(', ')}]`;
+
+    // Fallback: stringify unknown operators
+    return JSON.stringify(logic);
+  }
+
+  // ── Payload ──────────────────────────────────────────────────────────────────
+
+  const PAYLOAD_FORMATTERS = {
+    MULTIPLY:         ({ factor }) => `×${factor} (+${Math.round((factor - 1) * 100)}%)`,
+    ADD_FIXED:        ({ amount }) => amount < 0 ? `−$${Math.abs(amount).toLocaleString()} flat` : `+$${amount.toLocaleString()} flat`,
+    SET_VALUE:        ({ value }) => `set price to $${value.toLocaleString()}`,
+    SET_TAX:          ({ name, rate }) => `${name} ${rate * 100}%`,
+    SET_DEFAULT:      ({ field, value }) => `default ${field} = ${value}`,
+    ADD_ITEM:         ({ itemId }) => `auto-add ${itemId}`,
+    WARNING:          ({ message }) => message,
+    ERROR:            ({ message }) => message,
+    INVALIDATE_BASKET:({ message }) => message,
+  };
+
+  function humanizePayload(tipoAccion, payloadJson) {
+    const payload = typeof payloadJson === 'string' ? JSON.parse(payloadJson) : payloadJson;
+    const formatter = PAYLOAD_FORMATTERS[tipoAccion];
+    return formatter ? formatter(payload) : JSON.stringify(payload);
+  }
+
+  /**
+   * RulesCoordinator - Evaluate rules at component level
+   *
+   * Filters rules by (Scope, ComponentID) and evaluates conditions using json-logic-js.
+   * Results are cached after first evaluation (not re-evaluated on property changes).
+   * Re-evaluation happens when rules list changes or explicit invalidation.
+   *
+   * @module RulesCoordinator
+   */
+
+
+  /**
+   * RulesCoordinator - Component-level rule evaluation with caching
+   *
+   * Usage:
+   * ```js
+   * const coord = new RulesCoordinator('ITEM', allRules, 'ITEM_SALON_CHINOOK_...');
+   * const result = coord.evaluate({ pax: 50, hora: '14:00', ... });
+   * // → { appliedRules, errors, warnings, available }
+   * ```
+   */
+  class RulesCoordinator {
+    /**
+     * @param {string} componentType - ITEM, CATEGORY, KIT, CONTAINER, BASKET
+     * @param {Array}  allRules      - Pre-filtered rules from resolveItemDefinition()
+     * @param {string} [componentId] - Used only when rules are NOT pre-filtered (optional guard)
+     */
+    constructor(componentType, allRules = [], componentId = null) {
+      this.componentType = componentType;
+      this.componentId = componentId;
+      this.cached = null;
+
+      // Secondary guard: filter by Scope, Activo, and ID_Componente.
+      // In production, resolveItemDefinition() already pre-filters; this guard
+      // catches any stray rules when the coordinator is used directly in tests.
+      this.rules = (allRules || [])
+        .filter(r => {
+          if (!r || r.Scope !== componentType) return false;
+          if (r.Activo === false) return false;
+          // ID_Componente is the FK field name in REGLAS_NEGOCIO (not ID_ITEM/ID_CATEGORY)
+          if (componentId && r.ID_Componente && r.ID_Componente !== componentId) return false;
+          return true;
+        })
+        .sort((a, b) => (a.Prioridad || 0) - (b.Prioridad || 0));
+    }
+
+    /**
+     * Evaluate all filtered rules against a snapshot.
+     * The snapshot must use the `item.*` namespace that matches REGLAS_NEGOCIO.csv:
+     *
+     *   snapshot = {
+     *     item: {
+     *       id:         string,   // { "var": "item.id" }
+     *       pax:        number,   // { "var": "item.pax" }
+     *       cantidad:   number,   // { "var": "item.cantidad" }
+     *       duracion:   number,   // { "var": "item.duracion" }
+     *       hora:       string,   // { "var": "item.hora" }   'HH:MM'
+     *       horaMin:    number,   // minutes from midnight
+     *       horaFinMin: number,   // hora start + duration
+     *       dia:        number,   // day number (1..N)
+     *     }
+     *   }
+     *
+     * Acumulable semantics: when a rule has Acumulable=false and it fires,
+     * no further rules of the same Tipo_Accion are evaluated.
+     *
+     * @param {Object} snapshot
+     * @returns {{ appliedRules, errors, warnings, available }}
+     */
+    evaluate(snapshot) {
+      if (this.cached !== null) return this.cached;
+
+      const result = { appliedRules: [], errors: [], warnings: [], available: true };
+      let errorsDone = false;
+      let warningsDone = false;
+
+      for (const rule of this.rules) {
+        const type = rule.Tipo_Accion;
+
+        // Skip if a prior non-accumulating rule of the same type already fired
+        if (type === 'ERROR'   && errorsDone)   continue;
+        if (type === 'WARNING' && warningsDone) continue;
+
+        if (!this.evaluateCondition(rule.Condicion_JSON, snapshot)) continue;
+
+        const entry = {
+          id:             rule.ID_Regla,
+          type,
+          priority:       rule.Prioridad,
+          message:        this.extractMessage(rule),
+          humanCondition: humanizeCondition(rule.Condicion_JSON),
+          humanPayload:   humanizePayload(type, rule.Payload_JSON),
+        };
+
+        result.appliedRules.push(entry);
+
+        if (type === 'ERROR') {
+          result.errors.push(entry);
+          result.available = false;
+          if (rule.Acumulable === false) errorsDone = true;
+        } else if (type === 'WARNING') {
+          result.warnings.push(entry);
+          if (rule.Acumulable === false) warningsDone = true;
+        }
+        // Other action types (MULTIPLY, ADD_FIXED, etc.) are recorded but have no
+        // UI availability effect at the RESTRICCION_UI stage.
+      }
+
+      this.cached = result;
+      return result;
+    }
+
+    /** @private */
+    evaluateCondition(conditionJson, snapshot) {
+      if (conditionJson === false || conditionJson === 'false') return false;
+      if (conditionJson == null) return true;
+
+      try {
+        const logic = typeof conditionJson === 'string'
+          ? JSON.parse(conditionJson)
+          : conditionJson;
+
+        if (logic === true || logic === 'true') return true;
+        if (logic === false || logic === 'false') return false;
+
+        return jsonLogic.apply(logic, snapshot);
+      } catch (e) {
+        console.error(`RulesCoordinator: error evaluating condition: ${e.message}`, conditionJson);
+        return false;
+      }
+    }
+
+    /** @private */
+    extractMessage(rule) {
+      try {
+        const payload = typeof rule.Payload_JSON === 'string'
+          ? JSON.parse(rule.Payload_JSON)
+          : rule.Payload_JSON;
+        return payload?.message || rule.Nombre || 'Rule triggered';
+      } catch (e) {
+        return rule.Nombre || 'Rule triggered';
+      }
+    }
+
+    getAppliedRules() { return this.cached?.appliedRules || []; }
+    isAvailable()     { return this.cached?.available ?? true; }
+    getErrors()       { return this.cached?.errors || []; }
+    getWarnings()     { return this.cached?.warnings || []; }
+    invalidateCache() { this.cached = null; }
+  }
+
+  /**
+   * Refactored Item business object.
+   *
+   * Stateful business object for one item with:
+   * - Pure domain function-based calculations
+   * - Semantic mutation methods
+   * - Render-ready projections for Alpine/XState
+   *
+   * Responsibilities:
+   * - Resolve pricing kind and initialization mode
+   * - Compute catalog (disaggregated) and basket (aggregated) views
+   * - Track override state and UI visibility flags
+   * - Expose render-ready projections
+   *
+   * @module Item
+   */
+
+
+  /**
+   * Refactored Item class using domain functions.
+   * All fields are private (#). Public interface is via getters and mutations.
+   */
+  class Item {
+    #mode;
+    #definition;
+    #externalContext;
+    #overrides;
+    #userSetFields;
+    #derived;
+    #rulesCoordinator;
+    #ruleResult;
+
+    /**
+     * Private constructor. Use static factories instead.
+     */
+    constructor() {
+      // Nothing here; factories set private fields via initialize()
+    }
+
+    /**
+     * Build an Item instance from a definition and optional context.
+     * Useful for catalog card display (no overrides).
+     *
+     * @param {Object} definition - Item definition object
+     * @param {Object} [options={}] - Optional context and overrides
+     * @param {Object} [options.externalContext={}] - External context
+     * @param {Object} [options.overrides={}] - User overrides
+     * @returns {Item}
+     */
+    static fromDefinition(resolvedDef, options = {}) {
+      const item = new Item();
+      const definition = {
+        id:             resolvedDef.ID_Item,
+        name:           resolvedDef.Nombre,
+        description:    resolvedDef.Default_Glosa ?? null,
+        category:       resolvedDef.categoria?.Nombre ?? null,
+        categoriaIcono: resolvedDef.categoria?.Icono_UI ?? null,
+        pricingProfile: {
+          baseFijo:   resolvedDef.perfil?.Costo_Base_Fijo       ?? 0,
+          porPersona: resolvedDef.perfil?.Costo_Unitario_Pax    ?? 0,
+          porMinuto:  resolvedDef.perfil?.Costo_Unitario_Tiempo ?? 0,
+          porUnidad:  resolvedDef.perfil?.Costo_Unitario_Item   ?? 0,
+        },
+        defaultQuantities: {
+          duracionMin:        resolvedDef.perfilInit?.Duracion_Min        ?? 0,
+          unidadesPorUsuario: resolvedDef.perfilInit?.Unidades_Por_Pax    ?? 0,
+          unidadesPorHora:    resolvedDef.perfilInit?.Unidades_Por_Hora   ?? 0,
+          minutosPorUsuario:  resolvedDef.perfilInit?.Minutos_Por_Usuario ?? 0,
+          cantidad:           resolvedDef.perfilInit?.Cantidad_Fija       ?? 0,
+          pax:                resolvedDef.perfilInit?.Pax_Fijo            ?? 0,
+          requierePax:    resolvedDef.categoria?.Def_Requiere_Pax    ?? false,
+          requiereCant:   resolvedDef.categoria?.Def_Requiere_Cant   ?? false,
+          requiereTiempo: resolvedDef.categoria?.Def_Requiere_Tiempo ?? false,
+          requiereHora:   resolvedDef.categoria?.Def_Requiere_Hora   ?? false,
+        },
+        rules:    resolvedDef.reglas    ?? [],
+        perfilInit: resolvedDef.perfilInit ?? null,
+        perfil:   resolvedDef.perfil    ?? null,
+        categoria: resolvedDef.categoria ?? null,
+      };
+      return item.initialize({
+        mode: 'catalog',
+        definition,
+        externalContext: options.externalContext || {},
+        overrides:       options.overrides       || {}
+      });
+    }
+
+    /**
+     * Build an Item instance from a complete seed.
+     * Useful for restoring persisted state.
+     *
+     * @param {Object} seed - Complete state seed
+     * @param {string} [seed.mode='catalog']
+     * @param {Object} [seed.definition={}]
+     * @param {Object} [seed.externalContext={}]
+     * @param {Object} [seed.overrides={}]
+     * @returns {Item}
+     */
+    static fromSeed(seed) {
+      const item = new Item();
+      return item.initialize(seed);
+    }
+
+    /**
+     * Reset state with a new seed and recalculate all derived fields.
+     * Called by factories and after any mutation.
+     *
+     * @param {Object} seed
+     * @param {'catalog'|'basket'} [seed.mode='catalog']
+     * @param {Object} [seed.definition={}]
+     * @param {Object} [seed.externalContext={}]
+     * @param {Object} [seed.overrides={}]
+     * @returns {Item}
+     */
+    initialize({
+      mode = 'catalog',
+      definition = {},
+      externalContext = {},
+      overrides = {},
+      userSetFields = []
+    } = {}) {
+      this.#mode = mode;
+      this.#definition = {
+        ...(definition || {}),
+        pricingProfile: { ...((definition || {}).pricingProfile || {}) },
+        defaultQuantities: { ...((definition || {}).defaultQuantities || {}) },
+        rules: [...((definition || {}).rules || [])]
+      };
+      this.#externalContext = { ...(externalContext || {}) };
+      this.#overrides = { ...(overrides || {}) };
+      this.#userSetFields = new Set(userSetFields || []);
+
+      // Initialize RulesCoordinator for ITEM-scoped rules (Step 3.3)
+      // Rules will be evaluated in calculate() with full context available
+      this.#rulesCoordinator = new RulesCoordinator('ITEM', this.#definition.rules || [], this.#definition.id ?? null);
+
+      return this.calculate();
+    }
+
+    /**
+     * Recompute full derived state after any mutation.
+     * Implements the complete calculation pipeline:
+     * 1. Normalize profile
+     * 2. Detect pricing kind
+     * 3. Detect initialization mode
+     * 4. Extract rate
+     * 5. Resolve basket quantity
+     * 6. Compute total
+     * 7. Resolve schedule
+     * 8. Evaluate rules
+     * 9. Format display strings
+     *
+     * @returns {Item}
+     */
+    calculate() {
+      const defaults = this.#definition.defaultQuantities || {};
+      const profile = normalizeProfile(this.#definition.pricingProfile || {});
+      const kind = detectPricingKind(profile);
+      const initMode = detectInitializationMode(kind, defaults);
+      const rate = rateForKind(profile, kind);
+      const base = toNumber(profile.baseFijo, 0);
+
+      const basketResolution = resolveBasketQuantity(
+        kind,
+        initMode,
+        defaults,
+        this.#externalContext,
+        this.#overrides
+      );
+
+      const quantity = basketResolution.quantity;
+      const total = toInteger(base + quantity * rate, 0);
+
+      const quantities = {
+        pax: kind === PricingKind.PAX ? quantity : 0,
+        cantidad: kind === PricingKind.UNITS ? quantity : 0,
+        duracionMin: kind === PricingKind.TIME ? quantity : 0
+      };
+
+      const schedule = resolveSchedule(this.#externalContext, this.#overrides);
+      const horaFinMin = schedule.horaMin + quantities.duracionMin;
+
+      // Evaluate rules using RulesCoordinator.
+      // Snapshot uses the `linea.*` namespace that matches Condicion_JSON var paths
+      // in REGLAS_NEGOCIO.csv (e.g. { "var": "linea._pax" }, { "var": "linea.ID_Item" }).
+      this.#rulesCoordinator.invalidateCache();
+      this.#ruleResult = this.#rulesCoordinator.evaluate({
+        item: {
+          id:       this.#definition.id,
+          pax:      quantities.pax,
+          cantidad: quantities.cantidad,
+          duracion: quantities.duracionMin,
+          hora:     schedule.hora,
+          horaMin:  schedule.horaMin,
+          horaFinMin,
+          dia:      schedule.dia,
+        }
+      });
+
+      const catalogDisaggregated = formatCatalogTerms(
+        base,
+        kind,
+        initMode,
+        rate,
+        defaults
+      );
+
+      const policyHintText = policyHint(kind, initMode, defaults);
+      const basketLegendText = legendForBasket(base, kind, quantity, rate, total);
+      const pricingHumanText = profileHumanText(base, kind, rate);
+      const lineRateLabelText = lineRateLabel(kind, initMode);
+
+      // Store all derived values
+      this.#derived = {
+        profile,
+        pricingKind: kind,
+        initializationMode: initMode,
+        rate,
+        base,
+        basketQuantity: quantity,
+        total,
+        unitDisplay: quantity > 0 ? toInteger(total / quantity, 0) : toInteger(total, 0),
+        isOverridden: basketResolution.isOverridden,
+        overrideField: basketResolution.overrideField,
+        catalogDisaggregated,
+        policyHintText,
+        basketLegendText,
+        pricingHumanText,
+        quantities,
+        schedule,
+        lineRateLabel: lineRateLabelText,
+        lineRateSubtotal: quantity * rate,
+        comentarios: this.#overrides.comentarios ?? '',
+        showPaxControl: kind === PricingKind.PAX,
+        showUnitsControl: kind === PricingKind.UNITS,
+        showTimeControl: kind === PricingKind.TIME,
+        userSetFields: [...this.#userSetFields],
+        isUserSetPax: this.#userSetFields.has('pax'),
+        isUserSetCantidad: this.#userSetFields.has('cantidad'),
+        isUserSetDuracion: this.#userSetFields.has('duracionMin')
+      };
+
+      return this;
+    }
+
+    // ---- Semantic Mutations (each returns this for chaining) ----
+
+    /**
+     * Set mode (catalog/basket) and recalculate.
+     *
+     * @param {'catalog'|'basket'} mode
+     * @returns {Item}
+     */
+    setMode(mode = 'catalog') {
+      this.#mode = mode;
+      return this.calculate();
+    }
+
+    /**
+     * Merge external context values and recalculate.
+     * External context includes paxGlobal, duracionMin, dia, hora from the event.
+     *
+     * @param {Object} patch
+     * @returns {Item}
+     */
+    receiveContext(patch = {}) {
+      this.#externalContext = {
+        ...this.#externalContext,
+        ...(patch || {})
+      };
+      return this.calculate();
+    }
+
+    /**
+     * Set one override value and recalculate.
+     * Overrides include pax, cantidad, duracionMin, dia, hora, comentarios.
+     *
+     * @param {string} key
+     * @param {any} value
+     * @returns {Item}
+     */
+    setOverride(key, value) {
+      this.#overrides = {
+        ...this.#overrides,
+        [key]: value
+      };
+      // Track quantity fields as user-set (not comments or schedule)
+      if (['pax', 'cantidad', 'duracionMin'].includes(key)) {
+        this.#userSetFields.add(key);
+      }
+      return this.calculate();
+    }
+
+    /**
+     * Remove one override value and recalculate.
+     *
+     * @param {string} key
+     * @returns {Item}
+     */
+    clearOverride(key) {
+      const next = { ...this.#overrides };
+      delete next[key];
+      this.#overrides = next;
+      this.#userSetFields.delete(key);
+      return this.calculate();
+    }
+
+    /**
+     * Clear all overrides and recalculate.
+     *
+     * @returns {Item}
+     */
+    resetOverrides() {
+      this.#overrides = {};
+      this.#userSetFields = new Set();
+      return this.calculate();
+    }
+
+    /**
+     * Update one pricing profile field and recalculate.
+     *
+     * @param {string} key
+     * @param {number|string} value
+     * @returns {Item}
+     */
+    setProfileValue(key, value) {
+      this.#definition.pricingProfile = {
+        ...(this.#definition.pricingProfile || {}),
+        [key]: toNumber(value, 0)
+      };
+      return this.calculate();
+    }
+
+    /**
+     * Update one initialization field with exclusivity rules and recalculate.
+     * Uses applyExclusiveDefaultMode to enforce only one mode per kind.
+     *
+     * @param {string} key
+     * @param {number|string} value
+     * @returns {Item}
+     */
+    setDefaultQuantity(key, value) {
+      this.#definition.defaultQuantities = applyExclusiveDefaultMode(
+        this.#definition.defaultQuantities || {},
+        key,
+        value
+      );
+      return this.calculate();
+    }
+
+    /**
+     * Remove one initialization field and recalculate.
+     *
+     * @param {string} key
+     * @returns {Item}
+     */
+    clearDefaultQuantity(key) {
+      const next = { ...(this.#definition.defaultQuantities || {}) };
+      delete next[key];
+      this.#definition.defaultQuantities = next;
+      return this.calculate();
+    }
+
+    // ---- Getters (read-only, no computation) ----
+
+    /**
+     * Get current mode (catalog or basket).
+     * @returns {'catalog'|'basket'}
+     */
+    get mode() {
+      return this.#mode;
+    }
+
+    /**
+     * Get current definition.
+     * @returns {Object}
+     */
+    get definition() {
+      return this.#definition;
+    }
+
+    /**
+     * Get current external context.
+     * @returns {Object}
+     */
+    get externalContext() {
+      return this.#externalContext;
+    }
+
+    /**
+     * Get current overrides.
+     * @returns {Object}
+     */
+    get overrides() {
+      return this.#overrides;
+    }
+
+    // ---- Key Derived Fields (from #derived cache) ----
+
+    /**
+     * Get the detected pricing kind.
+     * @returns {PricingKind}
+     */
+    get pricingKind() {
+      return this.#derived.pricingKind;
+    }
+
+    /**
+     * Get the computed total price.
+     * @returns {number}
+     */
+    get total() {
+      return this.#derived.total;
+    }
+
+    /**
+     * Get whether the quantity is user-overridden.
+     * @returns {boolean}
+     */
+    get isOverridden() {
+      return this.#derived.isOverridden;
+    }
+
+
+    /**
+     * Get quantities object with pax, cantidad, duracionMin.
+     * @returns {Object}
+     */
+    get quantities() {
+      return this.#derived.quantities;
+    }
+
+    /**
+     * Get schedule object with dia and hora.
+     * @returns {Object}
+     */
+    get schedule() {
+      return this.#derived.schedule;
+    }
+
+    /**
+     * Get the rules array for this item.
+     * Rules evaluation is NOT YET IMPLEMENTED at Item level (Step 3.3).
+     *
+     * Rule structure (from REGLAS_NEGOCIO.csv):
+     * {
+     *   ID_Regla: string,
+     *   Nombre: string,
+     *   Etapa: string,              // (not used in Step 3.3)
+     *   Scope: string,              // ITEM, CATEGORY, KIT, CONTAINER, BASKET
+     *   Tipo_Accion: string,        // ERROR, WARNING, MULTIPLY, ADD_FIXED, SET_VALUE, SET_TAX, SET_DEFAULT, ADD_ITEM, INVALIDATE_BASKET
+     *   Condicion_JSON: string|obj, // json-logic-js expression (business logic only, no ID matching)
+     *   Payload_JSON: string|obj,   // action-specific payload
+     *   Prioridad: number,
+     *   Acumulable: boolean,
+     *   Activo: boolean,
+     *   Updated_At: string
+     * }
+     *
+     * When implemented (Step 3.3):
+     * - Filter rules at construction: r.Scope === 'ITEM' && r.ID_Item === itemId && r.Activo === true
+     * - Sort by Prioridad (ascending)
+     * - Evaluate each condition (Condicion_JSON) against: { pax, cantidad, duracionMin, hora, dia }
+     * - Execute matching action handlers (ERROR/WARNING have effects, others are no-op for now)
+     * - Cache results (no re-evaluation on quantity changes)
+     * - Use humanize.js for readable condition/action formatting
+     * - Re-evaluate on externalContext changes (re-filter + re-evaluate)
+     *
+     * Key insight: Component ID matching (ID_Item) happens in the FILTER, not the condition.
+     * This keeps conditions pure and reusable across CATEGORY, KIT, CONTAINER, BASKET later.
+     *
+     * See: packages/components/item/domain/rulesEngine/README.md (filtering strategy)
+     * See: claps_codelab/packages/pricing/src/RulesEngine/ (implementation reference)
+     *
+     * @returns {Array}
+     */
+    get rules() {
+      return this.#definition.rules || [];
+    }
+
+    // ---- Projections ----
+
+    /**
+     * Projection for catalog card rendering.
+     * Includes pricing formula, description, and category.
+     *
+     * @returns {Object}
+     */
+    get catalogCard() {
+      return {
+        ID_Item: this.#definition.id ?? 'ITEM_UNKNOWN',
+        Nombre: this.#definition.name,
+        Precio_Calculado_Default: this.#derived.catalogDisaggregated,
+        Precio_Por_Cantidad: this.#derived.pricingHumanText,
+        InitPolicyHuman: this.#derived.policyHintText,
+        detalle: `${this.#definition.description || ''}\n${this.#derived.catalogDisaggregated}`,
+        categoria: this.#definition.category
+      };
+    }
+
+    /**
+     * Projection for basket line rendering.
+     * Includes schedule, quantities, pricing details, and availability.
+     *
+     * @returns {Object}
+     */
+    get basketLine() {
+      return {
+        id: this.#definition.id ?? 'ITEM_UNKNOWN',
+        lineId: null,
+        itemId: this.#definition.id ?? 'ITEM_UNKNOWN',
+        nombre: this.#definition.name,
+        descripcion: this.#definition.description,
+        categoria: this.#definition.category,
+        hora: this.#derived.schedule.hora,
+        horaMin: this.#derived.schedule.horaMin,
+        horaFinMin: this.#derived.schedule.horaMin + this.#derived.quantities.duracionMin,
+        dia: this.#derived.schedule.dia,
+        comentarios: this.#derived.comentarios,
+        pax: this.#derived.quantities.pax,
+        cantidad: this.#derived.quantities.cantidad,
+        duracionMin: this.#derived.quantities.duracionMin,
+        precio: this.#derived.unitDisplay,
+        baseFijo: this.#derived.base,
+        rateLabel: this.#derived.lineRateLabel,
+        rateValue: this.#derived.pricingKind === PricingKind.NONE
+          ? this.#derived.base
+          : this.#derived.rate,
+        rateSubtotal: this.#derived.lineRateSubtotal,
+        pricingKind: this.#derived.pricingKind,
+        basketLegend: this.#derived.basketLegendText,
+        isOverridden: this.#derived.isOverridden,
+        showPaxControl: this.#derived.showPaxControl,
+        showUnitsControl: this.#derived.showUnitsControl,
+        showTimeControl: this.#derived.showTimeControl,
+        total: this.#derived.total
+      };
+    }
+
+    /**
+     * Full projection consumed by XState context / Alpine bridge.
+     * Includes all computed fields and both catalog/basket views.
+     *
+     * EXACT same shape as ItemLogic.toMachineContext() for backward compat.
+     *
+     * @returns {Object}
+     */
+    toDisplayObject() {
+      const catalogCard = this.catalogCard;
+      const basketLine = this.basketLine;
+
+      return {
+        mode: this.#mode,
+        definition: this.#definition,
+        externalContext: this.#externalContext,
+        overrides: this.#overrides,
+        catalogCard,
+        basketLine,
+        profile: this.#derived.profile,
+        quantities: this.#derived.quantities,
+        schedule: this.#derived.schedule,
+        comentarios: this.#derived.comentarios,
+        pricingKind: this.#derived.pricingKind,
+        initializationMode: this.#derived.initializationMode,
+        pricingHuman: this.#derived.pricingHumanText,
+        pricingPerQuantityHuman: this.#derived.catalogDisaggregated,
+        total: this.#derived.total,
+        catalogPriceDisaggregated: this.#derived.catalogDisaggregated,
+        catalogFormulaHuman: this.#derived.catalogDisaggregated,
+        initPolicyHuman: this.#derived.policyHintText,
+        basketLegend: this.#derived.basketLegendText,
+        isOverridden: this.#derived.isOverridden,
+        lineRateLabel: this.#derived.lineRateLabel,
+        lineRateValue: this.#derived.pricingKind === PricingKind.NONE
+          ? this.#derived.base
+          : this.#derived.rate,
+        lineRateSubtotal: this.#derived.lineRateSubtotal,
+        lineBaseValue: this.#derived.pricingKind === PricingKind.NONE
+          ? 0
+          : this.#derived.base,
+        unitDisplay: this.#derived.unitDisplay,
+        showPaxControl: this.#derived.showPaxControl,
+        showUnitsControl: this.#derived.showUnitsControl,
+        showTimeControl: this.#derived.showTimeControl,
+        userSetFields: this.#derived.userSetFields,
+        isUserSetPax: this.#derived.isUserSetPax,
+        isUserSetCantidad: this.#derived.isUserSetCantidad,
+        isUserSetDuracion: this.#derived.isUserSetDuracion,
+        appliedRules: this.#ruleResult?.appliedRules || [],
+        ruleErrors: this.#ruleResult?.errors || [],
+        ruleWarnings: this.#ruleResult?.warnings || [],
+        available: this.#ruleResult?.available ?? true,
+        // Visibility flags — from category dimension flags (set by DB definition)
+        showPax:      this.#definition.defaultQuantities?.requierePax    ?? false,
+        showCantidad: this.#definition.defaultQuantities?.requiereCant   ?? false,
+        showDuracion: this.#definition.defaultQuantities?.requiereTiempo ?? false,
+        showHora:     this.#definition.defaultQuantities?.requiereHora   ?? false,
+        // Raw DB objects for read-only display panels
+        perfil:     this.#definition.perfil     ?? null,
+        perfilInit: this.#definition.perfilInit ?? null,
+        categoria:  this.#definition.categoria  ?? null,
+      };
+    }
+
+    /**
+     * Serialize state to a seed for persistence or transmission.
+     * Can be restored with Item.fromSeed().
+     *
+     * @returns {Object}
+     */
+    toSeed() {
+      return {
+        mode: this.#mode,
+        definition: this.#definition,
+        externalContext: this.#externalContext,
+        overrides: this.#overrides,
+        userSetFields: [...this.#userSetFields]
+      };
+    }
+  }
+
+  /**
+   * Item state machine.
+   *
+   * Manages lifecycle of a single item in two modes: catalog and basket.
+   * The item instance is captured in a closure and mutated by action handlers,
+   * allowing XState to orchestrate transitions while the Item class handles calculations.
+   *
+   * @module itemMachine
+   */
+
+
+  /**
+   * Create an XState machine for a single item.
+   *
+   * The item instance is created once and reused across all events (closure pattern).
+   * Each action mutates the item and updates context via toDisplayObject().
+   *
+   * States: catalog, basket
+   * Initial: determined by seed.mode (defaults to 'catalog')
+   * Context: item.toDisplayObject()
+   *
+   * @param {Object} [seed] - Item seed (mode, definition, externalContext, overrides)
+   * @returns {import('xstate').StateMachine}
+   */
+  function createItemMachine(seed) {
+    // Create and capture the item instance in closure
+    const item = Item.fromSeed(seed);
+
+    return createMachine({
+      id: 'itemStandalone',
+      initial: seed?.mode || 'catalog',
+      context: item.toDisplayObject(),
+      states: {
+        catalog: {
+          on: {
+            ADD_TO_BASKET: {
+              target: 'basket',
+              actions: assign(({ event }) => {
+                item.setMode('basket');
+                return item.toDisplayObject();
+              })
+            },
+            SET_CONTEXT: {
+              actions: assign(({ event }) => {
+                item.receiveContext(event.patch);
+                return item.toDisplayObject();
+              })
+            },
+            SET_PROFILE_VALUE: {
+              actions: assign(({ event }) => {
+                item.setProfileValue(event.key, event.value);
+                return item.toDisplayObject();
+              })
+            },
+            SET_DEFAULT_QUANTITY: {
+              actions: assign(({ event }) => {
+                item.setDefaultQuantity(event.key, event.value);
+                return item.toDisplayObject();
+              })
+            },
+            CLEAR_DEFAULT_QUANTITY: {
+              actions: assign(({ event }) => {
+                item.clearDefaultQuantity(event.key);
+                return item.toDisplayObject();
+              })
+            }
+          }
+        },
+        basket: {
+          on: {
+            REMOVE_FROM_BASKET: {
+              target: 'catalog',
+              actions: assign(({ event }) => {
+                item.setMode('catalog');
+                return item.toDisplayObject();
+              })
+            },
+            SET_OVERRIDE: {
+              actions: assign(({ event }) => {
+                item.setOverride(event.key, event.value);
+                return item.toDisplayObject();
+              })
+            },
+            CLEAR_OVERRIDE: {
+              actions: assign(({ event }) => {
+                item.clearOverride(event.key);
+                return item.toDisplayObject();
+              })
+            },
+            RESET_OVERRIDES: {
+              actions: assign(({ event }) => {
+                item.resetOverrides();
+                return item.toDisplayObject();
+              })
+            },
+            SET_CONTEXT: {
+              actions: assign(({ event }) => {
+                item.receiveContext(event.patch);
+                return item.toDisplayObject();
+              })
+            },
+            SET_PROFILE_VALUE: {
+              actions: assign(({ event }) => {
+                item.setProfileValue(event.key, event.value);
+                return item.toDisplayObject();
+              })
+            },
+            SET_DEFAULT_QUANTITY: {
+              actions: assign(({ event }) => {
+                item.setDefaultQuantity(event.key, event.value);
+                return item.toDisplayObject();
+              })
+            },
+            CLEAR_DEFAULT_QUANTITY: {
+              actions: assign(({ event }) => {
+                item.clearDefaultQuantity(event.key);
+                return item.toDisplayObject();
+              })
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Create and start an item actor from a seed.
+   *
+   * @param {Object} seed - Item seed (mode, definition, externalContext, overrides)
+   * @returns {import('xstate').Actor} A running actor with item context
+   */
+  function createItemActor(seed) {
+    const actor = createActor(createItemMachine(seed));
+    actor.start();
+    return actor;
+  }
+
+  /**
+   * resolveItemDefinition.js — 5-way join: item + categoria + perfil + perfilInit + reglas.
+   *
+   * Returns the `ResolvedItemDefinition` contract used by Item.fromDefinition()
+   * and the III-1 resolver panel.
+   *
+   * Contract: see plan/III-1-resolver/field_contracts.md
+   *
+   * @param {string} itemId
+   * @param {{ items, categorias, perfiles, perfilesInit, reglas }} db
+   * @returns {ResolvedItemDefinition}
+   * @throws {Error} if itemId is not found or any required FK is missing
+   */
+  function parseConditionJson(conditionJson) {
+    if (conditionJson == null) return null;
+    if (typeof conditionJson === 'string') {
+      try {
+        return JSON.parse(conditionJson);
+      } catch {
+        return null;
+      }
+    }
+    return conditionJson;
+  }
+
+  function nodeMentionsItemId(node) {
+    if (node == null) return false;
+    if (Array.isArray(node)) return node.some(nodeMentionsItemId);
+    if (typeof node === 'object') {
+      if (node.var === 'item.id') return true;
+      return Object.values(node).some(nodeMentionsItemId);
+    }
+    return false;
+  }
+
+  function isItemIdVar(node) {
+    return !!node && typeof node === 'object' && node.var === 'item.id';
+  }
+
+  function comparisonMatchesItemId(comparison, itemId) {
+    if (!Array.isArray(comparison) || comparison.length < 2) return false;
+    const [left, right] = comparison;
+    return (isItemIdVar(left) && right === itemId) || (isItemIdVar(right) && left === itemId);
+  }
+
+  function nodeTargetsItemId(node, itemId) {
+    if (node == null) return false;
+    if (Array.isArray(node)) return node.some(child => nodeTargetsItemId(child, itemId));
+    if (typeof node !== 'object') return false;
+
+    for (const [op, value] of Object.entries(node)) {
+      if ((op === '===' || op === '==') && comparisonMatchesItemId(value, itemId)) return true;
+      if (nodeTargetsItemId(value, itemId)) return true;
+    }
+    return false;
+  }
+
+  function resolveItemDefinition(itemId, db) {
+    // ── 1. Item row ────────────────────────────────────────────────────────────
+    const item = db.items.find(r => r.ID_Item === itemId);
+    if (!item) throw new Error(`resolveItemDefinition: item '${itemId}' not found`);
+
+    // ── 2. Categoria row ───────────────────────────────────────────────────────
+    const categoria = db.categorias.find(r => r.ID_Categoria === item.ID_Categoria);
+    if (!categoria) {
+      throw new Error(
+        `resolveItemDefinition: categoria '${item.ID_Categoria}' not found (required by '${itemId}')`
+      );
+    }
+
+    // ── 3. Perfil row — item override wins, falls back to category default ─────
+    const perfilId = item.ID_Perfil_Precio_Override ?? categoria.ID_Perfil_Precio_Default;
+    if (!perfilId) {
+      throw new Error(
+        `resolveItemDefinition: no pricing profile resolvable for '${itemId}'`
+      );
+    }
+    const perfil = db.perfiles.find(r => r.ID_Perfil_Precio === perfilId);
+    if (!perfil) {
+      throw new Error(
+        `resolveItemDefinition: perfil '${perfilId}' not found (required by '${itemId}')`
+      );
+    }
+
+    // ── 4. Perfil Init — item override wins, falls back to category default ─────
+    const perfilInitId = item.ID_Perfil_Init_Override ?? categoria.ID_Perfil_Init_Default;
+    const perfilInit = perfilInitId
+      ? (db.perfilesInit ?? []).find(r => r.ID_Perfil_Init === perfilInitId)
+      : null;
+
+    // ── 5. Reglas — filter to ITEM scope, RESTRICCION_UI stage, active, sorted ─
+    const reglas = (db.reglas ?? [])
+      .filter(r =>
+        r.Activo === true &&
+        r.Scope === 'ITEM' &&
+        r.Etapa === 'RESTRICCION_UI' &&
+        (r.ID_Componente == null || r.ID_Componente === itemId)
+      )
+      .filter(r => {
+        if (r.ID_Componente != null) return true;
+        const condition = parseConditionJson(r.Condicion_JSON);
+        if (!nodeMentionsItemId(condition)) return true;
+        return nodeTargetsItemId(condition, itemId);
+      })
+      .sort((a, b) => (a.Prioridad ?? 0) - (b.Prioridad ?? 0))
+      .map(r => ({
+        ID_Regla:       r.ID_Regla,
+        Nombre:         r.Nombre,
+        Etapa:          r.Etapa,
+        Scope:          r.Scope,
+        ID_Componente:  r.ID_Componente ?? null,
+        Tipo_Accion:    r.Tipo_Accion,
+        Hook:           r.Hook ?? null,
+        Condicion_JSON: r.Condicion_JSON ?? null,
+        Payload_JSON:   r.Payload_JSON ?? null,
+        Prioridad:      r.Prioridad,
+        Acumulable:     r.Acumulable,
+        Activo:         true,
+      }));
+
+    // ── 6. Assemble output — strip Updated_At from all nested objects ──────────
+    return {
+      // From ITEM_CATALOGO
+      ID_Item:                       item.ID_Item,
+      Nombre:                        item.Nombre,
+      Default_Glosa:                 item.Default_Glosa ?? null,
+      ID_Categoria:                  item.ID_Categoria,
+      ID_Perfil_Precio_Override:     item.ID_Perfil_Precio_Override ?? null,
+      ID_Perfil_Init_Override:       item.ID_Perfil_Init_Override ?? null,
+      Activo:                        item.Activo,
+
+      // From CATEGORIAS (full row, Updated_At stripped)
+      categoria: {
+        ID_Categoria:             categoria.ID_Categoria,
+        Nombre:                   categoria.Nombre,
+        ID_Perfil_Precio_Default: categoria.ID_Perfil_Precio_Default,
+        ID_Perfil_Init_Default:   categoria.ID_Perfil_Init_Default ?? null,
+        Def_Requiere_Pax:         categoria.Def_Requiere_Pax,
+        Def_Requiere_Cant:        categoria.Def_Requiere_Cant,
+        Def_Requiere_Tiempo:      categoria.Def_Requiere_Tiempo,
+        Def_Requiere_Hora:        categoria.Def_Requiere_Hora,
+        Icono_UI:                 categoria.Icono_UI ?? null,
+        Activo:                   categoria.Activo,
+      },
+
+      // From PERFILES_PRECIO (resolved, Updated_At stripped)
+      perfil: {
+        ID_Perfil_Precio:      perfil.ID_Perfil_Precio,
+        Nombre:                perfil.Nombre,
+        Costo_Base_Fijo:       perfil.Costo_Base_Fijo,
+        Costo_Unitario_Pax:    perfil.Costo_Unitario_Pax,
+        Costo_Unitario_Tiempo: perfil.Costo_Unitario_Tiempo,
+        Costo_Unitario_Item:   perfil.Costo_Unitario_Item,
+        Activo:                perfil.Activo,
+      },
+
+      perfilInit: perfilInit ? {
+        ID_Perfil_Init:      perfilInit.ID_Perfil_Init,
+        Nombre:              perfilInit.Nombre,
+        Duracion_Min:        perfilInit.Duracion_Min ?? 0,
+        Unidades_Por_Pax:    perfilInit.Unidades_Por_Pax ?? 0,
+        Unidades_Por_Hora:   perfilInit.Unidades_Por_Hora ?? 0,
+        Minutos_Por_Usuario: perfilInit.Minutos_Por_Usuario ?? 0,
+        Cantidad_Fija:       perfilInit.Cantidad_Fija ?? 0,
+        Pax_Fijo:            perfilInit.Pax_Fijo ?? 0,
+        Activo:              perfilInit.Activo,
+      } : null,
+
+      // From REGLAS_NEGOCIO (filtered, sorted)
+      reglas,
+    };
+  }
+
+  const DEFAULT_CONTEXT$3 = {
+    paxGlobal: 20,
+    dia: 1,
+    hora: '09:00',
+  };
+
+  function cleanupSubscription$3(subscription) {
+    if (!subscription) return;
+    if (typeof subscription === 'function') {
+      subscription();
+      return;
+    }
+    if (typeof subscription.unsubscribe === 'function') {
+      subscription.unsubscribe();
+    }
+  }
+
+  function toCategoryOptions$1(db) {
+    const activeCounts = new Map();
+    for (const row of db.items || []) {
+      if (row.Activo === false) continue;
+      const count = activeCounts.get(row.ID_Categoria) || 0;
+      activeCounts.set(row.ID_Categoria, count + 1);
+    }
+
+    return (db.categorias || [])
+      .filter((row) => row.Activo !== false)
+      .map((row) => ({
+        id: row.ID_Categoria,
+        nombre: row.Nombre,
+        icono: row.Icono_UI ?? null,
+        itemCount: activeCounts.get(row.ID_Categoria) || 0,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
+
+  function getCategoryById(db, categoryId) {
+    return (db.categorias || []).find((row) => row.ID_Categoria === categoryId) || null;
+  }
+
+  function getActiveCategoryItems(db, categoryId) {
+    return (db.items || []).filter(
+      (row) => row.Activo !== false && row.ID_Categoria === categoryId
+    );
+  }
+
+  function createEntryId$1() {
+    return `CAT_ENTRY_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function annotateRules$1(entry, rules = []) {
+    return rules.map((rule) => ({
+      ...rule,
+      entryId: entry.entryId,
+      itemId: entry.itemId,
+      itemName: entry.name,
+    }));
+  }
+
+  function toEntryState$1(entry) {
+    const snapshot = entry.snapshot || {};
+    return {
+      entryId: entry.entryId,
+      itemId: entry.itemId,
+      name: entry.name,
+      total: Number(snapshot.total || 0),
+      available: snapshot.available ?? true,
+      warnings: (snapshot.ruleWarnings || []).length,
+      errors: (snapshot.ruleErrors || []).length,
+      state: snapshot,
+    };
+  }
+
+  function buildCategoryState(db, categoryId, runtimeEntries, loadErrors = []) {
+    const category = getCategoryById(db, categoryId);
+    const items = Array.from(runtimeEntries.values()).map(toEntryState$1);
+
+    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const ruleErrors = items.flatMap((item) => annotateRules$1(item, item.state.ruleErrors || []));
+    const ruleWarnings = items.flatMap((item) => annotateRules$1(item, item.state.ruleWarnings || []));
+    const appliedRules = items.flatMap((item) => annotateRules$1(item, item.state.appliedRules || []));
+
+    return {
+      id: category?.ID_Categoria || categoryId || null,
+      nombre: category?.Nombre || 'Category',
+      icono: category?.Icono_UI ?? null,
+      itemCount: items.length,
+      subtotal,
+      hasErrors: ruleErrors.length > 0,
+      hasWarnings: ruleWarnings.length > 0,
+      items,
+      ruleErrors,
+      ruleWarnings,
+      appliedRules,
+      loadErrors,
+    };
+  }
+
+  function createEntryRuntime$1(db, itemRow, globalContext, onSnapshot, createItemActorImpl) {
+    const resolvedDef = resolveItemDefinition(itemRow.ID_Item, db);
+    const seed = Item.fromDefinition(resolvedDef, {
+      externalContext: { ...globalContext },
+    }).toSeed();
+    seed.mode = 'catalog';
+
+    const actor = createItemActorImpl(seed);
+    const entry = {
+      entryId: createEntryId$1(),
+      itemId: resolvedDef.ID_Item,
+      name: resolvedDef.Nombre,
+      actor,
+      snapshot: actor.getSnapshot().context,
+      subscription: null,
+    };
+
+    entry.subscription = actor.subscribe((snapshot) => {
+      entry.snapshot = snapshot.context;
+      onSnapshot();
+    });
+
+    return entry;
+  }
+
+  function destroyRuntimeEntries$1(runtimeEntries) {
+    for (const entry of runtimeEntries.values()) {
+      cleanupSubscription$3(entry.subscription);
+      entry.actor?.stop?.();
+    }
+    runtimeEntries.clear();
+  }
+
+  /**
+   * Create a category actor for the Step 01 playground.
+   * @param {{db: object, initialCategoryId?: string|null, initialContext?: object}} input
+   */
+  function createCategoryActor({
+    db,
+    initialCategoryId = null,
+    initialContext = {},
+    createItemActorImpl = createItemActor,
+  } = {}) {
+    if (!db) {
+      throw new Error('createCategoryActor: db is required');
+    }
+
+    const categoryOptions = toCategoryOptions$1(db);
+    const selectedCategoryId = initialCategoryId || categoryOptions[0]?.id || null;
+    const globalContext = { ...DEFAULT_CONTEXT$3, ...(initialContext || {}) };
+    const runtimeEntries = new Map();
+    let ownerActor = null;
+
+    function notifySnapshotUpdate() {
+      ownerActor?.send({ type: 'CHILD_SNAPSHOT_UPDATED' });
+    }
+
+    function hydrateCategory(categoryId, context) {
+      destroyRuntimeEntries$1(runtimeEntries);
+      const loadErrors = [];
+      const itemRows = getActiveCategoryItems(db, categoryId);
+
+      for (const row of itemRows) {
+        try {
+          const entry = createEntryRuntime$1(db, row, context, notifySnapshotUpdate, createItemActorImpl);
+          runtimeEntries.set(entry.entryId, entry);
+        } catch (error) {
+          loadErrors.push({
+            itemId: row.ID_Item,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return buildCategoryState(db, categoryId, runtimeEntries, loadErrors);
+    }
+
+    function pushContextToChildren(patch) {
+      for (const entry of runtimeEntries.values()) {
+        entry.actor.send({ type: 'SET_CONTEXT', patch });
+      }
+    }
+
+    const machine = createMachine({
+      id: 'categoryStandalone',
+      initial: 'active',
+      context: {
+        categoryOptions,
+        selectedCategoryId,
+        globalContext,
+        state: hydrateCategory(selectedCategoryId, globalContext),
+      },
+      states: {
+        active: {
+          on: {
+            SELECT_CATEGORY: {
+              actions: assign(({ context, event }) => {
+                const nextCategoryId = event.categoryId;
+                if (!nextCategoryId || nextCategoryId === context.selectedCategoryId) {
+                  return {};
+                }
+                return {
+                  selectedCategoryId: nextCategoryId,
+                  state: hydrateCategory(nextCategoryId, context.globalContext),
+                };
+              }),
+            },
+            SET_CONTEXT: {
+              actions: assign(({ context, event }) => {
+                const patch = { ...(event.patch || {}) };
+                const nextContext = {
+                  ...context.globalContext,
+                  ...patch,
+                };
+                pushContextToChildren(patch);
+                return {
+                  globalContext: nextContext,
+                  state: buildCategoryState(db, context.selectedCategoryId, runtimeEntries),
+                };
+              }),
+            },
+            CHILD_SNAPSHOT_UPDATED: {
+              actions: assign(({ context }) => ({
+                state: buildCategoryState(db, context.selectedCategoryId, runtimeEntries),
+              })),
+            },
+          },
+        },
+      },
+    });
+
+    const actor = createActor(machine);
+    ownerActor = actor;
+
+    const originalStop = actor.stop.bind(actor);
+    actor.stop = () => {
+      destroyRuntimeEntries$1(runtimeEntries);
+      originalStop();
+    };
+
+    actor.start();
+    return actor;
+  }
+
+  const DEFAULT_CONTEXT$2 = {
+    paxGlobal: 20,
+    dia: 1,
+    hora: '09:00',
+  };
+
+  function cleanupSubscription$2(subscription) {
+    if (!subscription) return;
+    if (typeof subscription === 'function') {
+      subscription();
+      return;
+    }
+    if (typeof subscription.unsubscribe === 'function') {
+      subscription.unsubscribe();
+    }
+  }
+
+  function toCategoryOptions(db) {
+    const activeCounts = new Map();
+    for (const row of db.items || []) {
+      if (row.Activo === false) continue;
+      const count = activeCounts.get(row.ID_Categoria) || 0;
+      activeCounts.set(row.ID_Categoria, count + 1);
+    }
+
+    return (db.categorias || [])
+      .filter((row) => row.Activo !== false)
+      .map((row) => ({
+        id: row.ID_Categoria,
+        nombre: row.Nombre,
+        icono: row.Icono_UI ?? null,
+        itemCount: activeCounts.get(row.ID_Categoria) || 0,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
+
+  function normalizeExpandedIds(categoryOptions, expandedIds = []) {
+    const validIds = new Set(categoryOptions.map((category) => category.id));
+    return [...new Set(expandedIds)].filter((categoryId) => validIds.has(categoryId));
+  }
+
+  function categoryStateFromRuntime(option, runtime, isExpanded) {
+    const childState = runtime?.snapshot?.context?.state || null;
+    return {
+      id: option.id,
+      nombre: option.nombre,
+      icono: option.icono,
+      definedItemCount: option.itemCount,
+      itemCount: Number(childState?.itemCount || 0),
+      subtotal: Number(childState?.subtotal || 0),
+      hasErrors: !!childState?.hasErrors,
+      hasWarnings: !!childState?.hasWarnings,
+      loadErrors: childState?.loadErrors || [],
+      isExpanded,
+      isLoaded: !!runtime,
+      state: childState,
+    };
+  }
+
+  function buildCatalogState(categoryOptions, expandedCategoryIds, runtimeByCategoryId) {
+    const expandedSet = new Set(expandedCategoryIds);
+    const categories = categoryOptions.map((option) => {
+      const runtime = runtimeByCategoryId.get(option.id);
+      return categoryStateFromRuntime(option, runtime, expandedSet.has(option.id));
+    });
+
+    const summary = categories.reduce(
+      (acc, category) => ({
+        categoryCount: acc.categoryCount + 1,
+        expandedCount: acc.expandedCount + (category.isExpanded ? 1 : 0),
+        loadedCount: acc.loadedCount + (category.isLoaded ? 1 : 0),
+        definedItemCount: acc.definedItemCount + category.definedItemCount,
+        loadedItemCount: acc.loadedItemCount + category.itemCount,
+        subtotal: acc.subtotal + category.subtotal,
+        categoriesWithErrors: acc.categoriesWithErrors + (category.hasErrors ? 1 : 0),
+        categoriesWithWarnings: acc.categoriesWithWarnings + (category.hasWarnings ? 1 : 0),
+      }),
+      {
+        categoryCount: 0,
+        expandedCount: 0,
+        loadedCount: 0,
+        definedItemCount: 0,
+        loadedItemCount: 0,
+        subtotal: 0,
+        categoriesWithErrors: 0,
+        categoriesWithWarnings: 0,
+      }
+    );
+
+    return { categories, summary };
+  }
+
+  function startCategoryRuntime({
+    categoryId,
+    db,
+    globalContext,
+    runtimeByCategoryId,
+    onSnapshot,
+    createCategoryActorImpl,
+  }) {
+    if (!categoryId || runtimeByCategoryId.has(categoryId)) return;
+
+    const actor = createCategoryActorImpl({
+      db,
+      initialCategoryId: categoryId,
+      initialContext: globalContext,
+    });
+    const runtime = {
+      actor,
+      snapshot: actor.getSnapshot(),
+      subscription: null,
+    };
+
+    runtime.subscription = actor.subscribe((snapshot) => {
+      runtime.snapshot = snapshot;
+      onSnapshot(categoryId);
+    });
+
+    runtimeByCategoryId.set(categoryId, runtime);
+  }
+
+  function stopCategoryRuntime(runtimeByCategoryId, categoryId) {
+    const runtime = runtimeByCategoryId.get(categoryId);
+    if (!runtime) return;
+
+    cleanupSubscription$2(runtime.subscription);
+    runtime.actor?.stop?.();
+    runtimeByCategoryId.delete(categoryId);
+  }
+
+  function stopAllRuntimes(runtimeByCategoryId) {
+    for (const categoryId of runtimeByCategoryId.keys()) {
+      stopCategoryRuntime(runtimeByCategoryId, categoryId);
+    }
+  }
+
+  function createCatalogActor({
+    db,
+    initialContext = {},
+    initiallyExpandedCategoryIds = [],
+    createCategoryActorImpl = createCategoryActor,
+  } = {}) {
+    if (!db) {
+      throw new Error('createCatalogActor: db is required');
+    }
+
+    const categoryOptions = toCategoryOptions(db);
+    const runtimeByCategoryId = new Map();
+    const globalContext = { ...DEFAULT_CONTEXT$2, ...(initialContext || {}) };
+    const expandedCategoryIds = normalizeExpandedIds(categoryOptions, initiallyExpandedCategoryIds);
+    let ownerActor = null;
+
+    function notifyCategorySnapshotUpdated(categoryId) {
+      ownerActor?.send({ type: 'CATEGORY_SNAPSHOT_UPDATED', categoryId });
+    }
+
+    for (const categoryId of expandedCategoryIds) {
+      startCategoryRuntime({
+        categoryId,
+        db,
+        globalContext,
+        runtimeByCategoryId,
+        onSnapshot: notifyCategorySnapshotUpdated,
+        createCategoryActorImpl,
+      });
+    }
+
+    const machine = createMachine({
+      id: 'catalogStandalone',
+      initial: 'active',
+      context: {
+        categoryOptions,
+        expandedCategoryIds,
+        globalContext,
+        state: buildCatalogState(categoryOptions, expandedCategoryIds, runtimeByCategoryId),
+      },
+      states: {
+        active: {
+          on: {
+            EXPAND_CATEGORY: {
+              actions: assign(({ context, event }) => {
+                const categoryId = event.categoryId;
+                if (!categoryId || context.expandedCategoryIds.includes(categoryId)) {
+                  return {};
+                }
+
+                startCategoryRuntime({
+                  categoryId,
+                  db,
+                  globalContext: context.globalContext,
+                  runtimeByCategoryId,
+                  onSnapshot: notifyCategorySnapshotUpdated,
+                  createCategoryActorImpl,
+                });
+
+                const nextExpanded = [...context.expandedCategoryIds, categoryId];
+                return {
+                  expandedCategoryIds: nextExpanded,
+                  state: buildCatalogState(categoryOptions, nextExpanded, runtimeByCategoryId),
+                };
+              }),
+            },
+            COLLAPSE_CATEGORY: {
+              actions: assign(({ context, event }) => {
+                const categoryId = event.categoryId;
+                if (!categoryId || !context.expandedCategoryIds.includes(categoryId)) {
+                  return {};
+                }
+
+                stopCategoryRuntime(runtimeByCategoryId, categoryId);
+                const nextExpanded = context.expandedCategoryIds.filter((id) => id !== categoryId);
+                return {
+                  expandedCategoryIds: nextExpanded,
+                  state: buildCatalogState(categoryOptions, nextExpanded, runtimeByCategoryId),
+                };
+              }),
+            },
+            TOGGLE_CATEGORY: {
+              actions: assign(({ context, event }) => {
+                const categoryId = event.categoryId;
+                if (!categoryId) return {};
+
+                if (context.expandedCategoryIds.includes(categoryId)) {
+                  stopCategoryRuntime(runtimeByCategoryId, categoryId);
+                  const nextExpanded = context.expandedCategoryIds.filter((id) => id !== categoryId);
+                  return {
+                    expandedCategoryIds: nextExpanded,
+                    state: buildCatalogState(categoryOptions, nextExpanded, runtimeByCategoryId),
+                  };
+                }
+
+                startCategoryRuntime({
+                  categoryId,
+                  db,
+                  globalContext: context.globalContext,
+                  runtimeByCategoryId,
+                  onSnapshot: notifyCategorySnapshotUpdated,
+                  createCategoryActorImpl,
+                });
+                const nextExpanded = [...context.expandedCategoryIds, categoryId];
+                return {
+                  expandedCategoryIds: nextExpanded,
+                  state: buildCatalogState(categoryOptions, nextExpanded, runtimeByCategoryId),
+                };
+              }),
+            },
+            SET_CONTEXT: {
+              actions: assign(({ context, event }) => {
+                const patch = { ...(event.patch || {}) };
+                const nextContext = {
+                  ...context.globalContext,
+                  ...patch,
+                };
+
+                for (const runtime of runtimeByCategoryId.values()) {
+                  runtime.actor.send({ type: 'SET_CONTEXT', patch });
+                }
+
+                return {
+                  globalContext: nextContext,
+                  state: buildCatalogState(categoryOptions, context.expandedCategoryIds, runtimeByCategoryId),
+                };
+              }),
+            },
+            CATEGORY_SNAPSHOT_UPDATED: {
+              actions: assign(({ context }) => ({
+                state: buildCatalogState(categoryOptions, context.expandedCategoryIds, runtimeByCategoryId),
+              })),
+            },
+          },
+        },
+      },
+    });
+
+    const actor = createActor(machine);
+    ownerActor = actor;
+
+    const originalStop = actor.stop.bind(actor);
+    actor.stop = () => {
+      stopAllRuntimes(runtimeByCategoryId);
+      originalStop();
+    };
+
+    actor.start();
+    return actor;
+  }
+
+  const DEFAULT_CONTEXT$1 = {
+    paxGlobal: 20,
+    dia: 1,
+    hora: '09:00',
+    duracionMin: 120,
+  };
+
+  function cleanupSubscription$1(subscription) {
+    if (!subscription) return;
+    if (typeof subscription === 'function') {
+      subscription();
+      return;
+    }
+    if (typeof subscription.unsubscribe === 'function') {
+      subscription.unsubscribe();
+    }
+  }
+
+  function createEntryId() {
+    return `BSK_ENTRY_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function toItemOptions(db) {
+    const categoryNames = new Map((db.categorias || []).map((row) => [row.ID_Categoria, row.Nombre]));
+
+    return (db.items || [])
+      .filter((row) => row.Activo !== false)
+      .map((row) => ({
+        id: row.ID_Item,
+        nombre: row.Nombre,
+        categoria: categoryNames.get(row.ID_Categoria) || 'Uncategorized',
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }
+
+  function annotateRules(entry, rules = []) {
+    return rules.map((rule) => ({
+      ...rule,
+      entryId: entry.entryId,
+      itemId: entry.itemId,
+      itemName: entry.name,
+    }));
+  }
+
+  function toEntryState(entry) {
+    const snapshot = entry.snapshot || {};
+    const ruleWarnings = snapshot.ruleWarnings || [];
+    const ruleErrors = snapshot.ruleErrors || [];
+
+    return {
+      id: entry.entryId,
+      entryId: entry.entryId,
+      itemId: entry.itemId,
+      name: entry.name,
+      total: Number(snapshot.total || 0),
+      warnings: ruleWarnings.length,
+      errors: ruleErrors.length,
+      state: snapshot,
+    };
+  }
+
+  function buildDayState(dayIndex, runtimeEntries) {
+    const entries = Array.from(runtimeEntries.values()).map(toEntryState);
+    const subtotal = entries.reduce((sum, entry) => sum + entry.total, 0);
+    const ruleErrors = entries.flatMap((entry) => annotateRules(entry, entry.state.ruleErrors || []));
+    const ruleWarnings = entries.flatMap((entry) => annotateRules(entry, entry.state.ruleWarnings || []));
+    const appliedRules = entries.flatMap((entry) => annotateRules(entry, entry.state.appliedRules || []));
+
+    return {
+      dayIndex,
+      entryCount: entries.length,
+      entries,
+      subtotal,
+      hasErrors: ruleErrors.length > 0,
+      hasWarnings: ruleWarnings.length > 0,
+      ruleErrors,
+      ruleWarnings,
+      appliedRules,
+    };
+  }
+
+  function createEntryRuntime({ resolvedDef, globalContext, onSnapshot, createItemActorImpl }) {
+    const seed = Item.fromDefinition(resolvedDef, {
+      externalContext: { ...globalContext },
+    }).toSeed();
+    seed.mode = 'basket';
+
+    const actor = createItemActorImpl(seed);
+    const entry = {
+      entryId: createEntryId(),
+      itemId: resolvedDef.ID_Item,
+      name: resolvedDef.Nombre,
+      actor,
+      snapshot: actor.getSnapshot().context,
+      subscription: null,
+    };
+
+    entry.subscription = actor.subscribe((snapshot) => {
+      entry.snapshot = snapshot.context;
+      onSnapshot();
+    });
+
+    return entry;
+  }
+
+  function destroyRuntimeEntries(runtimeEntries) {
+    for (const entry of runtimeEntries.values()) {
+      cleanupSubscription$1(entry.subscription);
+      entry.actor?.stop?.();
+    }
+    runtimeEntries.clear();
+  }
+
+  function destroyRuntimeEntry(runtimeEntries, entryId) {
+    const entry = runtimeEntries.get(entryId);
+    if (!entry) return;
+    cleanupSubscription$1(entry.subscription);
+    entry.actor?.stop?.();
+    runtimeEntries.delete(entryId);
+  }
+
+  function createBasketDayActor({
+    db,
+    dayIndex = 1,
+    initialContext = {},
+    createItemActorImpl = createItemActor,
+  } = {}) {
+    if (!db) {
+      throw new Error('createBasketDayActor: db is required');
+    }
+
+    const itemOptions = toItemOptions(db);
+    const selectedItemId = itemOptions[0]?.id || null;
+    const globalContext = { ...DEFAULT_CONTEXT$1, dia: dayIndex, ...(initialContext || {}) };
+    const runtimeEntries = new Map();
+    let ownerActor = null;
+
+    function notifySnapshotUpdate() {
+      ownerActor?.send({ type: 'CHILD_SNAPSHOT_UPDATED' });
+    }
+
+    function addEntryByItemId(itemId, context) {
+      if (!itemId) return false;
+      const resolvedDef = resolveItemDefinition(itemId, db);
+      const entry = createEntryRuntime({
+        resolvedDef,
+        globalContext: context,
+        onSnapshot: notifySnapshotUpdate,
+        createItemActorImpl,
+      });
+      runtimeEntries.set(entry.entryId, entry);
+      return true;
+    }
+
+    function pushContextToChildren(patch) {
+      for (const entry of runtimeEntries.values()) {
+        entry.actor.send({ type: 'SET_CONTEXT', patch });
+      }
+    }
+
+    function sendEntryEvent(entryId, event) {
+      const runtime = runtimeEntries.get(entryId);
+      if (!runtime) return;
+      runtime.actor.send(event);
+    }
+
+    const machine = createMachine({
+      id: 'basketDayStandalone',
+      initial: 'active',
+      context: {
+        dayIndex,
+        itemOptions,
+        selectedItemId,
+        globalContext,
+        state: buildDayState(dayIndex, runtimeEntries),
+      },
+      states: {
+        active: {
+          on: {
+            SELECT_ITEM: {
+              actions: assign(({ context, event }) => {
+                const itemId = event.itemId;
+                if (!itemId || !context.itemOptions.some((item) => item.id === itemId)) {
+                  return {};
+                }
+                return { selectedItemId: itemId };
+              }),
+            },
+            SHIP_SELECTED_ITEM: {
+              actions: assign(({ context }) => {
+                const created = addEntryByItemId(context.selectedItemId, context.globalContext);
+                if (!created) return {};
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            SHIP_ITEM: {
+              actions: assign(({ context, event }) => {
+                const created = addEntryByItemId(event.itemId, context.globalContext);
+                if (!created) return {};
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            REMOVE_ENTRY: {
+              actions: assign(({ context, event }) => {
+                destroyRuntimeEntry(runtimeEntries, event.entryId);
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            SET_ENTRY_OVERRIDE: {
+              actions: assign(({ context, event }) => {
+                sendEntryEvent(event.entryId, {
+                  type: 'SET_OVERRIDE',
+                  key: event.key,
+                  value: event.value,
+                });
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            CLEAR_ENTRY_OVERRIDE: {
+              actions: assign(({ context, event }) => {
+                sendEntryEvent(event.entryId, {
+                  type: 'CLEAR_OVERRIDE',
+                  key: event.key,
+                });
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            RESET_ENTRY_OVERRIDES: {
+              actions: assign(({ context, event }) => {
+                sendEntryEvent(event.entryId, { type: 'RESET_OVERRIDES' });
+                return {
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            SET_CONTEXT: {
+              actions: assign(({ context, event }) => {
+                const patch = { ...(event.patch || {}) };
+                const nextContext = {
+                  ...context.globalContext,
+                  ...patch,
+                };
+                pushContextToChildren(patch);
+                return {
+                  globalContext: nextContext,
+                  state: buildDayState(context.dayIndex, runtimeEntries),
+                };
+              }),
+            },
+            CHILD_SNAPSHOT_UPDATED: {
+              actions: assign(({ context }) => ({
+                state: buildDayState(context.dayIndex, runtimeEntries),
+              })),
+            },
+          },
+        },
+      },
+    });
+
+    const actor = createActor(machine);
+    ownerActor = actor;
+
+    const originalStop = actor.stop.bind(actor);
+    actor.stop = () => {
+      destroyRuntimeEntries(runtimeEntries);
+      originalStop();
+    };
+
+    actor.start();
+    return actor;
+  }
+
+  const DEFAULT_CONTEXT = {
+    paxGlobal: 20,
+    dia: 1,
+    hora: '09:00',
+    duracionMin: 120,
+  };
+
+  function cleanupSubscription(subscription) {
+    if (!subscription) return;
+    if (typeof subscription === 'function') {
+      subscription();
+      return;
+    }
+    if (typeof subscription.unsubscribe === 'function') {
+      subscription.unsubscribe();
+    }
+  }
+
+  function createDayOptions(dayCount) {
+    const count = Number(dayCount);
+    const total = Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
+    return Array.from({ length: total }, (_, idx) => ({
+      dayIndex: idx + 1,
+      label: `Dia ${idx + 1}`,
+    }));
+  }
+
+  function normalizeDayIndex(dayOptions, value, fallback = null) {
+    const target = Number(value);
+    if (!Number.isFinite(target)) return fallback;
+    return dayOptions.some((day) => day.dayIndex === target) ? target : fallback;
+  }
+
+  function toDayProjection(dayOption, runtime, selectedDayIndex) {
+    const state = runtime?.snapshot?.context?.state || {};
+    return {
+      dayIndex: dayOption.dayIndex,
+      label: dayOption.label,
+      isSelected: dayOption.dayIndex === selectedDayIndex,
+      entryCount: Number(state.entryCount || 0),
+      hasWarnings: !!state.hasWarnings,
+      hasErrors: !!state.hasErrors,
+      entries: state.entries || [],
+      ruleWarnings: state.ruleWarnings || [],
+      ruleErrors: state.ruleErrors || [],
+    };
+  }
+
+  function buildBasketState(dayOptions, selectedDayIndex, runtimeByDayIndex) {
+    const days = dayOptions.map((dayOption) => {
+      const runtime = runtimeByDayIndex.get(dayOption.dayIndex);
+      return toDayProjection(dayOption, runtime, selectedDayIndex);
+    });
+
+    const summary = days.reduce(
+      (acc, day) => ({
+        dayCount: acc.dayCount + 1,
+        totalEntries: acc.totalEntries + day.entryCount,
+        daysWithWarnings: acc.daysWithWarnings + (day.hasWarnings ? 1 : 0),
+        daysWithErrors: acc.daysWithErrors + (day.hasErrors ? 1 : 0),
+      }),
+      {
+        dayCount: 0,
+        totalEntries: 0,
+        daysWithWarnings: 0,
+        daysWithErrors: 0,
+      }
+    );
+
+    const selectedDayState = days.find((day) => day.dayIndex === selectedDayIndex) || null;
+    return { days, summary, selectedDayState };
+  }
+
+  function findEntryLocation(runtimeByDayIndex, entryId) {
+    for (const [dayIndex, runtime] of runtimeByDayIndex.entries()) {
+      const entries = runtime?.snapshot?.context?.state?.entries || [];
+      const match = entries.find((entry) => entry.entryId === entryId);
+      if (match) return { dayIndex, entry: match };
+    }
+    return null;
+  }
+
+  function createBasketActor({
+    db,
+    dayCount = 3,
+    initialSelectedDayIndex = 1,
+    initialContext = {},
+    createBasketDayActorImpl = createBasketDayActor,
+  } = {}) {
+    if (!db) {
+      throw new Error('createBasketActor: db is required');
+    }
+
+    const dayOptions = createDayOptions(dayCount);
+    const selectedDayIndex = normalizeDayIndex(dayOptions, initialSelectedDayIndex, dayOptions[0].dayIndex);
+    const globalContext = {
+      ...DEFAULT_CONTEXT,
+      dia: selectedDayIndex,
+      ...(initialContext || {}),
+    };
+
+    const runtimeByDayIndex = new Map();
+    let ownerActor = null;
+
+    function notifyDayUpdate(dayIndex) {
+      ownerActor?.send({ type: 'DAY_SNAPSHOT_UPDATED', dayIndex });
+    }
+
+    function startDayRuntime(dayIndex) {
+      const actor = createBasketDayActorImpl({
+        db,
+        dayIndex,
+        initialContext: {
+          ...globalContext,
+          dia: dayIndex,
+        },
+      });
+
+      const runtime = {
+        actor,
+        snapshot: actor.getSnapshot(),
+        subscription: null,
+      };
+
+      runtime.subscription = actor.subscribe((snapshot) => {
+        runtime.snapshot = snapshot;
+        notifyDayUpdate(dayIndex);
+      });
+
+      runtimeByDayIndex.set(dayIndex, runtime);
+    }
+
+    function refreshRuntimeSnapshot(dayIndex) {
+      const runtime = runtimeByDayIndex.get(dayIndex);
+      if (!runtime) return;
+      runtime.snapshot = runtime.actor.getSnapshot();
+    }
+
+    function sendToDay(dayIndex, event) {
+      const runtime = runtimeByDayIndex.get(dayIndex);
+      if (!runtime) return false;
+      runtime.actor.send(event);
+      runtime.snapshot = runtime.actor.getSnapshot();
+      return true;
+    }
+
+    function broadcastContext(patch) {
+      for (const runtime of runtimeByDayIndex.values()) {
+        runtime.actor.send({ type: 'SET_CONTEXT', patch });
+        runtime.snapshot = runtime.actor.getSnapshot();
+      }
+    }
+
+    function stopAllDayRuntimes() {
+      for (const runtime of runtimeByDayIndex.values()) {
+        cleanupSubscription(runtime.subscription);
+        runtime.actor?.stop?.();
+      }
+      runtimeByDayIndex.clear();
+    }
+
+    for (const dayOption of dayOptions) {
+      startDayRuntime(dayOption.dayIndex);
+    }
+
+    const firstDayRuntime = runtimeByDayIndex.get(dayOptions[0].dayIndex);
+    const itemOptions = firstDayRuntime?.snapshot?.context?.itemOptions || [];
+    const selectedItemId = firstDayRuntime?.snapshot?.context?.selectedItemId || itemOptions[0]?.id || null;
+
+    const machine = createMachine({
+      id: 'basketStandalone',
+      initial: 'active',
+      context: {
+        dayOptions,
+        itemOptions,
+        selectedDayIndex,
+        selectedItemId,
+        globalContext,
+        state: buildBasketState(dayOptions, selectedDayIndex, runtimeByDayIndex),
+      },
+      states: {
+        active: {
+          on: {
+            SELECT_DAY: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                return {
+                  selectedDayIndex: dayIndex,
+                  globalContext: {
+                    ...context.globalContext,
+                    dia: dayIndex,
+                  },
+                  state: buildBasketState(dayOptions, dayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            SELECT_ITEM: {
+              actions: assign(({ context, event }) => {
+                const itemId = event.itemId;
+                if (!itemId || !context.itemOptions.some((item) => item.id === itemId)) {
+                  return {};
+                }
+                return { selectedItemId: itemId };
+              }),
+            },
+            SHIP_SELECTED_ITEM: {
+              actions: assign(({ context }) => {
+                if (!context.selectedItemId) return {};
+                const shipped = sendToDay(context.selectedDayIndex, {
+                  type: 'SHIP_ITEM',
+                  itemId: context.selectedItemId,
+                });
+                if (!shipped) return {};
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            SHIP_ITEM_TO_DAY: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                if (!event.itemId) return {};
+                const shipped = sendToDay(dayIndex, {
+                  type: 'SHIP_ITEM',
+                  itemId: event.itemId,
+                });
+                if (!shipped) return {};
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            REMOVE_ENTRY: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                if (!event.entryId) return {};
+                sendToDay(dayIndex, { type: 'REMOVE_ENTRY', entryId: event.entryId });
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            SET_ENTRY_OVERRIDE: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                if (!event.entryId || !event.key) return {};
+                sendToDay(dayIndex, {
+                  type: 'SET_ENTRY_OVERRIDE',
+                  entryId: event.entryId,
+                  key: event.key,
+                  value: event.value,
+                });
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            CLEAR_ENTRY_OVERRIDE: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                if (!event.entryId || !event.key) return {};
+                sendToDay(dayIndex, {
+                  type: 'CLEAR_ENTRY_OVERRIDE',
+                  entryId: event.entryId,
+                  key: event.key,
+                });
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            RESET_ENTRY_OVERRIDES: {
+              actions: assign(({ context, event }) => {
+                const dayIndex = normalizeDayIndex(dayOptions, event.dayIndex, context.selectedDayIndex);
+                if (!event.entryId) return {};
+                sendToDay(dayIndex, {
+                  type: 'RESET_ENTRY_OVERRIDES',
+                  entryId: event.entryId,
+                });
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            MOVE_ENTRY_TO_DAY: {
+              actions: assign(({ context, event }) => {
+                const targetDayIndex = normalizeDayIndex(dayOptions, event.targetDayIndex, null);
+                if (!targetDayIndex || !event.entryId) return {};
+
+                const explicitSource = normalizeDayIndex(dayOptions, event.fromDayIndex, null);
+                const location = explicitSource
+                  ? { dayIndex: explicitSource, entry: null }
+                  : findEntryLocation(runtimeByDayIndex, event.entryId);
+
+                const sourceDayIndex = location?.dayIndex || explicitSource;
+                if (!sourceDayIndex || sourceDayIndex === targetDayIndex) return {};
+
+                if (!location?.entry) {
+                  const runtime = runtimeByDayIndex.get(sourceDayIndex);
+                  const entries = runtime?.snapshot?.context?.state?.entries || [];
+                  location.entry = entries.find((entry) => entry.entryId === event.entryId) || null;
+                }
+
+                if (!location.entry) return {};
+
+                const targetRuntime = runtimeByDayIndex.get(targetDayIndex);
+                const beforeIds = new Set(
+                  (targetRuntime?.snapshot?.context?.state?.entries || []).map((entry) => entry.entryId)
+                );
+
+                sendToDay(targetDayIndex, {
+                  type: 'SHIP_ITEM',
+                  itemId: location.entry.itemId,
+                });
+
+                refreshRuntimeSnapshot(targetDayIndex);
+                const targetEntries = targetRuntime?.snapshot?.context?.state?.entries || [];
+                const newEntry = targetEntries.find((entry) => !beforeIds.has(entry.entryId));
+
+                const overrides = location.entry.state?.overrides || {};
+                if (newEntry) {
+                  for (const [key, value] of Object.entries(overrides)) {
+                    if (value === undefined || value === null || value === '') continue;
+                    sendToDay(targetDayIndex, {
+                      type: 'SET_ENTRY_OVERRIDE',
+                      entryId: newEntry.entryId,
+                      key,
+                      value,
+                    });
+                  }
+                }
+
+                sendToDay(sourceDayIndex, {
+                  type: 'REMOVE_ENTRY',
+                  entryId: event.entryId,
+                });
+
+                return {
+                  state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+                };
+              }),
+            },
+            SET_CONTEXT: {
+              actions: assign(({ context, event }) => {
+                const rawPatch = { ...(event.patch || {}) };
+                const nextSelectedDay = normalizeDayIndex(
+                  dayOptions,
+                  rawPatch.dia,
+                  context.selectedDayIndex
+                );
+
+                const sharedPatch = { ...rawPatch };
+                delete sharedPatch.dia;
+
+                if (Object.keys(sharedPatch).length > 0) {
+                  broadcastContext(sharedPatch);
+                }
+
+                return {
+                  selectedDayIndex: nextSelectedDay,
+                  globalContext: {
+                    ...context.globalContext,
+                    ...sharedPatch,
+                    dia: nextSelectedDay,
+                  },
+                  state: buildBasketState(dayOptions, nextSelectedDay, runtimeByDayIndex),
+                };
+              }),
+            },
+            DAY_SNAPSHOT_UPDATED: {
+              actions: assign(({ context }) => ({
+                state: buildBasketState(dayOptions, context.selectedDayIndex, runtimeByDayIndex),
+              })),
+            },
+          },
+        },
+      },
+    });
+
+    const actor = createActor(machine);
+    ownerActor = actor;
+
+    const originalStop = actor.stop.bind(actor);
+    actor.stop = () => {
+      stopAllDayRuntimes();
+      originalStop();
+    };
+
+    actor.start();
+    return actor;
+  }
+
+  const DEFAULT_SETTINGS = {
+    fechaInicio: new Date().toISOString().slice(0, 10),
+    duracionDias: 3,
+    paxGlobal: 20,
+    dia: 1,
+    horaInicio: '09:00',
+    duracionMin: 120,
+  };
+
+  function normalizeNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function sanitizeSettings(raw = {}) {
+    const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+    merged.duracionDias = Math.max(1, Math.floor(normalizeNumber(merged.duracionDias, 1)));
+    merged.paxGlobal = Math.max(1, Math.floor(normalizeNumber(merged.paxGlobal, 1)));
+    merged.dia = Math.max(1, Math.floor(normalizeNumber(merged.dia, 1)));
+    merged.duracionMin = Math.max(0, Math.floor(normalizeNumber(merged.duracionMin, 0)));
+    merged.horaInicio = String(merged.horaInicio || '09:00');
+    merged.fechaInicio = String(merged.fechaInicio || DEFAULT_SETTINGS.fechaInicio);
+    return merged;
+  }
+
+  function toActorContext(settings) {
+    return {
+      paxGlobal: settings.paxGlobal,
+      dia: settings.dia,
+      hora: settings.horaInicio,
+      duracionMin: settings.duracionMin,
+    };
+  }
+
+  function filterCatalogCategories(categories = [], term = '') {
+    const needle = String(term || '').trim().toLowerCase();
+    const mapped = categories.map((category) => ({
+      ...category,
+      catalogEntries: (category.state?.items || []).map((entry) => ({
+        ...entry,
+        id: entry.entryId,
+      })),
+    }));
+
+    if (!needle) return mapped;
+
+    return mapped
+      .map((category) => {
+        const inCategory = String(category.nombre || '').toLowerCase().includes(needle);
+        if (inCategory) return category;
+        const entries = category.catalogEntries.filter((entry) =>
+          String(entry?.state?.definition?.name || '').toLowerCase().includes(needle)
+        );
+        return { ...category, catalogEntries: entries };
+      })
+      .filter((category) => category.catalogEntries.length > 0);
+  }
+
+  function buildValidationProjection(client, settings, basketState) {
+    const rows = (basketState?.days || []).flatMap((day) =>
+      (day.entries || []).map((entry) => ({
+        dayIndex: day.dayIndex,
+        entryId: entry.entryId,
+        itemId: entry.itemId,
+        name: entry.state?.definition?.name || entry.name || entry.itemId,
+        pax: Number(entry.state?.quantities?.pax || 0),
+        unidades: Number(entry.state?.quantities?.cantidad || 0),
+        total: Number(entry.total || 0),
+        hora: entry.state?.schedule?.hora || settings.horaInicio,
+      }))
+    );
+
+    const subtotal = rows.reduce((sum, row) => sum + row.total, 0);
+    const iva = Math.round(subtotal * 0.19);
+    const total = subtotal + iva;
+
+    return {
+      client,
+      settings,
+      rows,
+      totals: { subtotal, iva, total },
+    };
+  }
+
+  function toClientRecord(client) {
+    return {
+      id: client.ID_Cliente || client.id || null,
+      nombre: client.Nombre_Empresa || client.nombre || 'Cliente',
+      rut: client.RUT || client.rut || '',
+      email: client.Email || client.email || '',
+      telefono: client.Telefono || client.telefono || '',
+    };
+  }
+
+  function createQuotationInternalRuntime({
+    db,
+    clients = [],
+    initialSettings = {},
+  } = {}) {
+    if (!db) {
+      throw new Error('createQuotationInternalRuntime: db is required');
+    }
+
+    let stage = 'browse';
+    let clientModalOpen = false;
+    let selectedClient = null;
+    let settings = sanitizeSettings(initialSettings);
+    let catalogSearchTerm = '';
+
+    const listeners = new Set();
+    const clientList = (clients || []).map(toClientRecord);
+
+    let catalogActor = createCatalogActor({
+      db,
+      initialContext: toActorContext(settings),
+    });
+
+    let basketActor = createBasketActor({
+      db,
+      dayCount: settings.duracionDias,
+      initialSelectedDayIndex: settings.dia,
+      initialContext: toActorContext(settings),
+    });
+
+    let catalogUnsub = catalogActor.subscribe(() => notify());
+    let basketUnsub = basketActor.subscribe(() => {
+      const selectedDay = basketActor.getSnapshot().context.selectedDayIndex;
+      settings = sanitizeSettings({ ...settings, dia: selectedDay });
+      notify();
+    });
+
+    function notify() {
+      const snapshot = getSnapshot();
+      for (const listener of listeners) {
+        listener(snapshot);
+      }
+    }
+
+    function selectedDayIndex() {
+      return basketActor.getSnapshot().context.selectedDayIndex;
+    }
+
+    function selectDay(dayIndex) {
+      basketActor.send({ type: 'SELECT_DAY', dayIndex });
+      const selected = selectedDayIndex();
+      settings = sanitizeSettings({ ...settings, dia: selected });
+      catalogActor.send({ type: 'SET_CONTEXT', patch: { dia: selected } });
+      notify();
+    }
+
+    function pushSharedContext(patch = {}) {
+      if (!Object.keys(patch).length) return;
+      catalogActor.send({ type: 'SET_CONTEXT', patch });
+      basketActor.send({ type: 'SET_CONTEXT', patch });
+    }
+
+    function getDayEntries(dayIndex) {
+      const days = basketActor.getSnapshot().context.state?.days || [];
+      return days.find((day) => Number(day.dayIndex) === Number(dayIndex))?.entries || [];
+    }
+
+    function setEntryOverride(dayIndex, entryId, key, value) {
+      basketActor.send({
+        type: 'SET_ENTRY_OVERRIDE',
+        dayIndex,
+        entryId,
+        key,
+        value,
+      });
+    }
+
+    function cloneEntryToDay(sourceEntry, targetDayIndex) {
+      if (!sourceEntry?.itemId) return;
+
+      const beforeIds = new Set(getDayEntries(targetDayIndex).map((entry) => entry.entryId));
+
+      basketActor.send({
+        type: 'SHIP_ITEM_TO_DAY',
+        dayIndex: targetDayIndex,
+        itemId: sourceEntry.itemId,
+      });
+
+      const targetEntries = getDayEntries(targetDayIndex);
+      const newEntry = targetEntries.find((entry) => !beforeIds.has(entry.entryId));
+      if (!newEntry) return;
+
+      const overrides = sourceEntry.state?.overrides || {};
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined || value === null || value === '') continue;
+        setEntryOverride(targetDayIndex, newEntry.entryId, key, value);
+      }
+    }
+
+    function rebuildBasketForDuration(nextDuration) {
+      const previousSnapshot = basketActor.getSnapshot().context;
+      const days = previousSnapshot.state?.days || [];
+
+      basketUnsub?.unsubscribe?.();
+      basketActor.stop();
+
+      basketActor = createBasketActor({
+        db,
+        dayCount: nextDuration,
+        initialSelectedDayIndex: Math.min(previousSnapshot.selectedDayIndex || 1, nextDuration),
+        initialContext: toActorContext(settings),
+      });
+
+      basketUnsub = basketActor.subscribe(() => {
+        const selectedDay = basketActor.getSnapshot().context.selectedDayIndex;
+        settings = sanitizeSettings({ ...settings, dia: selectedDay });
+        notify();
+      });
+
+      for (const day of days) {
+        if (day.dayIndex > nextDuration) continue;
+        for (const entry of day.entries || []) {
+          cloneEntryToDay(entry, day.dayIndex);
+        }
+      }
+    }
+
+    function getSnapshot() {
+      const catalogContext = catalogActor.getSnapshot().context;
+      const basketContext = basketActor.getSnapshot().context;
+      const basketState = basketContext.state || { days: [], summary: {}, selectedDayState: null };
+
+      const categories = filterCatalogCategories(catalogStateToUI(catalogContext), catalogSearchTerm);
+      const selectedDayState = basketState.selectedDayState || null;
+      const basketEntries = (selectedDayState?.entries || []).map((entry) => ({
+        ...entry,
+        id: entry.entryId,
+      }));
+
+      return {
+        stage,
+        clientModalOpen,
+        selectedClient,
+        clients: clientList,
+        settings,
+        catalog: {
+          searchTerm: catalogSearchTerm,
+          summary: catalogContext.state?.summary || {},
+          categories,
+        },
+        basket: {
+          dayOptions: basketContext.dayOptions || [],
+          selectedDayIndex: basketContext.selectedDayIndex,
+          selectedDayState,
+          basketEntries,
+          summary: basketState.summary || {},
+          days: basketState.days || [],
+        },
+        validation: buildValidationProjection(selectedClient, settings, basketState),
+      };
+    }
+
+    function catalogStateToUI(catalogContext) {
+      const categories = catalogContext.state?.categories || [];
+      return categories.map((category) => ({
+        ...category,
+        state: category.state || {
+          items: [],
+        },
+      }));
+    }
+
+    function resolveEntry(entryId, preferredDayIndex = null) {
+      const days = basketActor.getSnapshot().context.state?.days || [];
+      if (preferredDayIndex) {
+        const preferred = days.find((day) => Number(day.dayIndex) === Number(preferredDayIndex));
+        const match = preferred?.entries?.find((entry) => entry.entryId === entryId);
+        if (match) return { dayIndex: preferred.dayIndex, entry: match };
+      }
+      for (const day of days) {
+        const match = (day.entries || []).find((entry) => entry.entryId === entryId);
+        if (match) return { dayIndex: day.dayIndex, entry: match };
+      }
+      return null;
+    }
+
+    function requireClient() {
+      if (selectedClient) return true;
+      clientModalOpen = true;
+      return false;
+    }
+
+    const api = {
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+
+      getSnapshot,
+
+      openClientModal() {
+        clientModalOpen = true;
+        if (stage === 'browse') stage = 'client';
+        notify();
+      },
+
+      closeClientModal() {
+        clientModalOpen = false;
+        if (stage === 'client') {
+          stage = selectedClient ? 'basket' : 'browse';
+        }
+        notify();
+      },
+
+      selectClient(clientId) {
+        const nextClient = clientList.find((client) => String(client.id) === String(clientId));
+        if (!nextClient) return;
+        selectedClient = nextClient;
+        clientModalOpen = false;
+        if (stage === 'browse' || stage === 'client') {
+          stage = 'basket';
+        }
+        notify();
+      },
+
+      startQuotation() {
+        if (!requireClient()) {
+          stage = 'client';
+          notify();
+          return;
+        }
+        stage = 'basket';
+        notify();
+      },
+
+      resetToBrowse() {
+        stage = 'browse';
+        clientModalOpen = false;
+        notify();
+      },
+
+      advanceToValidation() {
+        if (stage !== 'basket') return;
+        stage = 'validation';
+        notify();
+      },
+
+      backToBasket() {
+        stage = 'basket';
+        notify();
+      },
+
+      setCatalogSearch(term = '') {
+        catalogSearchTerm = String(term || '');
+        notify();
+      },
+
+      toggleCategory(categoryId) {
+        catalogActor.send({ type: 'TOGGLE_CATEGORY', categoryId });
+        notify();
+      },
+
+      selectDay(dayIndex) {
+        selectDay(dayIndex);
+      },
+
+      setQuotationSettings(patch = {}) {
+        const next = sanitizeSettings({ ...settings, ...(patch || {}) });
+        const prevDuration = settings.duracionDias;
+        settings = next;
+
+        if (next.duracionDias !== prevDuration) {
+          rebuildBasketForDuration(next.duracionDias);
+        }
+
+        pushSharedContext({
+          paxGlobal: next.paxGlobal,
+          hora: next.horaInicio,
+          duracionMin: next.duracionMin,
+        });
+
+        selectDay(next.dia);
+        notify();
+      },
+
+      shipItemToSelectedDay(itemId) {
+        if (!requireClient()) {
+          stage = 'client';
+          notify();
+          return;
+        }
+        basketActor.send({
+          type: 'SHIP_ITEM_TO_DAY',
+          dayIndex: selectedDayIndex(),
+          itemId,
+        });
+        stage = 'basket';
+        notify();
+      },
+
+      setEntryOverride(entryId, key, value) {
+        basketActor.send({
+          type: 'SET_ENTRY_OVERRIDE',
+          dayIndex: selectedDayIndex(),
+          entryId,
+          key,
+          value,
+        });
+        notify();
+      },
+
+      clearEntryOverride(entryId, key) {
+        basketActor.send({
+          type: 'CLEAR_ENTRY_OVERRIDE',
+          dayIndex: selectedDayIndex(),
+          entryId,
+          key,
+        });
+        notify();
+      },
+
+      resetEntryOverrides(entryId) {
+        basketActor.send({
+          type: 'RESET_ENTRY_OVERRIDES',
+          dayIndex: selectedDayIndex(),
+          entryId,
+        });
+        notify();
+      },
+
+      removeEntry(entryId) {
+        basketActor.send({
+          type: 'REMOVE_ENTRY',
+          dayIndex: selectedDayIndex(),
+          entryId,
+        });
+        notify();
+      },
+
+      duplicateEntryInDay(entryId) {
+        const located = resolveEntry(entryId, selectedDayIndex());
+        if (!located) return;
+        cloneEntryToDay(located.entry, located.dayIndex);
+        notify();
+      },
+
+      copyEntryToDay(entryId, targetDayIndex) {
+        const located = resolveEntry(entryId, selectedDayIndex());
+        if (!located) return;
+        const target = Math.max(1, Number(targetDayIndex) || 1);
+        if (target > settings.duracionDias) {
+          api.setQuotationSettings({ duracionDias: target, dia: selectedDayIndex() });
+        }
+        cloneEntryToDay(located.entry, target);
+        notify();
+      },
+
+      moveEntryToDay(entryId, targetDayIndex) {
+        const target = Math.max(1, Number(targetDayIndex) || 1);
+        if (target > settings.duracionDias) {
+          api.setQuotationSettings({ duracionDias: target, dia: selectedDayIndex() });
+        }
+        basketActor.send({
+          type: 'MOVE_ENTRY_TO_DAY',
+          fromDayIndex: selectedDayIndex(),
+          targetDayIndex: target,
+          entryId,
+        });
+        notify();
+      },
+
+      copySelectedDayToNextDay() {
+        const fromDay = selectedDayIndex();
+        const toDay = fromDay + 1;
+        if (toDay > settings.duracionDias) {
+          api.setQuotationSettings({ duracionDias: toDay, dia: fromDay });
+        }
+
+        const entries = getDayEntries(fromDay);
+        for (const entry of entries) {
+          cloneEntryToDay(entry, toDay);
+        }
+        notify();
+      },
+
+      stop() {
+        catalogUnsub?.unsubscribe?.();
+        basketUnsub?.unsubscribe?.();
+        catalogActor.stop();
+        basketActor.stop();
+        listeners.clear();
+      },
+    };
+
+    return api;
+  }
+
+  function toSeedMap(seed = []) {
+    return Object.fromEntries((seed || []).map(({ table, records }) => [table, records]));
+  }
+
+  function seedToResolverDb(seed = []) {
+    const seedMap = toSeedMap(seed);
+    return {
+      items: seedMap.ITEM_CATALOGO || [],
+      categorias: seedMap.CATEGORIAS || [],
+      perfiles: seedMap.PERFILES_PRECIO || [],
+      perfilesInit: seedMap.PERFILES_INICIALIZACION || [],
+      reglas: seedMap.REGLAS_NEGOCIO || [],
+    };
+  }
+
+  // AUTO-GENERATED by tools/generate_local_init_tables.mjs
+  // Source of truth: data/init/*.csv
+
+  const LOCAL_INIT_TABLES = {
+    "AJUSTES_COTIZACION": [],
+    "CACHE_COTIZACION": [],
+    "CATEGORIAS": [
+      {
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "Nombre": "Arriendo de salones, audios y comedores",
+        "ID_Perfil_Precio_Default": "PROF_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+        "ID_Perfil_Init_Default": "PI_SALON_8H",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "Nombre": "Coffes y servicios relacionado a salones",
+        "ID_Perfil_Precio_Default": "PROF_COFFEE_BASICO",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": false,
+        "Def_Requiere_Hora": false,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "Nombre": "Servicios para fiestas",
+        "ID_Perfil_Precio_Default": "PROF_LUCES_PERIMETRALES_SALON_CHINOOK_O_VIP",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": true,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "Nombre": "Bebidas  y Bar",
+        "ID_Perfil_Precio_Default": "PROF_TICKET_DE_TRAGO",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": false,
+        "Def_Requiere_Hora": false,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "Nombre": "Cambios de horas y lugar en servicios de alimentacion",
+        "ID_Perfil_Precio_Default": "PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS",
+        "ID_Perfil_Init_Default": "PI_SALON_8H",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "Nombre": "Alimentacion y banqueteria",
+        "ID_Perfil_Precio_Default": "PROF_DESAYUNO",
+        "ID_Perfil_Init_Default": "PI_SALON_8H",
+        "Def_Requiere_Pax": true,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_SPA",
+        "Nombre": "Spa",
+        "ID_Perfil_Precio_Default": "PROF_MASAJISTA_EXCLUSIVA_PARA_MASAJES_RELAX_30_MINUTOS",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "Nombre": "Alojamiento",
+        "ID_Perfil_Precio_Default": "PROF_HABITACION_SINGLE_HOTEL_B_B",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": false,
+        "Def_Requiere_Hora": false,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "Nombre": "Otros articulos",
+        "ID_Perfil_Precio_Default": "PROF_1_RAMO_DE_FLORES_6_ROSAS_ROJAS_BLANCAS_ROSADAS_AMARILLA",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": false,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": false,
+        "Def_Requiere_Hora": false,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "Nombre": "Actividades",
+        "ID_Perfil_Precio_Default": "PROF_GUIAS_EXCLUSIVOS_PARA_CAMINATAS",
+        "ID_Perfil_Init_Default": "PI_NONE",
+        "Def_Requiere_Pax": true,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "Nombre": "Teambuilding",
+        "ID_Perfil_Precio_Default": "PROF_PAINTBALL",
+        "ID_Perfil_Init_Default": "PI_1_PER_PAX",
+        "Def_Requiere_Pax": true,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": true,
+        "Def_Requiere_Hora": true,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "Nombre": "Teambuilding, actividades de pausa",
+        "ID_Perfil_Precio_Default": "PROF_LOS_NEUMATICOS",
+        "ID_Perfil_Init_Default": "PI_1_PER_PAX",
+        "Def_Requiere_Pax": true,
+        "Def_Requiere_Cant": false,
+        "Def_Requiere_Tiempo": false,
+        "Def_Requiere_Hora": false,
+        "Icono_UI": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      }
+    ],
+    "CLIENTES": [
+      {
+        "ID_Cliente": "CLI-0001",
+        "Nombre_Empresa": "test1",
+        "RUT": "18123123-5",
+        "Email": "empresa@asda.cl",
+        "Telefono": "56912312331",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0002",
+        "Nombre_Empresa": "pedro palotes",
+        "RUT": "12345678-9",
+        "Email": "wea@a.cl",
+        "Telefono": "569123123",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0003",
+        "Nombre_Empresa": "pedro palotes",
+        "RUT": "12345678-9",
+        "Email": "wea@a.cl",
+        "Telefono": "569123123",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0004",
+        "Nombre_Empresa": "Aventuta*/r",
+        "RUT": "76666800-3",
+        "Email": "carmen@sflodge.cl",
+        "Telefono": "974961403",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0005",
+        "Nombre_Empresa": "Ruth Stollsteimer",
+        "RUT": "11111111-1",
+        "Email": "ruth.stollsteimer@gmail.com",
+        "Telefono": "56996475523",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0006",
+        "Nombre_Empresa": "Ruth Stollsteimer",
+        "RUT": "11111111-1",
+        "Email": "ruth.stollsteimer@gmail.com",
+        "Telefono": "56996475523",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Cliente": "CLI-0008",
+        "Nombre_Empresa": "La corralera spa",
+        "RUT": "25870262-K",
+        "Email": "taydecorrales@gmail.com",
+        "Telefono": "",
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      }
+    ],
+    "COMPOSICION_KIT": [],
+    "COTIZACIONES": [],
+    "HISTORIAL_COTIZACION": [],
+    "ITEM_CATALOGO": [
+      {
+        "ID_Item": "ITEM_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+        "Nombre": "Salon Chinook uso diurno, hasta 320 personas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. Incluye arranque trifasico para productoras (Definir montaje)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SALON_COHO_USO_DIURNO_HASTA_120_PERSONAS",
+        "Nombre": "Salon Coho uso diurno, hasta 120 personas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_SALON_COHO_USO_DIURNO_HASTA_120_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SALON_FARIO_USO_DIURNO_HASTA_70_PERSONAS",
+        "Nombre": "Salon Fario uso diurno, hasta 70 personas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_SALON_FARIO_USO_DIURNO_HASTA_70_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SALON_ARCOIRIS_USO_DIURNO_HASTA_70_PERSONAS",
+        "Nombre": "Salón Arcoiris uso diurno, hasta 70 personas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_SALON_ARCOIRIS_USO_DIURNO_HASTA_70_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día. ( Definir montaje)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DIRECTORIO_USO_DIURNO_PARA_16_PERSONAS_MESA_IMPERIAL",
+        "Nombre": "Directorio uso diurno para 16 personas, mesa imperial",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_DIRECTORIO_USO_DIURNO_PARA_16_PERSONAS_MESA_IMPERIAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Equipado con TV, papelógrafo, aire acondicionado y calefacción, 8 h Día.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DOMO_PARA_240_PERSONAS",
+        "Nombre": "Domo para 240 personas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_DOMO_PARA_240_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Domo rústico incluye arranque trifasico para productoras.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIOS_DE_MONTAJE_CHINOOK_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Cambios de montaje  Chinook durante el arriendo de salon.",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIOS_DE_MONTAJE_CHINOOK_DURANTE_EL_ARRIENDO_DE_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cambio de montaje durante la jornada de trabajo",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIOS_DE_MONTAJE_COHO_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Cambios de montaje Coho durante el arriendo de salon.",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIOS_DE_MONTAJE_COHO_DURANTE_EL_ARRIENDO_DE_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cambio de montaje durante la jornada de trabajo",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIOS_DE_MONTAJE_FARIOS_Y_ARCOIRIS_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Cambios de montaje  Farios y Arcoiris durante el arriendo de salon.",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIOS_DE_MONTAJE_FARIOS_Y_ARCOIRIS_DURANTE_EL_ARRIENDO_DE_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cambio de montaje durante la jornada de trabajo",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_80_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Comedor VIP y terraza (2do piso) para 80 personas 8 horas uso diurno",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_80_PERSONAS_8_HORAS_USO_DIURNO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Comedor truchita o ex pool y terraza para 35 personas, 8 horas uso diurno",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_8_HORAS_USO_DIURNO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor exclusivo para maximo  35 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Arriendo pergola con parrilla para 16 personas, 8 horas uso diurno",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_8_HORAS_USO_DIURNO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Pergola exclusiva con parrilla",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_70_PERSONAS_1_5_HRS_AM_O_PM_ALMUERZO_O_CENA",
+        "Nombre": "Comedor VIP y terraza (2do piso) para 70 personas 1,5 hrs / AM O PM (ALMUERZO O CENA)",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_70_PERSONAS_1_5_HRS_AM_O_PM_ALMUERZO_O_CENA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_1_5_HORAS_AM_O_PM_ALMUERZO_O_CENA",
+        "Nombre": "Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_1_5_HORAS_AM_O_PM_ALMUERZO_O_CENA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor exclusivo para maximo  35 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_4_HORAS",
+        "Nombre": "Arriendo pergola con parrilla para 16 personas, 4 horas",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_4_HORAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Pergola exclusiva con parrilla",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ARRIENDO_PERGOLA_PICADERO_SOLO_CON_AUTORIZACION_2_DIAS_ANTES",
+        "Nombre": "Arriendo pergola picadero solo con autorizacion, 2 dias antes.",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_ARRIENDO_PERGOLA_PICADERO_SOLO_CON_AUTORIZACION_2_DIAS_ANTES",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Arriendo por una pergola techada en el sector del picadero.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TECNICA_PARA_SALONES_USO_DIURNO",
+        "Nombre": "Tecnica para salones uso diurno.",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_TECNICA_PARA_SALONES_USO_DIURNO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Data, amplificacion, 2 microfonos para uso en el dia.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_AUDIO_4_HORAS_EN_LA_NOCHE",
+        "Nombre": "Audio 4 horas en la noche",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_AUDIO_4_HORAS_EN_LA_NOCHE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Data, amplificacion, 2 microfonos para uso noche.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_AMPLIFICACION_EXTERIOR",
+        "Nombre": "Amplificacion exterior",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_AMPLIFICACION_EXTERIOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "2 parlantes con microfono ubicado en exteriores cercanos a algun punto electrico.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MICROFONO_INALAMBRICO_ADICIONAL",
+        "Nombre": "Microfono inalambrico adicional",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_MICROFONO_INALAMBRICO_ADICIONAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MICROFONO_SOLAPA_ADICIONAL",
+        "Nombre": "Microfono solapa adicional",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_MICROFONO_SOLAPA_ADICIONAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_OPERADOR_PARA_AUDIO_8_HRS",
+        "Nombre": "Operador para audio 8 hrs",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_OPERADOR_PARA_AUDIO_8_HRS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Operador de audio para salon diurno. Se debe agregar tecnica que desee operar.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PAPELOGRAFO_ADICIONAL_PARA_EL_SALON",
+        "Nombre": "Papelografo adicional para el salon",
+        "ID_Categoria": "CAT_ARRIENDO_DE_SALONES_AUDIOS_Y_COMEDORES",
+        "ID_Perfil_Precio_Override": "PROF_PAPELOGRAFO_ADICIONAL_PARA_EL_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Total en el hotel 8",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COFFEE_BASICO",
+        "Nombre": "Coffee Básico",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_COFFEE_BASICO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Café, té, agua, jugo de pulpa, 1 tapadito, 1 top de masa de hoja+ 1 mini muffin o 1 galleta",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COFFEE_INTERMEDIO",
+        "Nombre": "Coffee Intermedio",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_COFFEE_INTERMEDIO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Café, té, agua, jugo de pulpa, 1 tapadito, 1 mini muffin, 1 facturita, 1 galleta y  una fruta.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COFFE_FULL",
+        "Nombre": "Coffe Full",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_COFFE_FULL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Café de grano, té, jugo de pulpa, 2 tapaditos, 2 mini muffin , 2 galletas, 1 facturita y una brocheta de fruta.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COFFE_LIGHT",
+        "Nombre": "Coffe Light",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_COFFE_LIGHT",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Café, té, agua, jugo de pulpa, yogurt natural con granola y fruta, 1 tapadito integral, una brocheta de fruta",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ADICIONAR_COFFE_DENTRO_DEL_SALON",
+        "Nombre": "Adicionar coffe dentro del Salon",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_ADICIONAR_COFFE_DENTRO_DEL_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Servicios de coffe ubicados dentro del salon.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MAQUINA_CAFE_MILANO_CON_CARGA_PARA_120_CAFES_APP_AUTOSERVICIO",
+        "Nombre": "Maquina Cafe Milano con carga para 120 cafes app. ( autoservicio)",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_MAQUINA_CAFE_MILANO_CON_CARGA_PARA_120_CAFES_APP_AUTOSERVICIO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Maquina auto servicio que entrega app. 120 unidades entre Cafe, capuchinos, mocachino, late, expresos, americano, agua caliente chocolate.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_TAPADITO",
+        "Nombre": "1 tapadito",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_1_TAPADITO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_MEDIALUNA",
+        "Nombre": "1 medialuna",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_1_MEDIALUNA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_GALLETAS_DE_MANTEQUILLA_3_POR_PERSONA",
+        "Nombre": "Galletas de mantequilla  3 por persona",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_GALLETAS_DE_MANTEQUILLA_3_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAFE_DE_GRANO_O_TE_EN_SALON_8_HRS",
+        "Nombre": "Cafe de grano o te en salon 8 hrs",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_CAFE_DE_GRANO_O_TE_EN_SALON_8_HRS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DISPENSADOR_DE_AGUA_20_LTS_EN_SALON",
+        "Nombre": "Dispensador de agua 20 Lts en salon",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_DISPENSADOR_DE_AGUA_20_LTS_EN_SALON",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Dispensador de agua  20 lts con vasos en salón",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_RECARGA_DE_BIDON_DE_20_LTS_PARA_DISPENSADOR_DE_AGUA",
+        "Nombre": "Recarga de bidon de 20 Lts para dispensador de agua",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_RECARGA_DE_BIDON_DE_20_LTS_PARA_DISPENSADOR_DE_AGUA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Recarga de bidon de agua de 20 litros y vasos.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAFE_DE_GRANO_TE_Y_AGUA_FRIA_CALIENTE_EN_SALON_POR_8_HORAS",
+        "Nombre": "Cafe de grano, te y agua fria /caliente en salon  por 8 horas.",
+        "ID_Categoria": "CAT_COFFES_Y_SERVICIOS_RELACIONADO_A_SALONES",
+        "ID_Perfil_Precio_Override": "PROF_CAFE_DE_GRANO_TE_Y_AGUA_FRIA_CALIENTE_EN_SALON_POR_8_HORAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LUCES_PERIMETRALES_SALON_CHINOOK_O_VIP",
+        "Nombre": "Luces perimetrales salon chinook o vip",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_LUCES_PERIMETRALES_SALON_CHINOOK_O_VIP",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "12 Luces decorativas perimetrales para una fiesta o karaoke.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "Nombre": "DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Dj y karaoke por 4 horas,( agregar salon)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HORA_EXTRA_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "Nombre": "Hora extra DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_HORA_EXTRA_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "hora extra",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "Nombre": "DJ y/o Karaoke para grupos mayores a 50 Pax",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Dj y karaoke por 4 horas,( agregar salon)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HORA_EXTRA_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "Nombre": "Hora extra DJ y/o Karaoke para grupos mayores a 50 Pax",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_HORA_EXTRA_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "hora extra",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Salon chinook con fogata, hasta 300 personas, 4 horas noche",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS_4_HORAS_NOCHE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS",
+        "Nombre": "Salon chinook con fogata, hasta 300 personas",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS_4_HORAS_NOCHE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor en 2do piso con terraza para fiestas o Karaokes exclusivos, incluye fogata en terraza",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS",
+        "Nombre": "Comedor VIP con fogata, 2 piso hasta 70 personas",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ESPACIO_DEL_BAR_PARA_KARAOKE_HASTA_50_PERSONAS_POR_4_HRS_NOCHE",
+        "Nombre": "Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_ESPACIO_DEL_BAR_PARA_KARAOKE_HASTA_50_PERSONAS_POR_4_HRS_NOCHE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Espacio del bar principal del hotel para la realizacion de karaokes",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DOMO_PARA_FIESTAS_CON_FOGATA_HASTA_250_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_DOMO_PARA_FIESTAS_CON_FOGATA_HASTA_250_PERSONAS_4_HORAS_NOCHE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Domo para fiestas y karaokes con amplios jardines.Incluye fogata y tiene arranque trifasico para productoras.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LOUNGE_EN_TERRAZAS_SILLONES_MESAS_Y_FOGONES_HASTA_50_PAX_VALOR_PERSONA",
+        "Nombre": "Lounge en terrazas (sillones, mesas y fogones), hasta 50 pax. Valor  persona",
+        "ID_Categoria": "CAT_SERVICIOS_PARA_FIESTAS",
+        "ID_Perfil_Precio_Override": "PROF_LOUNGE_EN_TERRAZAS_SILLONES_MESAS_Y_FOGONES_HASTA_50_PAX_VALOR_PERSONA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Lugares: Terraza chinook, terraza comedor  chico( ex pool), terraza comedor 2do piso y Domo. Valor por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TICKET_DE_TRAGO",
+        "Nombre": "Ticket de trago",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_TICKET_DE_TRAGO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 trago pp a escoger entre: Piscola ( Mistral 35), Roncola (Havanna),  vodka (wyborowa), Whisky( Ballantines finest 3 años), Gin beefeter, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada con y sin alcohol, Copa de vino castillo molina( blanco y tinto) , copa de espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken con y sin alcohol,  Austral y Kunstmann. Las bebidas son de marcas CCU.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TICKET_DE_CERVEZA",
+        "Nombre": "Ticket de cerveza",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_TICKET_DE_CERVEZA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Ticket de cerveza en botella tales como: Sol, Heineken, Austral o Kunstmann.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TICKET_DE_TRAGO_VIP",
+        "Nombre": "Ticket de trago Vip",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_TICKET_DE_TRAGO_VIP",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Piscola ( Mistral Nobel o 3R doble destilado), Roncola (Havanna reserva), Vodka( Absolut), Whisky (ballantines 7 años),Gin Kantal, Tequila Olmeca, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada, Vino  Gran Tarapacá( blanco y tinto) , Espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken,  Austral, Kunstmann botella y Barril Schop Kunstmann. Las bebidas son de marcas CCU.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAR_ABIERTO_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Bar abierto 4 horas, valor por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BAR_ABIERTO_4_HORAS_VALOR_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Piscola ( Mistra 35), Roncola (Havanna),  vodka (wyborowa), Whisky( Ballantines finest 3 años), Gin beefeter, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada( con y sin alcohol), Copa de vino castillo molina( blanco y tinto) , copa de espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken con y sin alcohol,  Austral y Kunstmann. Las bebidas son de marcas CCU.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HORA_EXTRA_BAR_ABIERTO_POR_PERSONA",
+        "Nombre": "Hora extra Bar abierto por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_HORA_EXTRA_BAR_ABIERTO_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "extensión de 1 hora para el bar abierto",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAR_ABIERTO_SIN_ALCOHOL_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Bar abierto sin alcohol 4 horas, valor por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BAR_ABIERTO_SIN_ALCOHOL_4_HORAS_VALOR_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Mocktails tales como Piña colada, Chardonnay sour , San Francisco (Mocktail en base a jugo de naranja), Paloma (Mocktail en base a pomelo), Cerveza sin alcohol (Heineken 0.0), Limonada, Jugos naturales, Vino blanco sin alcohol, Sangria sin alcohol. Las bebidas son de marcas CCU.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL_POR_PERSONA",
+        "Nombre": "Hora extra Bar abierto sin alcohol por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "extensión de 1 hora para el bar abierto",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAR_ABIERTO_VIP_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Bar abierto VIP  4 horas, valor por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BAR_ABIERTO_VIP_4_HORAS_VALOR_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Piscola ( Mistral Nobel o 3R doble destilado), Roncola (Havanna reserva), Vodka( Absolut), Whisky (ballantines 7 años),Gin Kantal, Tequila Olmeca, Ramazzotti,  Daiquiri, Pisco sour, Kir Royal, Piña Colada, Vino  Gran Tarapacá( blanco y tinto) , Espumante Viña Mar Brut, cervezas en botella tales como Sol, Heineken,  Austral, Kunstmann botella y Barril Schop Kunstmann. Las bebidas son de marcas CCU.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HORA_EXTRA_BAR_ABIERTO_VIP_POR_PERSONA",
+        "Nombre": "Hora extra Bar abierto Vip por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_HORA_EXTRA_BAR_ABIERTO_VIP_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "extensión de 1 hora para el bar abierto",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_4_HORAS_POR_PERSONA",
+        "Nombre": "Bar Abierto de bebidas en vaso por 4 horas, por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_4_HORAS_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Botellas de 3 litros CCU servido en vaso desechable (ver tamaño)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_8_HORAS_POR_PERSONA",
+        "Nombre": "Bar Abierto de bebidas en vaso por 8 horas, por persona",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_8_HORAS_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Botellas de 3 litros CCU servido en vaso desechable (ver tamaño)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BEBIDAS",
+        "Nombre": "Bebidas",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BEBIDAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Lata de bebida o agua  ccu",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TICKET_DE_BEBIDA_O_AGUA",
+        "Nombre": "Ticket de bebida o agua",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_TICKET_DE_BEBIDA_O_AGUA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Lata de bebida o agua ccu",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BARRIL_DE_CERVEZA_KUNTSMAN_TOROBAYO_30L",
+        "Nombre": "Barril de cerveza kuntsman torobayo 30L",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BARRIL_DE_CERVEZA_KUNTSMAN_TOROBAYO_30L",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Barril de cerveza torobayo exclusivo",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BEBESTIBLES_ADICIONALES_EN_SALON_BEBIDAS_JUGOS_NATURALES_AGUA_MINERAL",
+        "Nombre": "Bebestibles adicionales en Salón (Bebidas, Jugos Naturales, Agua Mineral)",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_BEBESTIBLES_ADICIONALES_EN_SALON_BEBIDAS_JUGOS_NATURALES_AGUA_MINERAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Visitar QR para mayor detalles ( https://gour.media/san-francisco-lodge/ )",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VINO_CASTILLO_MOLINA",
+        "Nombre": "Vino Castillo Molina",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_VINO_CASTILLO_MOLINA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Se recomienda 1 botella para 5 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VINO_CASILLERO_DEL_DIABLO_RESERVA_ESPECIAL",
+        "Nombre": "Vino Casillero del diablo Reserva Especial",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_VINO_CASILLERO_DEL_DIABLO_RESERVA_ESPECIAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Se recomienda 1 botella para 5 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VINO_MARQUES_CASA_CONCHA",
+        "Nombre": "Vino Marques Casa Concha",
+        "ID_Categoria": "CAT_BEBIDAS_Y_BAR",
+        "ID_Perfil_Precio_Override": "PROF_VINO_MARQUES_CASA_CONCHA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Se recomienda 1 botella para 5 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Cambio de horario del desayuno 1 hora, minimo 30 personas",
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona, se adelanta o se extiende el desayuno por una hora",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIO_DE_HORARIO_DEL_DESAYUNO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Cambio de horario del desayuno por media hora , minimo 30 personas",
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona, se adelanta o se extiende el desayuno por media hora",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIO_DE_HORARIO_DE_ALMUERZO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Cambio de horario de almuerzo por media hora, minimo 30 personas",
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIO_DE_HORARIO_DE_ALMUERZO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona, se adelanta o se extiende el almuerzo por media hora.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EXTENSION_MEDIA_HORA_HORARIO_DE_CENA",
+        "Nombre": "Extension media hora horario de cena",
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "ID_Perfil_Precio_Override": "PROF_EXTENSION_MEDIA_HORA_HORARIO_DE_CENA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "valor por persona para extension de servicios de cena por media hora hasta las 21:30",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMBIO_DE_LUGAR_DE_SERVICIO_DE_ALIMENTACION",
+        "Nombre": "Cambio de lugar de servicio de alimentacion",
+        "ID_Categoria": "CAT_CAMBIOS_DE_HORAS_Y_LUGAR_EN_SERVICIOS_DE_ALIMENTACION",
+        "ID_Perfil_Precio_Override": "PROF_CAMBIO_DE_LUGAR_DE_SERVICIO_DE_ALIMENTACION",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Valor por persona, se debe reservar adicionalmente el salon ( chinook, salon truchita o comedor vip)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DESAYUNO",
+        "Nombre": "Desayuno",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_DESAYUNO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Tipos de Café, Chocolate, té, leche, jugo, yogurt, cereales, Fruta, jamón, quesos, huevos, tocino, chorizo, verduras asadas, mermeladas, mantequilla, distintos tipos de panes, minipastelitos, queques, croissant.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DESAYUNO_INCLUIDO_POR_ALOJAMIENTO",
+        "Nombre": "Desayuno incluido por alojamiento",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_DESAYUNO_INCLUIDO_POR_ALOJAMIENTO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Tipos de Café, Chocolate, té, leche, jugo, yogurt, cereales, Fruta, jamón, quesos, huevos, tocino, chorizo, verduras asadas, mermeladas, mantequilla, distintos tipos de panes, minipastelitos, queques, croissant.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ALMUERZO_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "Nombre": "Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_ALMUERZO_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Buffet tenedor libre con variedad de ensaladas, guarniciones y acompañamientos calientes. No incluye bebidas ni aperitivos. Si en el hotel hay menos de 30 personas el servicio a la carta, si contamos con mas de 30 personas será buffet.  Horario almuerzo desde 13:30 hasta 15:00 hrs",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CENA_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "Nombre": "Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CENA_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Buffet tenedor libre con opciones de Pizzas, fondos con carnes, acompañamientos, Salad bar, salsas, dressing, postres, sopas, inc café. . Horario cena desde 19:30 hasta 21:00.. Si en el hotel hay menos de 30 personas el servicio a la carta, si es mas de 30 personas será buffet.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ALMUERZO_O_CENA_A_LA_CARTA",
+        "Nombre": "Almuerzo o cena a la carta",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_ALMUERZO_O_CENA_A_LA_CARTA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Servicio de alimentacion a la carta, servido a la mesa. Es un menú único que debe elergirse con una semana de anticipación. Se sugiere agregar vinos para acompañar la comida",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ALMUERZO_O_CENA_A_LA_CARTA_VIP",
+        "Nombre": "Almuerzo o cena a la carta VIP",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_ALMUERZO_O_CENA_A_LA_CARTA_VIP",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Servicio de alimentacion a la carta, servido a la mesa. Es un menú único que debe elergirse con una semana de anticipación. Se sugiere agregar vinos para acompañar la comida",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CENA_O_ALMUERZO_PARRILLA_30_O_MAS_PAX",
+        "Nombre": "Cena o Almuerzo parrilla, 30 o mas  pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CENA_O_ALMUERZO_PARRILLA_30_O_MAS_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Preparacion de carnes de vacuno, cerdo, chorizos y prietas la parrilla,  mas acompañamientos, ensaladas y postre y café.No incluye bebidas ni aperitivos",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CENA_O_ALMUERZO_PARRILLA_MENOS_DE_30_PAX",
+        "Nombre": "Cena o Almuerzo parrilla, menos de 30 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CENA_O_ALMUERZO_PARRILLA_MENOS_DE_30_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Preparacion de carnes, verduras y frutas a la parrilla,  mas acompañamientos, ensaladas y postre y café.No incluye bebidas ni aperitivos",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ONCE",
+        "Nombre": "Once",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_ONCE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Bebida o agua con Hamburguesa lechuga tomate y helado.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BOX_LUNCH_COMO_UNA_ONCE_EN_CAJITAS_INDIVIDUALES_PARA_QUE_SE_LA_PUEDAN_LLEVAR",
+        "Nombre": "Box lunch (Como una Once en cajitas individuales para que se la puedan llevar)",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_BOX_LUNCH_COMO_UNA_ONCE_EN_CAJITAS_INDIVIDUALES_PARA_QUE_SE_LA_PUEDAN_LLEVAR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Muffin o dos facturas, hamburguesa, una fruta, 1 bebida",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CATA_DE_VINOS_CON_SOMELIER_MINIMO_10_PERSONAS_Y_HASTA_40_DURACION_1_HORA",
+        "Nombre": "Cata de vinos con somelier, minimo 10 personas y hasta 40.  Duración 1 hora",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CATA_DE_VINOS_CON_SOMELIER_MINIMO_10_PERSONAS_Y_HASTA_40_DURACION_1_HORA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Cata de 4 vinos  reserva boutique, de la zona, con maridaje de quesos y encurtidos.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PICOTEO_PARRILLANDO_CON_AMIGOS_MINIMO_20_PERSONAS",
+        "Nombre": "Picoteo parrillando con amigos: minimo 20 personas",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_PICOTEO_PARRILLANDO_CON_AMIGOS_MINIMO_20_PERSONAS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Este apertivo consiste en hacer  su propia parrilla modo picoteo.  Podran escoger 2 unidades dentro de las siguientes alternativas: pisco sour, vino, espumpante o cerveza. Duracion 1 hora. No reemplaza  comida",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_APERITIVO_TEMATICO_JUGANDO_EN_LA_BARRA_MINIMO_20_PERSONAS_MAXIMO_1_5_HORAS",
+        "Nombre": "Aperitivo tematico: Jugando en la barra, minimo 20 personas. Maximo 1,5 horas",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_APERITIVO_TEMATICO_JUGANDO_EN_LA_BARRA_MINIMO_20_PERSONAS_MAXIMO_1_5_HORAS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Bar abierto entretenido, donde ellos prepararan sus propios tragos con la ayuda de un bartender profesional. Acompañados con quesos y frutos secos. Duracion 1,5 horas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TABLA_DE_QUESO_6_PAX",
+        "Nombre": "Tabla de Queso 6 Pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TABLA_DE_QUESO_6_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Queso mantecoso, queso azul, queso cabra, camembert, esferas queso crema con ciboulette y mix frutos secos.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TABLA_FIAMBRES_6_PAX",
+        "Nombre": "Tabla Fiambres 6 Pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TABLA_FIAMBRES_6_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Jamon pierna, jamon serrano, salame, mix frutos secos",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TABLA_MIXTA_QUESOS_Y_FIAMBRES_6_PAX",
+        "Nombre": "Tabla Mixta Quesos y Fiambres 6 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TABLA_MIXTA_QUESOS_Y_FIAMBRES_6_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Jamon pierna, jamon serrano, salame, queso mantecoso, queso cabra, camembert, esferas queso crema y mix frutos secos.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TABLA_MIX_TAPADITOS_QUICHES_Y_MINI_EMPANADAS_6_PAX",
+        "Nombre": "Tabla Mix Tapaditos, Quiches y Mini Empanadas 6 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TABLA_MIX_TAPADITOS_QUICHES_Y_MINI_EMPANADAS_6_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "6 tapaditos salmon queso crema, 6 tapaditos Jamon serrano pesto aceituna, 6 mini quiches, 6 empanadas mini pino y empanadas napolitana.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TABLA_VEGANA_6_PAX",
+        "Nombre": "Tabla vegana 6 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TABLA_VEGANA_6_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 champiñon relleno, hummus, queso vegano especiado, crudites( bastones de verduras), grissinis de ajo, focaccia palmito, vegetales tempura, 1 brusqueta de rucula con tomate confit.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COCTAIL_BASICO_MINIMO_15_PASAJEROS",
+        "Nombre": "Coctail basico, minimo 15 pasajeros.",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_COCTAIL_BASICO_MINIMO_15_PASAJEROS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza, 1 empanadita, 1 bruscheta queso crema tomate confit y reduccion de aceto, mix de quesos, brusqueta pesto con jamón serrano, queso azul frito con mermelada de frambuesa, y brocheta de fruta .",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COCTAIL_CHILENO_MINIMO_15_PASAJEROS",
+        "Nombre": "Coctail chileno, minimo 15 pasajeros.",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_COCTAIL_CHILENO_MINIMO_15_PASAJEROS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza. 1 empanadita de pino y 1 de queso, 1 bruscheta de prieta nogada, 1 mini anticucho, chorizo envuelto en masa de  hoja, chupe de camarón, mix de quesos y frutos secos.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CORDERO_A_LA_ESPADA_CORDERO_CON_PAN_AMASADO_Y_SALSAS_PARA_20_PAX",
+        "Nombre": "Cordero a la espada (Cordero con pan amasado y salsas para 20 pax)",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CORDERO_A_LA_ESPADA_CORDERO_CON_PAN_AMASADO_Y_SALSAS_PARA_20_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cordero a la espada para picoteo, acompañado de panes amasados con distintas salsas tales como pebre, lactonesa ajo merkén y criolla.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PIERNA_DE_CERDO_16_HRS_AL_HORNO_CON_AMASADO_Y_3_SALSAS_PARA_PICOTEO",
+        "Nombre": "Pierna de cerdo 16 hrs al horno, con amasado y 3 salsas para picoteo",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_PIERNA_DE_CERDO_16_HRS_AL_HORNO_CON_AMASADO_Y_3_SALSAS_PARA_PICOTEO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Recomendado para  maximo 50 personas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EMPANADAS_COCTEL_PINO_QUESO_Y_NAPOLITANA",
+        "Nombre": "Empanadas coctel( pino, queso y napolitana)",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_EMPANADAS_COCTEL_PINO_QUESO_Y_NAPOLITANA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Empanada pino, queso, napolitana, valor unitario",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SERVICIO_DE_TRASNOCHE_CONSOME_250CC_CON_2_TAPADITOS",
+        "Nombre": "Servicio de trasnoche Consome 250cc con 2 tapaditos",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_SERVICIO_DE_TRASNOCHE_CONSOME_250CC_CON_2_TAPADITOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PUNTO_DE_HIDRATACION",
+        "Nombre": "Punto de hidratación",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_PUNTO_DE_HIDRATACION",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 barra de ceral, 1 agua mineral y 1 fruta de estación",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_FRUTA_DE_ESTACION",
+        "Nombre": "1 fruta de estación",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_1_FRUTA_DE_ESTACION",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_BARRA_DE_CEREAL",
+        "Nombre": "1 barra de cereal",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_1_BARRA_DE_CEREAL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TORTA_CHOCOLATE_16_PAX",
+        "Nombre": "Torta Chocolate 16 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TORTA_CHOCOLATE_16_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Torta de chocolate envuelta en chips de chocolate.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TORTA_CARROTCAKE_14_PAX",
+        "Nombre": "Torta Carrotcake 14 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TORTA_CARROTCAKE_14_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Esponjoso de zanahoria nuez, rellena frosting de queso crema",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CHEESECAKE_DE_OREO_14_PAX",
+        "Nombre": "Cheesecake de Oreo 14 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_CHEESECAKE_DE_OREO_14_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Imperdible cheesecake Oreo",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TORTA_SAN_FRANCISCO_MANJAR_NUEZ_15_PAX",
+        "Nombre": "Torta San Francisco manjar nuez 15 pax",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TORTA_SAN_FRANCISCO_MANJAR_NUEZ_15_PAX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Esponjoso de chocolate rellena de dulce de leche y crema chantilly",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TROZO_DE_TORTA_DE_CHOCOLATE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Trozo de torta de Chocolate + estacion cafe o té en comedor",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TROZO_DE_TORTA_DE_CHOCOLATE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TROZO_DE_TORTA_CARROT_CAKE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Trozo de torta Carrot Cake + estacion cafe o té en comedor",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TROZO_DE_TORTA_CARROT_CAKE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TROZO_DE_CHEESE_CAKE_OREO_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Trozo de Cheese Cake Oreo + estacion cafe o té en comedor",
+        "ID_Categoria": "CAT_ALIMENTACION_Y_BANQUETERIA",
+        "ID_Perfil_Precio_Override": "PROF_TROZO_DE_CHEESE_CAKE_OREO_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MASAJISTA_EXCLUSIVA_PARA_MASAJES_RELAX_30_MINUTOS",
+        "Nombre": "Masajista exclusiva, para masajes relax 30 minutos",
+        "ID_Categoria": "CAT_SPA",
+        "ID_Perfil_Precio_Override": "PROF_MASAJISTA_EXCLUSIVA_PARA_MASAJES_RELAX_30_MINUTOS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Horario de 10:30 a 20:00, puede hacer maximo 10 masajes de relajación por dia.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MASAJES_DE_RELAJACION_DE_MEDIA_HORA",
+        "Nombre": "Masajes de relajacion de media hora",
+        "ID_Categoria": "CAT_SPA",
+        "ID_Perfil_Precio_Override": "PROF_MASAJES_DE_RELAJACION_DE_MEDIA_HORA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Horario de los masajes debe coordinarse previamente al evento. Minimo 3 dias de anticipacion",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_GORROS_DE_PISCINAS_LYCRA",
+        "Nombre": "Gorros de piscinas  lycra",
+        "ID_Categoria": "CAT_SPA",
+        "ID_Perfil_Precio_Override": "PROF_GORROS_DE_PISCINAS_LYCRA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Gorro lycra",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_GORROS_DE_PISCINAS_LATEX",
+        "Nombre": "Gorros de piscinas  latex",
+        "ID_Categoria": "CAT_SPA",
+        "ID_Perfil_Precio_Override": "PROF_GORROS_DE_PISCINAS_LATEX",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Gorro Latex",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PISCINA_TEMPERADA_NOCTURNA_EXCLUSIVA_HASTA_2_HORAS",
+        "Nombre": "Piscina temperada nocturna exclusiva hasta 2 horas",
+        "ID_Categoria": "CAT_SPA",
+        "ID_Perfil_Precio_Override": "PROF_PISCINA_TEMPERADA_NOCTURNA_EXCLUSIVA_HASTA_2_HORAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Piscina temperada nocturna exclusiva por 1 hora de 20:00 a 21:00",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HABITACION_SINGLE_HOTEL_B_B",
+        "Nombre": "Habitación single hotel B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_HABITACION_SINGLE_HOTEL_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HABITACION_DOBLE_HOTEL_B_B",
+        "Nombre": "Habitación Doble hotel B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_HABITACION_DOBLE_HOTEL_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HABITACION_TRIPLE_HOTEL_B_B",
+        "Nombre": "Habitación Triple hotel B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_HABITACION_TRIPLE_HOTEL_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HABITACION_CUADRUPLE_HOTEL_B_B",
+        "Nombre": "Habitación Cuadruple hotel  B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_HABITACION_CUADRUPLE_HOTEL_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_HABITACION_QUINTUPLE_HOTEL_B_B",
+        "Nombre": "Habitación Quintuple hotel B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_HABITACION_QUINTUPLE_HOTEL_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VALOR_6_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Valor 6 pasajeros, en cabaña B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_VALOR_6_PASAJEROS_EN_CABANA_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VALOR_7_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Valor 7 pasajeros, en cabaña B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_VALOR_7_PASAJEROS_EN_CABANA_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VALOR_8_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Valor 8 pasajeros, en cabaña B&B",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_VALOR_8_PASAJEROS_EN_CABANA_B_B",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_VALOR_PAX_ADICIONAL_EN_LA_MISMA_HABITACION",
+        "Nombre": "Valor Pax adicional en la misma habitacion",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_VALOR_PAX_ADICIONAL_EN_LA_MISMA_HABITACION",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Check in de habitaciones desde las 4 PM.Incluye: desayuno, cabalgatas, canopy, kayak, botes, standup paddle, canchas tenis, minigolf, baby, pesca con mosca y piscina temperada",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EARLY_CHECK_IN_POR_HABITACION_DE_HOTEL",
+        "Nombre": "Early check in, por habitacion de hotel",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_EARLY_CHECK_IN_POR_HABITACION_DE_HOTEL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Check in anticipado desde las 12:00, segun disponibilidad.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LATE_CHECK_OUT_POR_HABITACION_DE_HOTEL",
+        "Nombre": "Late check out, por habitacion de hotel",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_LATE_CHECK_OUT_POR_HABITACION_DE_HOTEL",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Check out hasta las 16:00, segun disponibilidad",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EARLY_CHECK_IN_POR_CABANA",
+        "Nombre": "Early check in, por cabaña",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_EARLY_CHECK_IN_POR_CABANA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Check in anticipado desde las 12:00, segun disponibilidad.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LATE_CHECK_OUT_POR_CABANA",
+        "Nombre": "Late check out, por cabaña",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_LATE_CHECK_OUT_POR_CABANA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Check out hasta las 16:00, segun disponibilidad",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TRASLADO_DE_MALETAS_ENTREGA_Y_RETIRO_FUERA_DE_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "Nombre": "Traslado de maletas, entrega y retiro fuera de las habitaciones, valor por persona",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_TRASLADO_DE_MALETAS_ENTREGA_Y_RETIRO_FUERA_DE_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PRODUCTOS_O_REGALOS_EN_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "Nombre": "Productos o regalos en las habitaciones, valor por persona",
+        "ID_Categoria": "CAT_ALOJAMIENTO",
+        "ID_Perfil_Precio_Override": "PROF_PRODUCTOS_O_REGALOS_EN_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Regalos, aguas o algun detalle en las habitaciones, precio por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_RAMO_DE_FLORES_6_ROSAS_ROJAS_BLANCAS_ROSADAS_AMARILLA",
+        "Nombre": "1 Ramo de flores, 6 rosas, rojas, blancas, rosadas, amarilla",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_1_RAMO_DE_FLORES_6_ROSAS_ROJAS_BLANCAS_ROSADAS_AMARILLA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "encargar hasta 72 horas antes",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_1_CHOCOLATE_SAHNE_NUSS_250G_ESPUMANTE_O_BOTELLA_DE_VINO",
+        "Nombre": "1 Chocolate Sahne Nuss 250g + espumante o botella de vino",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_1_CHOCOLATE_SAHNE_NUSS_250G_ESPUMANTE_O_BOTELLA_DE_VINO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_RESMA_DE_HOJAS",
+        "Nombre": "Resma de Hojas",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_RESMA_DE_HOJAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LAPICES_AZUL_PASTA",
+        "Nombre": "Lapices azul Pasta",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_LAPICES_AZUL_PASTA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CORRECTOR_LAPIZ",
+        "Nombre": "Corrector lapiz",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_CORRECTOR_LAPIZ",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PLUMONES_PERMANENTE",
+        "Nombre": "Plumones permanente",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_PLUMONES_PERMANENTE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PLUMONES_DE_PIZARRA",
+        "Nombre": "Plumones de pizarra",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_PLUMONES_DE_PIZARRA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FOTOCOPIAS_O_IMPRESION_COLOR",
+        "Nombre": "Fotocopias o impresion color",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_FOTOCOPIAS_O_IMPRESION_COLOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "hoja de color tamaño carta",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FOTOCOPIAS_O_IMPRESION_NEGRO",
+        "Nombre": "Fotocopias o impresion negro",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_FOTOCOPIAS_O_IMPRESION_NEGRO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "hoja en blanco y negro tamaño carta",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ALMUERZOS_PRODUCTORAS_O_CHOFERES_EN_BUFFET",
+        "Nombre": "Almuerzos productoras o choferes en buffet",
+        "ID_Categoria": "CAT_OTROS_ARTICULOS",
+        "ID_Perfil_Precio_Override": "PROF_ALMUERZOS_PRODUCTORAS_O_CHOFERES_EN_BUFFET",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Exclusivo solo a los que traen a las empresas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_GUIAS_EXCLUSIVOS_PARA_CAMINATAS",
+        "Nombre": "Guias exclusivos para caminatas",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_GUIAS_EXCLUSIVOS_PARA_CAMINATAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "1 guia cada 20 o 25 personas.( Ideal minimo dos para abrir y cerrar el grupo para caminatas)",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMINATA_LA_TENCA_DE_FORMA_EXCLUSIVA_1_5_HORAS",
+        "Nombre": "Caminata \"la tenca\" de forma exclusiva, 1,5 horas",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_CAMINATA_LA_TENCA_DE_FORMA_EXCLUSIVA_1_5_HORAS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Caminata por circuito la tenca, entremedio de bosques y arroyos del lugar. Es un recorrido por los alrededores del hotel. Tiene una dificultad baja, duracion 1,5 horas y una distancia de 2,3 kilometros. Incluye un agua por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CAMINATA_AL_MIRADOR_EXCLUSIVA_DIFICULTAD_MEDIA_DURACION_1_HORA",
+        "Nombre": "Caminata al mirador exclusiva.  Dificultad media, duracion: 1 hora",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_CAMINATA_AL_MIRADOR_EXCLUSIVA_DIFICULTAD_MEDIA_DURACION_1_HORA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Caminata a un mirador donde se puede observar el valle del aconcagua. Circuito ubicado al frente del hotel y es de dificultad media, dura 1 hora y tiene una distancia de 2 kilometros. Caminata incluyeun agua por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FOGON_PEQUENO_FOGATA_PEQUENA",
+        "Nombre": "Fogon pequeño (Fogata pequeña)",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_FOGON_PEQUENO_FOGATA_PEQUENA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Fogata chica en calderos o pergola. Duración 2.5 horas.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FOGATA_GRANDE",
+        "Nombre": "Fogata grande",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_FOGATA_GRANDE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Fogata grande en actividad de luz. Duración 2.5 horas.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CLASE_DE_PESCA_CON_MOSCA_3_HORAS_9_AM_A_12PM",
+        "Nombre": "Clase de pesca con mosca 3 horas(9 am a 12pm)",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_CLASE_DE_PESCA_CON_MOSCA_3_HORAS_9_AM_A_12PM",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ARRIENDO_DE_CANA",
+        "Nombre": "Arriendo de Caña",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_ARRIENDO_DE_CANA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Solo caña  todo el dia, las moscas tienen un valor adicional.",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PASEOS_A_CABALLO_EXCLUSIVOS_MINIMO_4_PASAJEROS_DURACION_3_4_HORAS_MAXIMO_20_PERSONAS",
+        "Nombre": "Paseos a Caballo exclusivos, minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_PASEOS_A_CABALLO_EXCLUSIVOS_MINIMO_4_PASAJEROS_DURACION_3_4_HORAS_MAXIMO_20_PERSONAS",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Paseo comienza con una clinica intruductoria y luego practica, donde conoceran el cajón de san francisco y sus bondades. Paseo incluye un agua por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PASEO_A_CABALLO_VERTIENTE_DEL_TORO",
+        "Nombre": "Paseo a caballo Vertiente del toro",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_PASEO_A_CABALLO_VERTIENTE_DEL_TORO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "4 horas + induccion Almuerzo+cena+ activiades",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PASEO_A_CABALLO_ALTOS_DEL_GUINDO",
+        "Nombre": "Paseo a caballo Altos del Guindo",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_PASEO_A_CABALLO_ALTOS_DEL_GUINDO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "5 horas + induccion Almuerzo+cena+ activiades",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_USO_DE_ACTIVIDADES",
+        "Nombre": "Uso de actividades",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_USO_DE_ACTIVIDADES",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cabalgatas, canopy, kayak, botes, stand up paddle, cancha de tenis, minigolf, piscina temperada, piscina exterior, camillas de cuarzo, circuitos de trekking etc..",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_USO_DE_ACTIVIDADES_POR_CORTESIA",
+        "Nombre": "Uso de actividades por cortesía",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_USO_DE_ACTIVIDADES_POR_CORTESIA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "Cabalgatas, canopy, kayak, botes, stand up paddle, cancha de tenis, minigolf, piscina temperada, piscina exterior, camillas de cuarzo, circuitos de trekking etc..",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_YOGA",
+        "Nombre": "Yoga",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_YOGA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PAINTBALL",
+        "Nombre": "Paintball",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_PAINTBALL",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Juego de paintball, incluye un agua por persona. Duracion aproximada 2 horas. Inlcuye primera carga de pelotas, con posibilidad de recarga por 15.000+ iva por persona",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BUSQUEDA_DE_TESORO",
+        "Nombre": "Busqueda de tesoro",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_BUSQUEDA_DE_TESORO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "duracion actividad 2,5 horas",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ACTIVIDAD_DE_LA_LUZ",
+        "Nombre": "Actividad de la luz",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_ACTIVIDAD_DE_LA_LUZ",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "duracion actividad 1,5 horas aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ALIANZAS",
+        "Nombre": "Alianzas",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_ALIANZAS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Duracion 2 horas aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EL_HERIDO",
+        "Nombre": "El herido",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_EL_HERIDO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Duracion 2,5 horas aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EL_NAUFRAGO",
+        "Nombre": "El Naufrago",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_EL_NAUFRAGO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "duracion 2 horas aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EL_NAUFRAGO_FULL",
+        "Nombre": "El Naufrago Full",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_EL_NAUFRAGO_FULL",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Duracion 2,5 horas aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CONQUISTANDO_LA_CUMBRE",
+        "Nombre": "Conquistando la Cumbre",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_CONQUISTANDO_LA_CUMBRE",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TIRO_CON_ARCO",
+        "Nombre": "Tiro con Arco",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_TIRO_CON_ARCO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MISION_Y_VISION",
+        "Nombre": "Mision y Vision",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_MISION_Y_VISION",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FABRICA_DE_SAL",
+        "Nombre": "Fabrica de sal",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_FABRICA_DE_SAL",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "duracion 1 hora aprox",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LA_PIZZA_NOSTRA_PER_TUTTI",
+        "Nombre": "La Pizza Nostra Per Tutti",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_LA_PIZZA_NOSTRA_PER_TUTTI",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LA_PIZZA_NOSTRA",
+        "Nombre": "La Pizza Nostra",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_LA_PIZZA_NOSTRA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_THE_BOSS_GRILL",
+        "Nombre": "The Boss Grill",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_THE_BOSS_GRILL",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_COCINANDO_EQUIPOS",
+        "Nombre": "Cocinando Equipos",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_COCINANDO_EQUIPOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_FORMANDO_UN_JINETE",
+        "Nombre": "Formando un Jinete",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_FORMANDO_UN_JINETE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_MASTER_CHEF_CORPORATIVO",
+        "Nombre": "Master Chef Corporativo",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_MASTER_CHEF_CORPORATIVO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "Cada grupo debe preparar los mejores platos",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_DE_LA_MASA_AL_PLATO",
+        "Nombre": "De La Masa Al Plato",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_DE_LA_MASA_AL_PLATO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_PARRILLADA_EN_EQUIPO",
+        "Nombre": "Parrillada en Equipo",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_PARRILLADA_EN_EQUIPO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TALLER_DE_PIZZA_Y_BIRRA",
+        "Nombre": "Taller de Pizza y Birra",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_TALLER_DE_PIZZA_Y_BIRRA",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_KARAOKE_CON_COPAS_Y_TAPAS",
+        "Nombre": "Karaoke con copas y tapas",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_KARAOKE_CON_COPAS_Y_TAPAS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TALLER_DE_BRASAS_Y_TINTO_SABORES_AL_FUEGO",
+        "Nombre": "Taller de Brasas y Tinto: Sabores al Fuego!",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_TALLER_DE_BRASAS_Y_TINTO_SABORES_AL_FUEGO",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CORDEROS_VINOS",
+        "Nombre": "Corderos & Vinos",
+        "ID_Categoria": "CAT_TEAMBUILDING",
+        "ID_Perfil_Precio_Override": "PROF_CORDEROS_VINOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_SAFARI_ECUESTRE",
+        "Nombre": "Safari Ecuestre",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_SAFARI_ECUESTRE",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TREKKING_AL_MIRADOR",
+        "Nombre": "Trekking al mirador",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_TREKKING_AL_MIRADOR",
+        "ID_Perfil_Init_Override": "",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CATA_DE_VINOS",
+        "Nombre": "Cata de Vinos",
+        "ID_Categoria": "CAT_ACTIVIDADES",
+        "ID_Perfil_Precio_Override": "PROF_CATA_DE_VINOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LOS_NEUMATICOS",
+        "Nombre": "Los Neumaticos",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_LOS_NEUMATICOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TOTEM",
+        "Nombre": "Totem",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_TOTEM",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LA_ESTRELLA",
+        "Nombre": "La estrella",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_LA_ESTRELLA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_TIRAR_LA_CUERDA",
+        "Nombre": "Tirar la cuerda",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_TIRAR_LA_CUERDA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EL_EQUILIBRIO",
+        "Nombre": "El equilibrio",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_EL_EQUILIBRIO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_EL_ENREDO",
+        "Nombre": "El Enredo",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_EL_ENREDO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BAILE_ENTRETENIDO",
+        "Nombre": "Baile Entretenido",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_BAILE_ENTRETENIDO",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_GIMNASIA_DE_PAUSA",
+        "Nombre": "Gimnasia de Pausa",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_GIMNASIA_DE_PAUSA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_YOGA_2",
+        "Nombre": "Yoga",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_YOGA_2",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_LA_BOLITA",
+        "Nombre": "La Bolita",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_LA_BOLITA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_ULA_ULA",
+        "Nombre": "Ula Ula",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_ULA_ULA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_CARRERA_DE_SACOS",
+        "Nombre": "Carrera de Sacos",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_CARRERA_DE_SACOS",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Item": "ITEM_BOB_ESPONJA",
+        "Nombre": "Bob Esponja",
+        "ID_Categoria": "CAT_TEAMBUILDING_ACTIVIDADES_DE_PAUSA",
+        "ID_Perfil_Precio_Override": "PROF_BOB_ESPONJA",
+        "ID_Perfil_Init_Override": "PI_1_PER_PAX",
+        "Default_Glosa": "actividades de pausa de 15- 30 minutos aprox. cada una",
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      }
+    ],
+    "LINEA_DETALLE": [],
+    "PERFILES_INICIALIZACION": [
+      {
+        "ID_Perfil_Init": "PI_SALON_8H",
+        "Nombre": "Perfil salon 8 horas",
+        "Duracion_Min": 480,
+        "Unidades_Por_Pax": 0,
+        "Unidades_Por_Hora": 0,
+        "Minutos_Por_Usuario": 0,
+        "Cantidad_Fija": 0,
+        "Pax_Fijo": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Init": "PI_NONE",
+        "Nombre": "Sin inicializacion por defecto",
+        "Duracion_Min": 0,
+        "Unidades_Por_Pax": 0,
+        "Unidades_Por_Hora": 0,
+        "Minutos_Por_Usuario": 0,
+        "Cantidad_Fija": 0,
+        "Pax_Fijo": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Init": "PI_1_PER_PAX",
+        "Nombre": "Unidades por pax",
+        "Duracion_Min": 0,
+        "Unidades_Por_Pax": 1,
+        "Unidades_Por_Hora": 0,
+        "Minutos_Por_Usuario": 0,
+        "Cantidad_Fija": 0,
+        "Pax_Fijo": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      }
+    ],
+    "PERFILES_PRECIO": [
+      {
+        "ID_Perfil_Precio": "PROF_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+        "Nombre": "Perfil Salon Chinook uso diurno, hasta 320 personas",
+        "Costo_Base_Fijo": 385000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SALON_COHO_USO_DIURNO_HASTA_120_PERSONAS",
+        "Nombre": "Perfil Salon Coho uso diurno, hasta 120 personas",
+        "Costo_Base_Fijo": 330000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SALON_FARIO_USO_DIURNO_HASTA_70_PERSONAS",
+        "Nombre": "Perfil Salon Fario uso diurno, hasta 70 personas",
+        "Costo_Base_Fijo": 242000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SALON_ARCOIRIS_USO_DIURNO_HASTA_70_PERSONAS",
+        "Nombre": "Perfil Salón Arcoiris uso diurno, hasta 70 personas",
+        "Costo_Base_Fijo": 209000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DIRECTORIO_USO_DIURNO_PARA_16_PERSONAS_MESA_IMPERIAL",
+        "Nombre": "Perfil Directorio uso diurno para 16 personas, mesa imperial",
+        "Costo_Base_Fijo": 319000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DOMO_PARA_240_PERSONAS",
+        "Nombre": "Perfil Domo para 240 personas",
+        "Costo_Base_Fijo": 550000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIOS_DE_MONTAJE_CHINOOK_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Perfil Cambios de montaje  Chinook durante el arriendo de salon.",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIOS_DE_MONTAJE_COHO_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Perfil Cambios de montaje Coho durante el arriendo de salon.",
+        "Costo_Base_Fijo": 100000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIOS_DE_MONTAJE_FARIOS_Y_ARCOIRIS_DURANTE_EL_ARRIENDO_DE_SALON",
+        "Nombre": "Perfil Cambios de montaje  Farios y Arcoiris durante el arriendo de salon.",
+        "Costo_Base_Fijo": 80000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_80_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Perfil Comedor VIP y terraza (2do piso) para 80 personas 8 horas uso diurno",
+        "Costo_Base_Fijo": 365000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Perfil Comedor truchita o ex pool y terraza para 35 personas, 8 horas uso diurno",
+        "Costo_Base_Fijo": 250000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_8_HORAS_USO_DIURNO",
+        "Nombre": "Perfil Arriendo pergola con parrilla para 16 personas, 8 horas uso diurno",
+        "Costo_Base_Fijo": 250000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_VIP_Y_TERRAZA_2DO_PISO_PARA_70_PERSONAS_1_5_HRS_AM_O_PM_ALMUERZO_O_CENA",
+        "Nombre": "Perfil Comedor VIP y terraza (2do piso) para 70 personas 1,5 hrs / AM O PM (ALMUERZO O CENA)",
+        "Costo_Base_Fijo": 265000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_1_5_HORAS_AM_O_PM_ALMUERZO_O_CENA",
+        "Nombre": "Perfil Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ARRIENDO_PERGOLA_CON_PARRILLA_PARA_16_PERSONAS_4_HORAS",
+        "Nombre": "Perfil Arriendo pergola con parrilla para 16 personas, 4 horas",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ARRIENDO_PERGOLA_PICADERO_SOLO_CON_AUTORIZACION_2_DIAS_ANTES",
+        "Nombre": "Perfil Arriendo pergola picadero solo con autorizacion, 2 dias antes.",
+        "Costo_Base_Fijo": 100000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TECNICA_PARA_SALONES_USO_DIURNO",
+        "Nombre": "Perfil Tecnica para salones uso diurno.",
+        "Costo_Base_Fijo": 165000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_AUDIO_4_HORAS_EN_LA_NOCHE",
+        "Nombre": "Perfil Audio 4 horas en la noche",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_AMPLIFICACION_EXTERIOR",
+        "Nombre": "Perfil Amplificacion exterior",
+        "Costo_Base_Fijo": 200000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MICROFONO_INALAMBRICO_ADICIONAL",
+        "Nombre": "Perfil Microfono inalambrico adicional",
+        "Costo_Base_Fijo": 50000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MICROFONO_SOLAPA_ADICIONAL",
+        "Nombre": "Perfil Microfono solapa adicional",
+        "Costo_Base_Fijo": 50000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_OPERADOR_PARA_AUDIO_8_HRS",
+        "Nombre": "Perfil Operador para audio 8 hrs",
+        "Costo_Base_Fijo": 140000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PAPELOGRAFO_ADICIONAL_PARA_EL_SALON",
+        "Nombre": "Perfil Papelografo adicional para el salon",
+        "Costo_Base_Fijo": 30000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COFFEE_BASICO",
+        "Nombre": "Perfil Coffee Básico",
+        "Costo_Base_Fijo": 6380,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COFFEE_INTERMEDIO",
+        "Nombre": "Perfil Coffee Intermedio",
+        "Costo_Base_Fijo": 10395,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COFFE_FULL",
+        "Nombre": "Perfil Coffe Full",
+        "Costo_Base_Fijo": 16500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COFFE_LIGHT",
+        "Nombre": "Perfil Coffe Light",
+        "Costo_Base_Fijo": 10395,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ADICIONAR_COFFE_DENTRO_DEL_SALON",
+        "Nombre": "Perfil Adicionar coffe dentro del Salon",
+        "Costo_Base_Fijo": 3500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MAQUINA_CAFE_MILANO_CON_CARGA_PARA_120_CAFES_APP_AUTOSERVICIO",
+        "Nombre": "Perfil Maquina Cafe Milano con carga para 120 cafes app. ( autoservicio)",
+        "Costo_Base_Fijo": 200000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_TAPADITO",
+        "Nombre": "Perfil 1 tapadito",
+        "Costo_Base_Fijo": 2500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_MEDIALUNA",
+        "Nombre": "Perfil 1 medialuna",
+        "Costo_Base_Fijo": 1800,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_GALLETAS_DE_MANTEQUILLA_3_POR_PERSONA",
+        "Nombre": "Perfil Galletas de mantequilla  3 por persona",
+        "Costo_Base_Fijo": 1500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAFE_DE_GRANO_O_TE_EN_SALON_8_HRS",
+        "Nombre": "Perfil Cafe de grano o te en salon 8 hrs",
+        "Costo_Base_Fijo": 7500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DISPENSADOR_DE_AGUA_20_LTS_EN_SALON",
+        "Nombre": "Perfil Dispensador de agua 20 Lts en salon",
+        "Costo_Base_Fijo": 60000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_RECARGA_DE_BIDON_DE_20_LTS_PARA_DISPENSADOR_DE_AGUA",
+        "Nombre": "Perfil Recarga de bidon de 20 Lts para dispensador de agua",
+        "Costo_Base_Fijo": 40000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAFE_DE_GRANO_TE_Y_AGUA_FRIA_CALIENTE_EN_SALON_POR_8_HORAS",
+        "Nombre": "Perfil Cafe de grano, te y agua fria /caliente en salon  por 8 horas.",
+        "Costo_Base_Fijo": 10000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LUCES_PERIMETRALES_SALON_CHINOOK_O_VIP",
+        "Nombre": "Perfil Luces perimetrales salon chinook o vip",
+        "Costo_Base_Fijo": 160000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "Nombre": "Perfil DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax",
+        "Costo_Base_Fijo": 850000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HORA_EXTRA_DJ_Y_O_KARAOKE_POR_4_HRS_PARA_GRUPOS_MENORES_50_PAX",
+        "Nombre": "Perfil Hora extra DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax",
+        "Costo_Base_Fijo": 276250,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "Nombre": "Perfil DJ y/o Karaoke para grupos mayores a 50 Pax",
+        "Costo_Base_Fijo": 1200000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HORA_EXTRA_DJ_Y_O_KARAOKE_PARA_GRUPOS_MAYORES_A_50_PAX",
+        "Nombre": "Perfil Hora extra DJ y/o Karaoke para grupos mayores a 50 Pax",
+        "Costo_Base_Fijo": 390000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Perfil Salon chinook con fogata, hasta 300 personas, 4 horas noche",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS",
+        "Nombre": "Perfil Salon chinook con fogata, hasta 300 personas",
+        "Costo_Base_Fijo": 750000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Perfil Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",
+        "Costo_Base_Fijo": 360000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS",
+        "Nombre": "Perfil Comedor VIP con fogata, 2 piso hasta 70 personas",
+        "Costo_Base_Fijo": 540000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ESPACIO_DEL_BAR_PARA_KARAOKE_HASTA_50_PERSONAS_POR_4_HRS_NOCHE",
+        "Nombre": "Perfil Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DOMO_PARA_FIESTAS_CON_FOGATA_HASTA_250_PERSONAS_4_HORAS_NOCHE",
+        "Nombre": "Perfil Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",
+        "Costo_Base_Fijo": 600000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LOUNGE_EN_TERRAZAS_SILLONES_MESAS_Y_FOGONES_HASTA_50_PAX_VALOR_PERSONA",
+        "Nombre": "Perfil Lounge en terrazas (sillones, mesas y fogones), hasta 50 pax. Valor  persona",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 8000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TICKET_DE_TRAGO",
+        "Nombre": "Perfil Ticket de trago",
+        "Costo_Base_Fijo": 4850,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TICKET_DE_CERVEZA",
+        "Nombre": "Perfil Ticket de cerveza",
+        "Costo_Base_Fijo": 3529,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TICKET_DE_TRAGO_VIP",
+        "Nombre": "Perfil Ticket de trago Vip",
+        "Costo_Base_Fijo": 6800,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAR_ABIERTO_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Perfil Bar abierto 4 horas, valor por persona",
+        "Costo_Base_Fijo": 30800,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HORA_EXTRA_BAR_ABIERTO_POR_PERSONA",
+        "Nombre": "Perfil Hora extra Bar abierto por persona",
+        "Costo_Base_Fijo": 10010,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAR_ABIERTO_SIN_ALCOHOL_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Perfil Bar abierto sin alcohol 4 horas, valor por persona",
+        "Costo_Base_Fijo": 32000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL_POR_PERSONA",
+        "Nombre": "Perfil Hora extra Bar abierto sin alcohol por persona",
+        "Costo_Base_Fijo": 10400,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAR_ABIERTO_VIP_4_HORAS_VALOR_POR_PERSONA",
+        "Nombre": "Perfil Bar abierto VIP  4 horas, valor por persona",
+        "Costo_Base_Fijo": 38000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HORA_EXTRA_BAR_ABIERTO_VIP_POR_PERSONA",
+        "Nombre": "Perfil Hora extra Bar abierto Vip por persona",
+        "Costo_Base_Fijo": 12350,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_4_HORAS_POR_PERSONA",
+        "Nombre": "Perfil Bar Abierto de bebidas en vaso por 4 horas, por persona",
+        "Costo_Base_Fijo": 12000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAR_ABIERTO_DE_BEBIDAS_EN_VASO_POR_8_HORAS_POR_PERSONA",
+        "Nombre": "Perfil Bar Abierto de bebidas en vaso por 8 horas, por persona",
+        "Costo_Base_Fijo": 20000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BEBIDAS",
+        "Nombre": "Perfil Bebidas",
+        "Costo_Base_Fijo": 1933,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TICKET_DE_BEBIDA_O_AGUA",
+        "Nombre": "Perfil Ticket de bebida o agua",
+        "Costo_Base_Fijo": 1933,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BARRIL_DE_CERVEZA_KUNTSMAN_TOROBAYO_30L",
+        "Nombre": "Perfil Barril de cerveza kuntsman torobayo 30L",
+        "Costo_Base_Fijo": 220000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BEBESTIBLES_ADICIONALES_EN_SALON_BEBIDAS_JUGOS_NATURALES_AGUA_MINERAL",
+        "Nombre": "Perfil Bebestibles adicionales en Salón (Bebidas, Jugos Naturales, Agua Mineral)",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VINO_CASTILLO_MOLINA",
+        "Nombre": "Perfil Vino Castillo Molina",
+        "Costo_Base_Fijo": 13025,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VINO_CASILLERO_DEL_DIABLO_RESERVA_ESPECIAL",
+        "Nombre": "Perfil Vino Casillero del diablo Reserva Especial",
+        "Costo_Base_Fijo": 13445,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VINO_MARQUES_CASA_CONCHA",
+        "Nombre": "Perfil Vino Marques Casa Concha",
+        "Costo_Base_Fijo": 20168,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Perfil Cambio de horario del desayuno 1 hora, minimo 30 personas",
+        "Costo_Base_Fijo": 6500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIO_DE_HORARIO_DEL_DESAYUNO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Perfil Cambio de horario del desayuno por media hora , minimo 30 personas",
+        "Costo_Base_Fijo": 4000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIO_DE_HORARIO_DE_ALMUERZO_POR_MEDIA_HORA_MINIMO_30_PERSONAS",
+        "Nombre": "Perfil Cambio de horario de almuerzo por media hora, minimo 30 personas",
+        "Costo_Base_Fijo": 6500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EXTENSION_MEDIA_HORA_HORARIO_DE_CENA",
+        "Nombre": "Perfil Extension media hora horario de cena",
+        "Costo_Base_Fijo": 8000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMBIO_DE_LUGAR_DE_SERVICIO_DE_ALIMENTACION",
+        "Nombre": "Perfil Cambio de lugar de servicio de alimentacion",
+        "Costo_Base_Fijo": 10000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DESAYUNO",
+        "Nombre": "Perfil Desayuno",
+        "Costo_Base_Fijo": 12500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DESAYUNO_INCLUIDO_POR_ALOJAMIENTO",
+        "Nombre": "Perfil Desayuno incluido por alojamiento",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ALMUERZO_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "Nombre": "Perfil Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",
+        "Costo_Base_Fijo": 27311,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CENA_SUGERENCIAS_DEL_CHEF_EN_FORMATO_BUFFET_MAS_DE_30_PASAJEROS_MENOS_DE_30_ES_CARTA",
+        "Nombre": "Perfil Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",
+        "Costo_Base_Fijo": 27311,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ALMUERZO_O_CENA_A_LA_CARTA",
+        "Nombre": "Perfil Almuerzo o cena a la carta",
+        "Costo_Base_Fijo": 35000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ALMUERZO_O_CENA_A_LA_CARTA_VIP",
+        "Nombre": "Perfil Almuerzo o cena a la carta VIP",
+        "Costo_Base_Fijo": 45000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CENA_O_ALMUERZO_PARRILLA_30_O_MAS_PAX",
+        "Nombre": "Perfil Cena o Almuerzo parrilla, 30 o mas  pax",
+        "Costo_Base_Fijo": 35000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CENA_O_ALMUERZO_PARRILLA_MENOS_DE_30_PAX",
+        "Nombre": "Perfil Cena o Almuerzo parrilla, menos de 30 pax",
+        "Costo_Base_Fijo": 45000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ONCE",
+        "Nombre": "Perfil Once",
+        "Costo_Base_Fijo": 9800,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BOX_LUNCH_COMO_UNA_ONCE_EN_CAJITAS_INDIVIDUALES_PARA_QUE_SE_LA_PUEDAN_LLEVAR",
+        "Nombre": "Perfil Box lunch (Como una Once en cajitas individuales para que se la puedan llevar)",
+        "Costo_Base_Fijo": 12000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CATA_DE_VINOS_CON_SOMELIER_MINIMO_10_PERSONAS_Y_HASTA_40_DURACION_1_HORA",
+        "Nombre": "Perfil Cata de vinos con somelier, minimo 10 personas y hasta 40.  Duración 1 hora",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 24000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PICOTEO_PARRILLANDO_CON_AMIGOS_MINIMO_20_PERSONAS",
+        "Nombre": "Perfil Picoteo parrillando con amigos: minimo 20 personas",
+        "Costo_Base_Fijo": 400000,
+        "Costo_Unitario_Pax": 20000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_APERITIVO_TEMATICO_JUGANDO_EN_LA_BARRA_MINIMO_20_PERSONAS_MAXIMO_1_5_HORAS",
+        "Nombre": "Perfil Aperitivo tematico: Jugando en la barra, minimo 20 personas. Maximo 1,5 horas",
+        "Costo_Base_Fijo": 400000,
+        "Costo_Unitario_Pax": 20000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TABLA_DE_QUESO_6_PAX",
+        "Nombre": "Perfil Tabla de Queso 6 Pax",
+        "Costo_Base_Fijo": 30000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TABLA_FIAMBRES_6_PAX",
+        "Nombre": "Perfil Tabla Fiambres 6 Pax",
+        "Costo_Base_Fijo": 30000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TABLA_MIXTA_QUESOS_Y_FIAMBRES_6_PAX",
+        "Nombre": "Perfil Tabla Mixta Quesos y Fiambres 6 pax",
+        "Costo_Base_Fijo": 30000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TABLA_MIX_TAPADITOS_QUICHES_Y_MINI_EMPANADAS_6_PAX",
+        "Nombre": "Perfil Tabla Mix Tapaditos, Quiches y Mini Empanadas 6 pax",
+        "Costo_Base_Fijo": 60000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TABLA_VEGANA_6_PAX",
+        "Nombre": "Perfil Tabla vegana 6 pax",
+        "Costo_Base_Fijo": 60000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COCTAIL_BASICO_MINIMO_15_PASAJEROS",
+        "Nombre": "Perfil Coctail basico, minimo 15 pasajeros.",
+        "Costo_Base_Fijo": 13200,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COCTAIL_CHILENO_MINIMO_15_PASAJEROS",
+        "Nombre": "Perfil Coctail chileno, minimo 15 pasajeros.",
+        "Costo_Base_Fijo": 15000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CORDERO_A_LA_ESPADA_CORDERO_CON_PAN_AMASADO_Y_SALSAS_PARA_20_PAX",
+        "Nombre": "Perfil Cordero a la espada (Cordero con pan amasado y salsas para 20 pax)",
+        "Costo_Base_Fijo": 380000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PIERNA_DE_CERDO_16_HRS_AL_HORNO_CON_AMASADO_Y_3_SALSAS_PARA_PICOTEO",
+        "Nombre": "Perfil Pierna de cerdo 16 hrs al horno, con amasado y 3 salsas para picoteo",
+        "Costo_Base_Fijo": 380000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EMPANADAS_COCTEL_PINO_QUESO_Y_NAPOLITANA",
+        "Nombre": "Perfil Empanadas coctel( pino, queso y napolitana)",
+        "Costo_Base_Fijo": 1000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SERVICIO_DE_TRASNOCHE_CONSOME_250CC_CON_2_TAPADITOS",
+        "Nombre": "Perfil Servicio de trasnoche Consome 250cc con 2 tapaditos",
+        "Costo_Base_Fijo": 50000,
+        "Costo_Unitario_Pax": 10000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PUNTO_DE_HIDRATACION",
+        "Nombre": "Perfil Punto de hidratación",
+        "Costo_Base_Fijo": 6000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_FRUTA_DE_ESTACION",
+        "Nombre": "Perfil 1 fruta de estación",
+        "Costo_Base_Fijo": 1500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_BARRA_DE_CEREAL",
+        "Nombre": "Perfil 1 barra de cereal",
+        "Costo_Base_Fijo": 1500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TORTA_CHOCOLATE_16_PAX",
+        "Nombre": "Perfil Torta Chocolate 16 pax",
+        "Costo_Base_Fijo": 53000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TORTA_CARROTCAKE_14_PAX",
+        "Nombre": "Perfil Torta Carrotcake 14 pax",
+        "Costo_Base_Fijo": 53000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CHEESECAKE_DE_OREO_14_PAX",
+        "Nombre": "Perfil Cheesecake de Oreo 14 pax",
+        "Costo_Base_Fijo": 53000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TORTA_SAN_FRANCISCO_MANJAR_NUEZ_15_PAX",
+        "Nombre": "Perfil Torta San Francisco manjar nuez 15 pax",
+        "Costo_Base_Fijo": 53000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TROZO_DE_TORTA_DE_CHOCOLATE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Perfil Trozo de torta de Chocolate + estacion cafe o té en comedor",
+        "Costo_Base_Fijo": 7983,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TROZO_DE_TORTA_CARROT_CAKE_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Perfil Trozo de torta Carrot Cake + estacion cafe o té en comedor",
+        "Costo_Base_Fijo": 7983,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TROZO_DE_CHEESE_CAKE_OREO_ESTACION_CAFE_O_TE_EN_COMEDOR",
+        "Nombre": "Perfil Trozo de Cheese Cake Oreo + estacion cafe o té en comedor",
+        "Costo_Base_Fijo": 7983,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MASAJISTA_EXCLUSIVA_PARA_MASAJES_RELAX_30_MINUTOS",
+        "Nombre": "Perfil Masajista exclusiva, para masajes relax 30 minutos",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MASAJES_DE_RELAJACION_DE_MEDIA_HORA",
+        "Nombre": "Perfil Masajes de relajacion de media hora",
+        "Costo_Base_Fijo": 25210,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_GORROS_DE_PISCINAS_LYCRA",
+        "Nombre": "Perfil Gorros de piscinas  lycra",
+        "Costo_Base_Fijo": 3782,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_GORROS_DE_PISCINAS_LATEX",
+        "Nombre": "Perfil Gorros de piscinas  latex",
+        "Costo_Base_Fijo": 2101,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PISCINA_TEMPERADA_NOCTURNA_EXCLUSIVA_HASTA_2_HORAS",
+        "Nombre": "Perfil Piscina temperada nocturna exclusiva hasta 2 horas",
+        "Costo_Base_Fijo": 250000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HABITACION_SINGLE_HOTEL_B_B",
+        "Nombre": "Perfil Habitación single hotel B&B",
+        "Costo_Base_Fijo": 120630,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HABITACION_DOBLE_HOTEL_B_B",
+        "Nombre": "Perfil Habitación Doble hotel B&B",
+        "Costo_Base_Fijo": 189219,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HABITACION_TRIPLE_HOTEL_B_B",
+        "Nombre": "Perfil Habitación Triple hotel B&B",
+        "Costo_Base_Fijo": 239712,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HABITACION_CUADRUPLE_HOTEL_B_B",
+        "Nombre": "Perfil Habitación Cuadruple hotel  B&B",
+        "Costo_Base_Fijo": 290206,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_HABITACION_QUINTUPLE_HOTEL_B_B",
+        "Nombre": "Perfil Habitación Quintuple hotel B&B",
+        "Costo_Base_Fijo": 342097,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VALOR_6_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Perfil Valor 6 pasajeros, en cabaña B&B",
+        "Costo_Base_Fijo": 393987,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VALOR_7_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Perfil Valor 7 pasajeros, en cabaña B&B",
+        "Costo_Base_Fijo": 445870,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VALOR_8_PASAJEROS_EN_CABANA_B_B",
+        "Nombre": "Perfil Valor 8 pasajeros, en cabaña B&B",
+        "Costo_Base_Fijo": 497769,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_VALOR_PAX_ADICIONAL_EN_LA_MISMA_HABITACION",
+        "Nombre": "Perfil Valor Pax adicional en la misma habitacion",
+        "Costo_Base_Fijo": 43908,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EARLY_CHECK_IN_POR_HABITACION_DE_HOTEL",
+        "Nombre": "Perfil Early check in, por habitacion de hotel",
+        "Costo_Base_Fijo": 29412,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LATE_CHECK_OUT_POR_HABITACION_DE_HOTEL",
+        "Nombre": "Perfil Late check out, por habitacion de hotel",
+        "Costo_Base_Fijo": 29412,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EARLY_CHECK_IN_POR_CABANA",
+        "Nombre": "Perfil Early check in, por cabaña",
+        "Costo_Base_Fijo": 46218,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LATE_CHECK_OUT_POR_CABANA",
+        "Nombre": "Perfil Late check out, por cabaña",
+        "Costo_Base_Fijo": 46218,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TRASLADO_DE_MALETAS_ENTREGA_Y_RETIRO_FUERA_DE_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "Nombre": "Perfil Traslado de maletas, entrega y retiro fuera de las habitaciones, valor por persona",
+        "Costo_Base_Fijo": 5000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PRODUCTOS_O_REGALOS_EN_LAS_HABITACIONES_VALOR_POR_PERSONA",
+        "Nombre": "Perfil Productos o regalos en las habitaciones, valor por persona",
+        "Costo_Base_Fijo": 2000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_RAMO_DE_FLORES_6_ROSAS_ROJAS_BLANCAS_ROSADAS_AMARILLA",
+        "Nombre": "Perfil 1 Ramo de flores, 6 rosas, rojas, blancas, rosadas, amarilla",
+        "Costo_Base_Fijo": 50000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_1_CHOCOLATE_SAHNE_NUSS_250G_ESPUMANTE_O_BOTELLA_DE_VINO",
+        "Nombre": "Perfil 1 Chocolate Sahne Nuss 250g + espumante o botella de vino",
+        "Costo_Base_Fijo": 25000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_RESMA_DE_HOJAS",
+        "Nombre": "Perfil Resma de Hojas",
+        "Costo_Base_Fijo": 12000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LAPICES_AZUL_PASTA",
+        "Nombre": "Perfil Lapices azul Pasta",
+        "Costo_Base_Fijo": 1000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CORRECTOR_LAPIZ",
+        "Nombre": "Perfil Corrector lapiz",
+        "Costo_Base_Fijo": 3500,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PLUMONES_PERMANENTE",
+        "Nombre": "Perfil Plumones permanente",
+        "Costo_Base_Fijo": 1000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PLUMONES_DE_PIZARRA",
+        "Nombre": "Perfil Plumones de pizarra",
+        "Costo_Base_Fijo": 800,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FOTOCOPIAS_O_IMPRESION_COLOR",
+        "Nombre": "Perfil Fotocopias o impresion color",
+        "Costo_Base_Fijo": 600,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FOTOCOPIAS_O_IMPRESION_NEGRO",
+        "Nombre": "Perfil Fotocopias o impresion negro",
+        "Costo_Base_Fijo": 300,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ALMUERZOS_PRODUCTORAS_O_CHOFERES_EN_BUFFET",
+        "Nombre": "Perfil Almuerzos productoras o choferes en buffet",
+        "Costo_Base_Fijo": 16387,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_GUIAS_EXCLUSIVOS_PARA_CAMINATAS",
+        "Nombre": "Perfil Guias exclusivos para caminatas",
+        "Costo_Base_Fijo": 80000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMINATA_LA_TENCA_DE_FORMA_EXCLUSIVA_1_5_HORAS",
+        "Nombre": "Perfil Caminata \"la tenca\" de forma exclusiva, 1,5 horas",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 10000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CAMINATA_AL_MIRADOR_EXCLUSIVA_DIFICULTAD_MEDIA_DURACION_1_HORA",
+        "Nombre": "Perfil Caminata al mirador exclusiva.  Dificultad media, duracion: 1 hora",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 10000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FOGON_PEQUENO_FOGATA_PEQUENA",
+        "Nombre": "Perfil Fogon pequeño (Fogata pequeña)",
+        "Costo_Base_Fijo": 100000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FOGATA_GRANDE",
+        "Nombre": "Perfil Fogata grande",
+        "Costo_Base_Fijo": 250000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CLASE_DE_PESCA_CON_MOSCA_3_HORAS_9_AM_A_12PM",
+        "Nombre": "Perfil Clase de pesca con mosca 3 horas(9 am a 12pm)",
+        "Costo_Base_Fijo": 63025,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ARRIENDO_DE_CANA",
+        "Nombre": "Perfil Arriendo de Caña",
+        "Costo_Base_Fijo": 12605,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PASEOS_A_CABALLO_EXCLUSIVOS_MINIMO_4_PASAJEROS_DURACION_3_4_HORAS_MAXIMO_20_PERSONAS",
+        "Nombre": "Perfil Paseos a Caballo exclusivos, minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",
+        "Costo_Base_Fijo": 42017,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PASEO_A_CABALLO_VERTIENTE_DEL_TORO",
+        "Nombre": "Perfil Paseo a caballo Vertiente del toro",
+        "Costo_Base_Fijo": 109000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PASEO_A_CABALLO_ALTOS_DEL_GUINDO",
+        "Nombre": "Perfil Paseo a caballo Altos del Guindo",
+        "Costo_Base_Fijo": 119000,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_USO_DE_ACTIVIDADES",
+        "Nombre": "Perfil Uso de actividades",
+        "Costo_Base_Fijo": 21,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_USO_DE_ACTIVIDADES_POR_CORTESIA",
+        "Nombre": "Perfil Uso de actividades por cortesía",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_YOGA",
+        "Nombre": "Perfil Yoga",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 10000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PAINTBALL",
+        "Nombre": "Perfil Paintball",
+        "Costo_Base_Fijo": 1000000,
+        "Costo_Unitario_Pax": 35000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BUSQUEDA_DE_TESORO",
+        "Nombre": "Perfil Busqueda de tesoro",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ACTIVIDAD_DE_LA_LUZ",
+        "Nombre": "Perfil Actividad de la luz",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ALIANZAS",
+        "Nombre": "Perfil Alianzas",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EL_HERIDO",
+        "Nombre": "Perfil El herido",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EL_NAUFRAGO",
+        "Nombre": "Perfil El Naufrago",
+        "Costo_Base_Fijo": 1000000,
+        "Costo_Unitario_Pax": 20000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EL_NAUFRAGO_FULL",
+        "Nombre": "Perfil El Naufrago Full",
+        "Costo_Base_Fijo": 1000000,
+        "Costo_Unitario_Pax": 35000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CONQUISTANDO_LA_CUMBRE",
+        "Nombre": "Perfil Conquistando la Cumbre",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TIRO_CON_ARCO",
+        "Nombre": "Perfil Tiro con Arco",
+        "Costo_Base_Fijo": 660000,
+        "Costo_Unitario_Pax": 10000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MISION_Y_VISION",
+        "Nombre": "Perfil Mision y Vision",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FABRICA_DE_SAL",
+        "Nombre": "Perfil Fabrica de sal",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 15000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LA_PIZZA_NOSTRA_PER_TUTTI",
+        "Nombre": "Perfil La Pizza Nostra Per Tutti",
+        "Costo_Base_Fijo": 575000,
+        "Costo_Unitario_Pax": 55000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LA_PIZZA_NOSTRA",
+        "Nombre": "Perfil La Pizza Nostra",
+        "Costo_Base_Fijo": 575000,
+        "Costo_Unitario_Pax": 30000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_THE_BOSS_GRILL",
+        "Nombre": "Perfil The Boss Grill",
+        "Costo_Base_Fijo": 400000,
+        "Costo_Unitario_Pax": 55000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_COCINANDO_EQUIPOS",
+        "Nombre": "Perfil Cocinando Equipos",
+        "Costo_Base_Fijo": 750000,
+        "Costo_Unitario_Pax": 55000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_FORMANDO_UN_JINETE",
+        "Nombre": "Perfil Formando un Jinete",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_MASTER_CHEF_CORPORATIVO",
+        "Nombre": "Perfil Master Chef Corporativo",
+        "Costo_Base_Fijo": 750000,
+        "Costo_Unitario_Pax": 30000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_DE_LA_MASA_AL_PLATO",
+        "Nombre": "Perfil De La Masa Al Plato",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 55000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_PARRILLADA_EN_EQUIPO",
+        "Nombre": "Perfil Parrillada en Equipo",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 65000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TALLER_DE_PIZZA_Y_BIRRA",
+        "Nombre": "Perfil Taller de Pizza y Birra",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_KARAOKE_CON_COPAS_Y_TAPAS",
+        "Nombre": "Perfil Karaoke con copas y tapas",
+        "Costo_Base_Fijo": 650000,
+        "Costo_Unitario_Pax": 46800,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TALLER_DE_BRASAS_Y_TINTO_SABORES_AL_FUEGO",
+        "Nombre": "Perfil Taller de Brasas y Tinto: Sabores al Fuego!",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CORDEROS_VINOS",
+        "Nombre": "Perfil Corderos & Vinos",
+        "Costo_Base_Fijo": 500000,
+        "Costo_Unitario_Pax": 50000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_SAFARI_ECUESTRE",
+        "Nombre": "Perfil Safari Ecuestre",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TREKKING_AL_MIRADOR",
+        "Nombre": "Perfil Trekking al mirador",
+        "Costo_Base_Fijo": 0,
+        "Costo_Unitario_Pax": 0,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CATA_DE_VINOS",
+        "Nombre": "Perfil Cata de Vinos",
+        "Costo_Base_Fijo": 300000,
+        "Costo_Unitario_Pax": 24000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LOS_NEUMATICOS",
+        "Nombre": "Perfil Los Neumaticos",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TOTEM",
+        "Nombre": "Perfil Totem",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LA_ESTRELLA",
+        "Nombre": "Perfil La estrella",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_TIRAR_LA_CUERDA",
+        "Nombre": "Perfil Tirar la cuerda",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EL_EQUILIBRIO",
+        "Nombre": "Perfil El equilibrio",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_EL_ENREDO",
+        "Nombre": "Perfil El Enredo",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BAILE_ENTRETENIDO",
+        "Nombre": "Perfil Baile Entretenido",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_GIMNASIA_DE_PAUSA",
+        "Nombre": "Perfil Gimnasia de Pausa",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_YOGA_2",
+        "Nombre": "Perfil Yoga",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_LA_BOLITA",
+        "Nombre": "Perfil La Bolita",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_ULA_ULA",
+        "Nombre": "Perfil Ula Ula",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_CARRERA_DE_SACOS",
+        "Nombre": "Perfil Carrera de Sacos",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      },
+      {
+        "ID_Perfil_Precio": "PROF_BOB_ESPONJA",
+        "Nombre": "Perfil Bob Esponja",
+        "Costo_Base_Fijo": 150000,
+        "Costo_Unitario_Pax": 3000,
+        "Costo_Unitario_Tiempo": 0,
+        "Costo_Unitario_Item": 0,
+        "Activo": true,
+        "Updated_At": "2026-02-19T16:42:08.795Z"
+      }
+    ],
+    "REGLAS_NEGOCIO": [
+      {
+        "ID_Regla": "R_AUT_0001",
+        "Nombre": "Maximo 320 pax - Salon Chinook uso diurno, hasta 320 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                320
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 320 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0002",
+        "Nombre": "Maximo 120 pax - Salon Coho uso diurno, hasta 120 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_COHO_USO_DIURNO_HASTA_120_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                120
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 120 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0003",
+        "Nombre": "Maximo 70 pax - Salon Fario uso diurno, hasta 70 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_FARIO_USO_DIURNO_HASTA_70_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                70
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 70 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0004",
+        "Nombre": "Maximo 70 pax - Salón Arcoiris uso diurno, hasta 70 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_ARCOIRIS_USO_DIURNO_HASTA_70_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                70
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 70 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0005",
+        "Nombre": "Maximo 35 pax - Comedor truchita o ex pool y terraza para 35 personas, 8 horas uso diurno",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_8_HORAS_USO_DIURNO"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                35
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 35 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0006",
+        "Nombre": "Maximo 35 pax - Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COMEDOR_TRUCHITA_O_EX_POOL_Y_TERRAZA_PARA_35_PERSONAS_1_5_HORAS_AM_O_PM_ALMUERZO_O_CENA"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                35
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 35 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0007",
+        "Nombre": "Maximo 300 pax - Salon chinook con fogata, hasta 300 personas, 4 horas noche",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS_4_HORAS_NOCHE"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                300
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 300 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0008",
+        "Nombre": "Maximo 300 pax - Salon chinook con fogata, hasta 300 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_SALON_CHINOOK_CON_FOGATA_HASTA_300_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                300
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 300 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0009",
+        "Nombre": "Maximo 70 pax - Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS_4_HORAS_NOCHE"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                70
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 70 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0010",
+        "Nombre": "Maximo 70 pax - Comedor VIP con fogata, 2 piso hasta 70 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COMEDOR_VIP_CON_FOGATA_2_PISO_HASTA_70_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                70
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 70 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0011",
+        "Nombre": "Maximo 50 pax - Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_ESPACIO_DEL_BAR_PARA_KARAOKE_HASTA_50_PERSONAS_POR_4_HRS_NOCHE"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                50
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 50 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0012",
+        "Nombre": "Maximo 250 pax - Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_DOMO_PARA_FIESTAS_CON_FOGATA_HASTA_250_PERSONAS_4_HORAS_NOCHE"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                250
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 250 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0013",
+        "Nombre": "Maximo 50 pax - Lounge en terrazas (sillones, mesas y fogones), hasta 50 pax. Valor  persona",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_LOUNGE_EN_TERRAZAS_SILLONES_MESAS_Y_FOGONES_HASTA_50_PAX_VALOR_PERSONA"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                50
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 50 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0014",
+        "Nombre": "Minimo 30 pax - Cambio de horario del desayuno 1 hora, minimo 30 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CAMBIO_DE_HORARIO_DEL_DESAYUNO_1_HORA_MINIMO_30_PERSONAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                30
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 30 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0015",
+        "Nombre": "Minimo 30 pax - Cambio de horario del desayuno por media hora , minimo 30 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CAMBIO_DE_HORARIO_DEL_DESAYUNO_POR_MEDIA_HORA_MINIMO_30_PERSONAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                30
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 30 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0016",
+        "Nombre": "Minimo 30 pax - Cambio de horario de almuerzo por media hora, minimo 30 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CAMBIO_DE_HORARIO_DE_ALMUERZO_POR_MEDIA_HORA_MINIMO_30_PERSONAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                30
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 30 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0017",
+        "Nombre": "Minimo 30 pax - Cena o Almuerzo parrilla, 30 o mas  pax",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CENA_O_ALMUERZO_PARRILLA_30_O_MAS_PAX"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                30
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 30 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0018",
+        "Nombre": "Maximo 29 pax - Cena o Almuerzo parrilla, menos de 30 pax",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CENA_O_ALMUERZO_PARRILLA_MENOS_DE_30_PAX"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                29
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 29 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0019",
+        "Nombre": "Minimo 10 pax - Cata de vinos con somelier, minimo 10 personas y hasta 40.  Duración 1 hora",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_CATA_DE_VINOS_CON_SOMELIER_MINIMO_10_PERSONAS_Y_HASTA_40_DURACION_1_HORA"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                10
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 10 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0020",
+        "Nombre": "Minimo 20 pax - Picoteo parrillando con amigos: minimo 20 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_PICOTEO_PARRILLANDO_CON_AMIGOS_MINIMO_20_PERSONAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                20
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 20 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0021",
+        "Nombre": "Minimo 20 pax - Aperitivo tematico: Jugando en la barra, minimo 20 personas. Maximo 1,5 horas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_APERITIVO_TEMATICO_JUGANDO_EN_LA_BARRA_MINIMO_20_PERSONAS_MAXIMO_1_5_HORAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                20
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 20 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0022",
+        "Nombre": "Minimo 15 pax - Coctail basico, minimo 15 pasajeros.",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COCTAIL_BASICO_MINIMO_15_PASAJEROS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                15
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 15 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0023",
+        "Nombre": "Minimo 15 pax - Coctail chileno, minimo 15 pasajeros.",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_COCTAIL_CHILENO_MINIMO_15_PASAJEROS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                15
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 15 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0024",
+        "Nombre": "Maximo 50 pax - Pierna de cerdo 16 hrs al horno, con amasado y 3 salsas para picoteo",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_PIERNA_DE_CERDO_16_HRS_AL_HORNO_CON_AMASADO_Y_3_SALSAS_PARA_PICOTEO"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                50
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 50 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0027",
+        "Nombre": "Minimo 4 pax - Paseos a Caballo exclusivos, minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_PASEOS_A_CABALLO_EXCLUSIVOS_MINIMO_4_PASAJEROS_DURACION_3_4_HORAS_MAXIMO_20_PERSONAS"
+              ]
+            },
+            {
+              "<": [
+                {
+                  "var": "item.pax"
+                },
+                4
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item requiere minimo 4 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      },
+      {
+        "ID_Regla": "R_AUT_0028",
+        "Nombre": "Maximo 20 pax - Paseos a Caballo exclusivos, minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",
+        "Etapa": "RESTRICCION_UI",
+        "Scope": "ITEM",
+        "Tipo_Accion": "ERROR",
+        "Hook": "",
+        "Condicion_JSON": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "item.id"
+                },
+                "ITEM_PASEOS_A_CABALLO_EXCLUSIVOS_MINIMO_4_PASAJEROS_DURACION_3_4_HORAS_MAXIMO_20_PERSONAS"
+              ]
+            },
+            {
+              ">": [
+                {
+                  "var": "item.pax"
+                },
+                20
+              ]
+            }
+          ]
+        },
+        "Payload_JSON": {
+          "message": "Este item permite maximo 20 pax."
+        },
+        "Prioridad": 20,
+        "Acumulable": false,
+        "Activo": true,
+        "Updated_At": "2026-02-19T23:30:00.000Z"
+      }
+    ]
+  };
+
+  function normalizeSeedEntries(seedEntries = []) {
+    return (seedEntries || []).filter((entry) => entry && entry.table);
+  }
+
+  function seedEntriesFromTables(seedTables = {}) {
+    return Object.entries(seedTables || {})
+      .map(([table, records]) => ({
+        table,
+        records: Array.isArray(records) ? records : [],
+      }))
+      .sort((a, b) => a.table.localeCompare(b.table));
+  }
+
+  function extractClients(seedEntries = []) {
+    const rows = seedEntries.find((entry) => entry.table === 'CLIENTES')?.records || [];
+    return rows.map((row) => ({
+      id: row.ID_Cliente,
+      nombre: row.Nombre_Empresa,
+      rut: row.RUT,
+      email: row.Email,
+      telefono: row.Telefono,
+    }));
+  }
+
+  function createQuotationRuntime(options = {}) {
+    const sourceSeedEntries = options.seedEntries
+      ? normalizeSeedEntries(options.seedEntries)
+      : seedEntriesFromTables(options.seedTables || LOCAL_INIT_TABLES);
+
+    const db = options.db || seedToResolverDb(sourceSeedEntries);
+    const clients = options.clients || extractClients(sourceSeedEntries);
+
+    return createQuotationInternalRuntime({
+      db,
+      clients,
+      initialSettings: options.initialSettings || {},
+    });
+  }
+
+  function toNumberValue(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function parseSettingValue(key, value, fallbackSettings) {
+    if (key === 'fechaInicio') return String(value || fallbackSettings.fechaInicio);
+    if (key === 'duracionDias') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.duracionDias)));
+    if (key === 'dia') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.dia)));
+    if (key === 'paxGlobal') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.paxGlobal)));
+    if (key === 'duracionMin') return Math.max(0, Math.floor(toNumberValue(value, fallbackSettings.duracionMin)));
+    return value;
+  }
+
+  function parseOverrideValue(value) {
+    if (value === '') return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+
+  function createQuotationFlowComponent(options = {}) {
+    const runtime = options.runtime || createQuotationRuntime(options);
+
+    return {
+      stage: 'browse',
+      clientModalOpen: false,
+      selectedClient: null,
+      globalContext: {
+        hora: '09:00',
+      },
+      settings: {
+        fechaInicio: new Date().toISOString().slice(0, 10),
+        duracionDias: 3,
+        paxGlobal: 20,
+        dia: 1,
+        horaInicio: '09:00',
+        duracionMin: 120,
+      },
+      clients: [],
+      clientSearchTerm: '',
+      catalog: { searchTerm: '', categories: [], summary: {} },
+      basket: {
+        dayOptions: [],
+        selectedDayIndex: 1,
+        selectedDayState: null,
+        basketEntries: [],
+        summary: {},
+      },
+      validation: {
+        rows: [],
+        totals: { subtotal: 0, iva: 0, total: 0 },
+      },
+      draggingCatalogItemId: null,
+
+      init() {
+        const sync = (snapshot) => {
+          this.stage = snapshot.stage;
+          this.clientModalOpen = snapshot.clientModalOpen;
+          this.selectedClient = snapshot.selectedClient;
+          this.settings = { ...snapshot.settings };
+          this.globalContext = {
+            hora: this.settings.horaInicio,
+          };
+          this.clients = snapshot.clients || [];
+          this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
+          this.basket = snapshot.basket || {
+            dayOptions: [],
+            selectedDayIndex: 1,
+            selectedDayState: null,
+            basketEntries: [],
+            summary: {},
+          };
+          this.validation = snapshot.validation || {
+            rows: [],
+            totals: { subtotal: 0, iva: 0, total: 0 },
+          };
+        };
+
+        sync(runtime.getSnapshot());
+        runtime.subscribe(sync);
+      },
+
+      startQuotation() {
+        runtime.startQuotation();
+      },
+
+      goValidation() {
+        runtime.advanceToValidation();
+      },
+
+      backToBasket() {
+        runtime.backToBasket();
+      },
+
+      openClientModal() {
+        runtime.openClientModal();
+      },
+
+      closeClientModal() {
+        runtime.closeClientModal();
+      },
+
+      setClientSearch(term) {
+        this.clientSearchTerm = String(term || '');
+      },
+
+      filteredClients() {
+        const term = this.clientSearchTerm.trim().toLowerCase();
+        if (!term) return this.clients;
+        return this.clients.filter((client) => {
+          return [client.nombre, client.rut, client.email].some((field) =>
+            String(field || '').toLowerCase().includes(term)
+          );
+        });
+      },
+
+      selectClient(clientId) {
+        runtime.selectClient(clientId);
+      },
+
+      setCatalogSearch(term) {
+        runtime.setCatalogSearch(term);
+      },
+
+      toggleCategory(categoryId) {
+        runtime.toggleCategory(categoryId);
+      },
+
+      shipCatalogEntry(itemId) {
+        runtime.shipItemToSelectedDay(itemId);
+      },
+
+      startCatalogDrag(itemId, event) {
+        if (!itemId) return;
+        this.draggingCatalogItemId = itemId;
+        if (event?.dataTransfer) {
+          event.dataTransfer.setData('text/plain', String(itemId));
+          event.dataTransfer.effectAllowed = 'copy';
+        }
+      },
+
+      endCatalogDrag() {
+        this.draggingCatalogItemId = null;
+      },
+
+      isDraggingCatalogItem(itemId) {
+        return String(this.draggingCatalogItemId || '') === String(itemId || '');
+      },
+
+      draggedItemId(event) {
+        if (this.draggingCatalogItemId) return this.draggingCatalogItemId;
+        const fromDataTransfer = event?.dataTransfer?.getData('text/plain');
+        if (fromDataTransfer) return fromDataTransfer;
+        return null;
+      },
+
+      dropOnSelectedDay(event) {
+        const itemId = this.draggedItemId(event);
+        this.endCatalogDrag();
+        if (!itemId) return;
+        runtime.shipItemToSelectedDay(itemId);
+      },
+
+      dropOnDay(dayIndex, event) {
+        const itemId = this.draggedItemId(event);
+        this.endCatalogDrag();
+        if (!itemId) return;
+        runtime.selectDay(Number(dayIndex));
+        runtime.shipItemToSelectedDay(itemId);
+      },
+
+      selectDay(dayIndex) {
+        runtime.selectDay(Number(dayIndex));
+      },
+
+      setSetting(key, value) {
+        runtime.setQuotationSettings({
+          [key]: parseSettingValue(key, value, this.settings),
+        });
+      },
+
+      setBasketOverride(entryId, key, value) {
+        if (value === '') {
+          runtime.clearEntryOverride(entryId, key);
+          return;
+        }
+        runtime.setEntryOverride(entryId, key, parseOverrideValue(value));
+      },
+
+      clearBasketOverride(entryId, key) {
+        runtime.clearEntryOverride(entryId, key);
+      },
+
+      resetBasketOverrides(entryId) {
+        runtime.resetEntryOverrides(entryId);
+      },
+
+      destroyRuntimeEntry(column, entryId) {
+        if (column !== 'basket') return;
+        runtime.removeEntry(entryId);
+      },
+
+      duplicateBasketEntry(entryId) {
+        runtime.duplicateEntryInDay(entryId);
+      },
+
+      copyBasketEntry(entryId) {
+        const target = Number(this.basket.selectedDayIndex || 1) + 1;
+        runtime.copyEntryToDay(entryId, target);
+      },
+
+      copyDayToNextDay() {
+        runtime.copySelectedDayToNextDay();
+      },
+
+      ruleClass(state) {
+        if ((state?.ruleErrors || []).length > 0) return 'error';
+        if ((state?.ruleWarnings || []).length > 0) return 'warn';
+        return 'ok';
+      },
+
+      ruleIcon(state) {
+        if ((state?.ruleErrors || []).length > 0) return 'fa-xmark';
+        if ((state?.ruleWarnings || []).length > 0) return 'fa-exclamation';
+        return 'fa-check';
+      },
+
+      formatMoney(value) {
+        return Number(value || 0).toLocaleString('es-CL');
+      },
+    };
+  }
+
+  const QuotationEngine = {
+    createQuotationRuntime,
+    createQuotationFlowComponent,
+  };
+
+  if (typeof window !== 'undefined') {
+    window.QuotationEngine = QuotationEngine;
+    if (typeof window.createQuotationFlowComponent !== 'function') {
+      window.createQuotationFlowComponent = createQuotationFlowComponent;
+    }
+  }
+
+  exports.QuotationEngine = QuotationEngine;
+  exports.createQuotationFlowComponent = createQuotationFlowComponent;
+  exports.createQuotationRuntime = createQuotationRuntime;
+
+  return exports;
+
+})({});
+//# sourceMappingURL=quotation-engine.iife.js.map

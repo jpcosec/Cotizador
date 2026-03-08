@@ -1,238 +1,269 @@
+import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.browser.js';
+import { seedToResolverDb } from '../../../packages/database/src/playgroundAdapter.js';
 import {
-  createAppState,
-  createHomePage,
-  createClientSelector,
-  createQuotationInitializer,
-  createDatabaseViewer
-} from '../../../packages/components/quotation/modals/index.js';
-import {
-  createQuotationView,
-  createSidebar,
-  createBasket,
-  createQuotationHeader,
-  createQuotationTotals
-} from '../../../packages/components/quotation/views/index.js';
-import { createDatabase, SEED_DATA } from '../../../packages/database/index.js';
+  basketRuntimeHtml,
+  catalogRuntimeHtml,
+} from '../../../packages/components/item/ui/playgroundItemSections.js';
+import { createQuotationInternalRuntime } from '../state/createQuotationInternalRuntime.js';
 
-function buildDatabase() {
-  return createDatabase({ adapter: 'memory', seed: SEED_DATA });
+const CSV_BASE_URL = '/data/init';
+
+function toNumberValue(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function toClientList(models) {
-  return models.CLIENTES.all().map((r) => ({
-    id: r.ID_Cliente,
-    nombre: r.Nombre_Empresa,
-    rut: r.RUT,
-    email: r.Email
+function parseSettingValue(key, value, fallbackSettings) {
+  if (key === 'fechaInicio') return String(value || fallbackSettings.fechaInicio);
+  if (key === 'duracionDias') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.duracionDias)));
+  if (key === 'dia') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.dia)));
+  if (key === 'paxGlobal') return Math.max(1, Math.floor(toNumberValue(value, fallbackSettings.paxGlobal)));
+  if (key === 'duracionMin') return Math.max(0, Math.floor(toNumberValue(value, fallbackSettings.duracionMin)));
+  return value;
+}
+
+function parseOverrideValue(value) {
+  if (value === '') return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function extractClients(seed = []) {
+  const clientRows = seed.find((entry) => entry.table === 'CLIENTES')?.records || [];
+  return clientRows.map((row) => ({
+    id: row.ID_Cliente,
+    nombre: row.Nombre_Empresa,
+    rut: row.RUT,
+    email: row.Email,
+    telefono: row.Telefono,
   }));
 }
 
-function toCatalogList(models) {
-  const profiles = Object.fromEntries(
-    models.PERFILES_PRECIO.all().map((p) => [p.ID_Perfil_Precio, p])
-  );
-  const categories = Object.fromEntries(
-    models.CATEGORIAS.all().map((c) => [c.ID_Categoria, c])
-  );
-
-  return models.ITEM_CATALOGO.where((r) => r.Activo !== false).map((item) => {
-    const cat = categories[item.ID_Categoria] ?? {};
-    const profileId = item.ID_Perfil_Precio_Override ?? cat.ID_Perfil_Precio_Default;
-    const profile = profiles[profileId] ?? {};
-    return {
-      id: item.ID_Item,
-      name: item.Nombre,
-      category: cat.Nombre ?? item.ID_Categoria,
-      price: profile.Costo_Unitario_Pax ?? profile.Costo_Base_Fijo ?? 0
-    };
-  });
-}
-
-function toTableDump(models) {
-  return Object.fromEntries(
-    Object.keys(models).map((tableName) => [tableName, models[tableName].all()])
-  );
-}
-
-/**
- * Mount a live quotation flow demo using the new package components.
- * @param {HTMLElement|null} root
- */
 export async function mountQuotationPlayground(root) {
   if (!root) return;
 
-  const templatePath = '/apps/quotation/playground/QuotationFlowDemo.html';
-  const html = await fetch(templatePath).then((res) => res.text());
+  const [rawTemplate, seed] = await Promise.all([
+    fetch('/apps/quotation/playground/QuotationFlowInternal.html').then((response) => response.text()),
+    loadSeedFromCsvUrl(CSV_BASE_URL),
+  ]);
 
-  const { models } = buildDatabase();
-  const clients = toClientList(models);
-  const catalog = toCatalogList(models);
+  const template = rawTemplate
+    .replace('<!-- CATALOG_RUNTIME -->', () => catalogRuntimeHtml)
+    .replace('<!-- BASKET_RUNTIME -->', () => basketRuntimeHtml);
 
-  const appState = createAppState().openModal('HOME');
-  const home = createHomePage();
-  const dbViewer = createDatabaseViewer(toTableDump(models));
-  const clientSelector = createClientSelector(clients);
-  const initializer = createQuotationInitializer({ duracion: 1 });
-  const quotationView = createQuotationView();
-  const sidebar = createSidebar(catalog);
-  const basket = createBasket().setSelectedDayIndex(0).setItemsForDay(0, []);
-  const header = createQuotationHeader();
-  const totals = createQuotationTotals(0);
-
-  quotationView.setSidebar(sidebar).setBasket(basket).setHeader(header).setTotals(totals);
-
-  home.on('NEW_QUOTATION', () => {
-    appState.openModal('CLIENT_SELECTOR');
-    clientSelector.open();
-  });
-  home.on('LOAD_PREVIOUS', () => {
-    appState.openModal('PREVIOUS_QUOTES');
-  });
-  home.on('VIEW_DATABASE', () => {
-    dbViewer.open();
-    appState.openModal('DATABASE_VIEWER');
-  });
-
-  clientSelector.on('CLIENT_SELECTED', (client) => {
-    appState.setSelectedClient(client).openModal('QUOTATION_INITIALIZER');
-    clientSelector.close();
-    initializer.open();
-    header.setContext({ clientName: client.nombre });
-  });
-  clientSelector.on('CANCEL', () => {
-    appState.openModal('HOME');
-  });
-
-  initializer.on('FORM_SUBMITTED', (context) => {
-    appState.setQuotationContext(context).openModal('QUOTATION');
-    initializer.close();
-    header.setContext({
-      pax: context.pax,
-      fecha: context.fecha,
-      duracion: context.duracion
-    });
-  });
-  initializer.on('FORM_CANCELLED', () => {
-    appState.openModal('CLIENT_SELECTOR');
-  });
-
-  sidebar.on('ITEM_SELECTED', (item) => {
-    basket.addItem(createBasketLine(item), 0);
-    refreshTotals(basket, totals);
-  });
+  const db = seedToResolverDb(seed);
+  const clients = extractClients(seed);
+  const runtime = createQuotationInternalRuntime({ db, clients });
 
   window.quotationFlowComponent = function quotationFlowComponent() {
     return {
-      app: {},
-      home: {},
-      clients: {},
-      initForm: {},
-      quote: {},
-      sidebar: {},
-      basket: {},
-      header: {},
-      totals: {},
-      db: {},
-
+      stage: 'browse',
+      clientModalOpen: false,
+      selectedClient: null,
+      settings: {
+        fechaInicio: new Date().toISOString().slice(0, 10),
+        duracionDias: 3,
+        paxGlobal: 20,
+        dia: 1,
+        horaInicio: '09:00',
+        duracionMin: 120,
+      },
+      clients: [],
+      clientSearchTerm: '',
+      catalog: { searchTerm: '', categories: [], summary: {} },
+      basket: {
+        dayOptions: [],
+        selectedDayIndex: 1,
+        selectedDayState: null,
+        basketEntries: [],
+        summary: {},
+      },
+      validation: {
+        rows: [],
+        totals: { subtotal: 0, iva: 0, total: 0 },
+      },
+      draggingCatalogItemId: null,
       init() {
-        this.sync();
+        const sync = (snapshot) => {
+          this.stage = snapshot.stage;
+          this.clientModalOpen = snapshot.clientModalOpen;
+          this.selectedClient = snapshot.selectedClient;
+          this.settings = { ...snapshot.settings };
+          this.clients = snapshot.clients || [];
+          this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
+          this.basket = snapshot.basket || {
+            dayOptions: [],
+            selectedDayIndex: 1,
+            selectedDayState: null,
+            basketEntries: [],
+            summary: {},
+          };
+          this.validation = snapshot.validation || {
+            rows: [],
+            totals: { subtotal: 0, iva: 0, total: 0 },
+          };
+        };
+
+        sync(runtime.getSnapshot());
+        runtime.subscribe(sync);
       },
 
-      sync() {
-        this.app = appState.toDisplayObject();
-        this.home = home.toDisplayObject();
-        this.clients = clientSelector.toDisplayObject();
-        this.initForm = initializer.toDisplayObject();
-        this.quote = quotationView.toDisplayObject();
-        this.sidebar = sidebar.toDisplayObject();
-        this.basket = basket.toDisplayObject();
-        this.header = header.toDisplayObject();
-        this.totals = totals.toDisplayObject();
-        this.db = dbViewer.toDisplayObject();
+      startQuotation() {
+        runtime.startQuotation();
       },
 
-      clickHome(actionId) {
-        home.clickAction(actionId);
-        this.sync();
+      goValidation() {
+        runtime.advanceToValidation();
       },
 
-      backHome() {
-        appState.openModal('HOME');
-        this.sync();
+      backToBasket() {
+        runtime.backToBasket();
       },
 
-      searchClients(term) {
-        clientSelector.search(term);
-        this.sync();
+      openClientModal() {
+        runtime.openClientModal();
+      },
+
+      closeClientModal() {
+        runtime.closeClientModal();
+      },
+
+      setClientSearch(term) {
+        this.clientSearchTerm = String(term || '');
+      },
+
+      filteredClients() {
+        const term = this.clientSearchTerm.trim().toLowerCase();
+        if (!term) return this.clients;
+        return this.clients.filter((client) => {
+          return [client.nombre, client.rut, client.email].some((field) =>
+            String(field || '').toLowerCase().includes(term)
+          );
+        });
       },
 
       selectClient(clientId) {
-        clientSelector.selectClient(clientId);
-        this.sync();
+        runtime.selectClient(clientId);
       },
 
-      setInitField(fieldName, value) {
-        initializer.setField(fieldName, value);
-        this.sync();
+      setCatalogSearch(term) {
+        runtime.setCatalogSearch(term);
       },
 
-      async submitInitializer() {
-        await initializer.submit();
-        this.sync();
+      toggleCategory(categoryId) {
+        runtime.toggleCategory(categoryId);
       },
 
-      addItem(itemId) {
-        sidebar.selectItem(itemId);
-        this.sync();
+      shipCatalogEntry(itemId) {
+        runtime.shipItemToSelectedDay(itemId);
       },
 
-      removeItem(itemId) {
-        basket.removeItem(itemId, 0);
-        refreshTotals(basket, totals);
-        this.sync();
+      startCatalogDrag(itemId, event) {
+        if (!itemId) return;
+        this.draggingCatalogItemId = itemId;
+        if (event?.dataTransfer) {
+          event.dataTransfer.setData('text/plain', String(itemId));
+          event.dataTransfer.effectAllowed = 'copy';
+        }
       },
 
-      resetFlow() {
-        appState.resetFlow();
-        basket.setItemsForDay(0, []);
-        totals.setSubtotal(0);
-        this.sync();
+      endCatalogDrag() {
+        this.draggingCatalogItemId = null;
       },
 
-      selectDbTable(tableName) {
-        dbViewer.selectTable(tableName);
-        this.sync();
+      isDraggingCatalogItem(itemId) {
+        return String(this.draggingCatalogItemId || '') === String(itemId || '');
       },
 
-      filterDb(term) {
-        dbViewer.setFilter(term);
-        this.sync();
+      draggedItemId(event) {
+        if (this.draggingCatalogItemId) return this.draggingCatalogItemId;
+        const fromDataTransfer = event?.dataTransfer?.getData('text/plain');
+        if (fromDataTransfer) return fromDataTransfer;
+        return null;
       },
 
-      closeDbViewer() {
-        dbViewer.close();
-        appState.openModal('HOME');
-        this.sync();
-      }
+      dropOnSelectedDay(event) {
+        const itemId = this.draggedItemId(event);
+        this.endCatalogDrag();
+        if (!itemId) return;
+        runtime.shipItemToSelectedDay(itemId);
+      },
+
+      dropOnDay(dayIndex, event) {
+        const itemId = this.draggedItemId(event);
+        this.endCatalogDrag();
+        if (!itemId) return;
+        runtime.selectDay(Number(dayIndex));
+        runtime.shipItemToSelectedDay(itemId);
+      },
+
+      selectDay(dayIndex) {
+        runtime.selectDay(Number(dayIndex));
+      },
+
+      setSetting(key, value) {
+        runtime.setQuotationSettings({
+          [key]: parseSettingValue(key, value, this.settings),
+        });
+      },
+
+      setBasketOverride(entryId, key, value) {
+        if (value === '') {
+          runtime.clearEntryOverride(entryId, key);
+          return;
+        }
+        runtime.setEntryOverride(entryId, key, parseOverrideValue(value));
+      },
+
+      clearBasketOverride(entryId, key) {
+        runtime.clearEntryOverride(entryId, key);
+      },
+
+      resetBasketOverrides(entryId) {
+        runtime.resetEntryOverrides(entryId);
+      },
+
+      destroyRuntimeEntry(column, entryId) {
+        if (column !== 'basket') return;
+        runtime.removeEntry(entryId);
+      },
+
+      duplicateBasketEntry(entryId) {
+        runtime.duplicateEntryInDay(entryId);
+      },
+
+      copyBasketEntry(entryId) {
+        const target = Number(this.basket.selectedDayIndex || 1) + 1;
+        runtime.copyEntryToDay(entryId, target);
+      },
+
+      copyDayToNextDay() {
+        runtime.copySelectedDayToNextDay();
+      },
+
+      ruleClass(state) {
+        if ((state?.ruleErrors || []).length > 0) return 'error';
+        if ((state?.ruleWarnings || []).length > 0) return 'warn';
+        return 'ok';
+      },
+
+      ruleIcon(state) {
+        if ((state?.ruleErrors || []).length > 0) return 'fa-xmark';
+        if ((state?.ruleWarnings || []).length > 0) return 'fa-exclamation';
+        return 'fa-check';
+      },
+
+      formatMoney(value) {
+        return Number(value || 0).toLocaleString('es-CL');
+      },
     };
   };
 
-  root.innerHTML = html;
-  if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+  root.innerHTML = template;
+  root.setAttribute('x-data', 'quotationFlowComponent()');
+  root.setAttribute('x-init', 'init()');
+
+  if (window.Alpine?.initTree) {
     window.Alpine.initTree(root);
   }
-}
-
-function createBasketLine(item) {
-  return {
-    id: `${item.id}-${Date.now()}`,
-    name: item.name,
-    category: item.category,
-    total: Number(item.price) || 0
-  };
-}
-
-function refreshTotals(basket, totals) {
-  const subtotal = basket.getItemsForDay(0).reduce((sum, item) => sum + Number(item.total || 0), 0);
-  totals.setSubtotal(subtotal);
 }

@@ -1,0 +1,682 @@
+<section class="quotation-shell">
+  <template x-if="stage === 'browse' || stage === 'client'">
+    <section class="panel home-panel">
+      <h2>Quotation Flow</h2>
+      <p class="muted">Internal flow ready: select client, configure quotation, build basket by days.</p>
+      <div class="home-actions">
+        <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
+        <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
+      </div>
+      <p class="muted" x-show="selectedClient">
+        Selected client: <strong x-text="selectedClient?.nombre"></strong>
+      </p>
+    </section>
+  </template>
+
+  <template x-if="stage === 'basket'">
+    <section class="workspace">
+      <aside class="sidebar panel">
+        <section class="global-context-panel" x-data="{ open: true }">
+          <button class="global-context-head" @click="open = !open">
+            <span class="global-context-title" x-text="selectedClient?.nombre || 'No client selected'"></span>
+            <i class="fa-solid fa-chevron-down" :class="open ? 'open' : ''"></i>
+          </button>
+
+          <div class="global-context-body" x-show="open" style="display:none;">
+            <div class="client-row">
+              <h3>Client</h3>
+              <button class="btn btn-small btn-secondary" @click="openClientModal()">Change</button>
+            </div>
+            <template x-if="selectedClient">
+              <div>
+                <p class="client-name" x-text="selectedClient.nombre"></p>
+                <p class="muted" x-text="selectedClient.rut || '-' "></p>
+                <p class="muted" x-text="selectedClient.email || '-' "></p>
+              </div>
+            </template>
+            <template x-if="!selectedClient">
+              <p class="muted">No client selected.</p>
+            </template>
+
+            <h3>Quotation Settings</h3>
+            <div class="config-grid">
+              <label>
+                <span>Start Date</span>
+                <input type="date" :value="settings.fechaInicio" @change="setSetting('fechaInicio', $event.target.value)" />
+              </label>
+              <label>
+                <span>Days</span>
+                <input type="number" min="1" :value="settings.duracionDias" @change="setSetting('duracionDias', $event.target.value)" />
+              </label>
+              <label>
+                <span>Pax Global</span>
+                <input type="number" min="1" :value="settings.paxGlobal" @change="setSetting('paxGlobal', $event.target.value)" />
+              </label>
+            </div>
+            <div class="settings-actions">
+              <button class="btn btn-small btn-secondary" @click="copyDayToNextDay()">Copy Day</button>
+              <button class="btn btn-small btn-primary" @click="goValidation()" :disabled="basket.basketEntries.length === 0">Validate</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="catalog-panel">
+          <div class="catalog-header">
+            <h3>Catalog</h3>
+            <input
+              type="text"
+              placeholder="Search category or item"
+              :value="catalog.searchTerm"
+              @input="setCatalogSearch($event.target.value)"
+            />
+          </div>
+          <p class="catalog-hint" x-show="draggingCatalogItemId">Drop an item on day tabs or timeline</p>
+          <div class="categories-list">
+            <template x-for="category in catalog.categories" :key="category.id">
+              <article class="category-card">
+                <button class="category-head" @click="toggleCategory(category.id)">
+                  <span class="category-name" x-text="category.nombre"></span>
+                  <i class="fa-solid fa-chevron-down" :class="category.isExpanded ? 'open' : ''"></i>
+                </button>
+                <div class="category-body" x-show="category.isExpanded" style="display:none;">
+                  <template x-if="!category.isLoaded">
+                    <p class="muted">Loading...</p>
+                  </template>
+                  <div x-show="category.isLoaded" x-data="{ get catalogEntries() { return category.catalogEntries || []; } }">
+                    
+          <template x-if="catalogEntries.length === 0">
+            <p class="empty">No catalog entities yet</p>
+          </template>
+          <template x-for="entry in catalogEntries" :key="entry.id">
+            <div class="entity-wrap">
+              <article class="mini-card runtime-card catalog-card"
+                       :class="(typeof isDraggingCatalogItem === 'function' && isDraggingCatalogItem(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)) ? 'is-dragging' : ''"
+                       :draggable="typeof startCatalogDrag === 'function'"
+                       @dragstart="typeof startCatalogDrag === 'function' && startCatalogDrag(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item, $event)"
+                       @dragend="typeof endCatalogDrag === 'function' && endCatalogDrag()"
+                       x-data="{ showGlosa: false, rulesHover: false }"
+                       @mouseenter="showGlosa = true"
+                       @mouseleave="showGlosa = false; rulesHover = false">
+                <div class="mini-main">
+                  <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
+                  <h5 x-text="entry.state.definition?.name || 'Item'"></h5>
+                  <p class="catalog-formula" x-text="entry.state.catalogFormulaHuman || '-' "></p>
+                  <div class="glosa-popover"
+                       x-show="showGlosa && !rulesHover && (entry.state.definition?.description || '').trim().length > 0"
+                       style="display:none;"
+                       x-text="entry.state.definition?.description">
+                  </div>
+                </div>
+                <div class="card-actions">
+                  <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true; rulesHover = true" @mouseleave="open = false; rulesHover = false">
+                    <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
+                      <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+                    </div>
+                    <div class="rules-popover" x-show="open" style="display:none;">
+                      <div class="popover-header">Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)</div>
+                      <template x-if="(entry.state.definition?.rules || []).length === 0">
+                        <div class="popover-empty">No rules</div>
+                      </template>
+                      <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
+                        <div class="popover-rule-row"
+                             :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+                          <i class="fa-solid fa-xs"
+                             :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
+                          <span x-text="rule.Nombre"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                  <button class="icon-action"
+                          x-show="typeof shipCatalogEntry === 'function'"
+                          @click.stop="shipCatalogEntry(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)"
+                          title="Ship to basket"
+                          aria-label="Ship to basket">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </article>
+            </div>
+          </template>
+
+                  </div>
+                </div>
+              </article>
+            </template>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main panel">
+        <header class="timeline-header">
+          <span class="timeline-title">
+            <i class="fa-regular fa-calendar"></i>
+            Day <span x-text="basket.selectedDayIndex"></span>
+            <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio"></span></span>
+          </span>
+          <span class="timeline-hint" x-show="!draggingCatalogItemId && basket.basketEntries.length === 0">
+            Drag items from catalog into this timeline
+          </span>
+          <span class="timeline-hint" x-show="draggingCatalogItemId">
+            Dropping on a day tab ships directly to that day
+          </span>
+        </header>
+
+        <section class="day-tabs">
+          <template x-for="day in basket.dayOptions" :key="day.dayIndex">
+            <button
+              class="day-tab"
+              :class="basket.selectedDayIndex === day.dayIndex ? 'active' : ''"
+              @click="selectDay(day.dayIndex)"
+              @dragover.prevent
+              @drop.prevent="dropOnDay(day.dayIndex, $event)"
+            >
+              <strong x-text="day.label"></strong>
+            </button>
+          </template>
+        </section>
+
+        <section class="basket-list"
+                 :class="draggingCatalogItemId ? 'drop-active' : ''"
+                 @dragover.prevent
+                 @drop.prevent="dropOnSelectedDay($event)"
+                 x-data="{ get basketEntries() { return basket.basketEntries || []; } }">
+          
+          <template x-if="basketEntries.length === 0">
+            <p class="empty">No basket entities yet</p>
+          </template>
+          <template x-for="entry in basketEntries" :key="entry.id">
+            <article class="accordion-item runtime-card basket-card" x-data="{ expanded: true }">
+              <div class="accordion-header" @click="expanded = !expanded">
+                <div class="acc-time" x-show="entry.state.showHora">
+                  <input
+                    type="time"
+                    :value="entry.state.overrides?.hora || entry.state.schedule?.hora || globalContext.hora || '09:00'"
+                    @click.stop
+                    @change="setBasketOverride(entry.id, 'hora', $event.target.value)"
+                    class="time-input-small"
+                  >
+                </div>
+                <div class="acc-info">
+                  <div class="acc-title" x-text="entry.state.definition?.name || 'Item'"></div>
+                  <div class="acc-subtitle" x-text="entry.state.basketLegend || '-' "></div>
+                </div>
+                <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.stop>
+                  <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
+                    <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+                  </div>
+                  <div class="rules-popover rules-popover-right" x-show="open" style="display:none;">
+                    <div class="popover-header">Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)</div>
+                    <template x-if="(entry.state.definition?.rules || []).length === 0">
+                      <div class="popover-empty">No rules</div>
+                    </template>
+                    <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
+                      <div class="popover-rule-row"
+                           :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+                        <i class="fa-solid fa-xs"
+                           :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
+                        <span x-text="rule.Nombre"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <div class="acc-total-pill">
+                  $<span x-text="formatMoney(entry.state.total)"></span>
+                </div>
+                <div class="acc-toggle">
+                  <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </div>
+              </div>
+
+              <div class="accordion-body" x-show="expanded">
+                <div class="accordion-layout">
+                  <div class="accordion-col-left">
+                    <div class="control-group" x-show="entry.state.showPaxControl" :class="entry.state.isUserSetPax ? 'field-user-set' : ''">
+                      <label>Pax <span class="manual-badge" x-show="entry.state.isUserSetPax">manual</span></label>
+                      <input type="number" :value="entry.state.quantities?.pax || 0" @change="setBasketOverride(entry.id, 'pax', $event.target.value)" min="0">
+                    </div>
+                    <div class="control-group" x-show="entry.state.showUnitsControl" :class="entry.state.isUserSetCantidad ? 'field-user-set' : ''">
+                      <label>Unidades <span class="manual-badge" x-show="entry.state.isUserSetCantidad">manual</span></label>
+                      <input type="number" :value="entry.state.quantities?.cantidad || 0" @change="setBasketOverride(entry.id, 'cantidad', $event.target.value)" min="0">
+                    </div>
+                    <div class="control-group" x-show="entry.state.showTimeControl" :class="entry.state.isUserSetDuracion ? 'field-user-set' : ''">
+                      <label>Duracion (min) <span class="manual-badge" x-show="entry.state.isUserSetDuracion">manual</span></label>
+                      <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setBasketOverride(entry.id, 'duracionMin', $event.target.value)" min="0" step="15">
+                    </div>
+
+                    <div class="line-price-box">
+                      <div class="line-price-row" x-show="Number(entry.state.lineRateValue || 0) > 0">
+                        <span x-text="entry.state.lineRateLabel || 'Fijo'"></span>
+                        <strong x-text="'$' + formatMoney(entry.state.lineRateValue)"></strong>
+                      </div>
+                      <div class="line-price-row" x-show="(entry.state.lineBaseValue || 0) > 0">
+                        <span>Base fija</span>
+                        <strong x-text="'$' + formatMoney(entry.state.lineBaseValue)"></strong>
+                      </div>
+                      <div class="line-price-row total-row">
+                        <span>Total</span>
+                        <strong x-text="'$' + formatMoney(entry.state.total)"></strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="accordion-col-middle">
+                    <div class="field">
+                      <label>Comentario</label>
+                      <textarea
+                        rows="5"
+                        :value="('comentarios' in (entry.state.overrides || {})) ? entry.state.overrides.comentarios : (entry.state.definition?.description || '')"
+                        @change="setBasketOverride(entry.id, 'comentarios', $event.target.value)"
+                        placeholder="Comentario de la linea..."
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div class="accordion-col-actions">
+                    <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' && copyBasketEntry(entry.id)"><i class="fa-solid fa-forward-step"></i></button>
+                    <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' && duplicateBasketEntry(entry.id)"><i class="fa-solid fa-copy"></i></button>
+                    <button class="icon-action danger" title="Remove" aria-label="Remove" @click="destroyRuntimeEntry('basket', entry.id)"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </template>
+
+        </section>
+
+        <footer class="summary-row">
+          <div>
+            <p class="muted">Entries: <strong x-text="basket.summary.totalEntries || 0"></strong></p>
+          </div>
+          <div>
+            <p class="muted">Subtotal: <strong>$<span x-text="formatMoney(validation.totals.subtotal)"></span></strong></p>
+            <p class="total">Total: $<span x-text="formatMoney(validation.totals.total)"></span></p>
+          </div>
+        </footer>
+      </main>
+    </section>
+  </template>
+
+  <template x-if="stage === 'validation'">
+    <section class="panel validation-panel">
+      <h2>Validation Preview</h2>
+      <p class="muted">
+        Client: <strong x-text="selectedClient?.nombre || '-' "></strong>
+        · Pax: <strong x-text="settings.paxGlobal"></strong>
+        · Date: <strong x-text="settings.fechaInicio"></strong>
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Item</th>
+              <th>Pax</th>
+              <th>Units</th>
+              <th>Hour</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="row in validation.rows" :key="row.entryId">
+              <tr>
+                <td x-text="'Dia ' + row.dayIndex"></td>
+                <td x-text="row.name"></td>
+                <td x-text="row.pax"></td>
+                <td x-text="row.unidades"></td>
+                <td x-text="row.hora"></td>
+                <td x-text="'$' + formatMoney(row.total)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="validation-totals">
+        <p>Subtotal: <strong>$<span x-text="formatMoney(validation.totals.subtotal)"></span></strong></p>
+        <p>IVA: <strong>$<span x-text="formatMoney(validation.totals.iva)"></span></strong></p>
+        <p>Total: <strong>$<span x-text="formatMoney(validation.totals.total)"></span></strong></p>
+      </div>
+
+      <div class="validation-actions">
+        <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-primary" disabled>Confirm (deferred)</button>
+      </div>
+    </section>
+  </template>
+
+  <div class="modal-overlay" x-show="clientModalOpen" style="display:none;">
+    <div class="modal panel" @click.away="closeClientModal()">
+      <div class="modal-head">
+        <h3>Select Client</h3>
+        <button class="btn btn-small btn-secondary" @click="closeClientModal()">Close</button>
+      </div>
+      <input
+        type="text"
+        placeholder="Search by name/rut/email"
+        :value="clientSearchTerm"
+        @input="setClientSearch($event.target.value)"
+      />
+      <div class="client-list">
+        <template x-for="client in filteredClients()" :key="client.id">
+          <button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre"></strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')"></small>
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  :root {
+    --primary: #2d5a27;
+    --primary-mid: #3d7a35;
+    --primary-bg: #edf5eb;
+    --border: #e2e8f0;
+    --border-dark: #cbd5e1;
+    --bg: #f8fafc;
+    --bg-cell: #ffffff;
+    --bg-row-alt: #f8fafc;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .quotation-shell {
+    padding: 14px;
+    max-width: 1500px;
+    margin: 0 auto;
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+  .panel { background: var(--bg-cell); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .muted { color: var(--text-muted); font-size: 0.81rem; }
+  h2, h3 { margin: 0 0 10px; color: var(--text); font-size: 1rem; }
+
+  .home-panel { max-width: 720px; margin: 30px auto; display: grid; gap: 10px; }
+  .home-actions { display: flex; gap: 8px; }
+
+  .workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; }
+  .sidebar {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .global-context-panel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .global-context-head {
+    width: 100%;
+    border: 0;
+    background: var(--bg-row-alt);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .global-context-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .global-context-head i {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+  .global-context-head i.open { transform: rotate(180deg); }
+  .global-context-body {
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+  }
+  .client-row { display: flex; justify-content: space-between; align-items: center; }
+  .client-name { margin: 0; font-weight: 700; color: var(--text); font-size: 0.92rem; }
+
+  .catalog-panel { min-height: 0; display: grid; gap: 8px; }
+  .catalog-header h3 {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+  }
+  .catalog-header input {
+    width: 100%;
+    border: 1px solid var(--border-dark);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 0.82rem;
+    background: var(--bg-cell);
+    color: var(--text);
+  }
+  .catalog-hint {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    font-style: italic;
+    font-family: var(--mono);
+  }
+  .categories-list { display: grid; gap: 8px; }
+  .category-card { border: 1px solid var(--border); border-radius: 8px; overflow: visible; }
+  .category-head { width: 100%; border: 0; background: var(--bg-row-alt); display: flex; justify-content: space-between; padding: 8px 10px; cursor: pointer; }
+  .category-name { font-weight: 700; color: var(--text); font-size: 0.8rem; }
+  .category-head i { transition: transform 0.2s; }
+  .category-head i.open { transform: rotate(180deg); }
+  .category-body { padding: 8px; border-top: 1px solid var(--border); }
+
+  .main {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-dark);
+    border-radius: 8px;
+    background: var(--bg-cell);
+    flex-shrink: 0;
+  }
+  .timeline-title {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .timeline-hint {
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+  .config-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .config-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.66rem;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  input, select, textarea {
+    border: 1px solid var(--border-dark);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--text);
+    background: var(--bg-cell);
+  }
+  .settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .day-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .day-tab {
+    border: 1px solid var(--border-dark);
+    border-radius: 8px;
+    background: var(--bg-row-alt);
+    padding: 5px 9px;
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-family: var(--mono);
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .day-tab.active {
+    border-color: var(--primary-mid);
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+  .day-tab:hover {
+    border-color: var(--primary-mid);
+  }
+
+  .basket-list {
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+    background: var(--bg);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .basket-list.drop-active {
+    border-color: var(--primary-mid);
+    background: #e8f2e6;
+  }
+
+  .summary-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-dark); padding-top: 8px; }
+  .total { margin: 0; font-size: 1rem; font-weight: 700; color: var(--primary); font-family: var(--mono); }
+
+  .validation-panel { max-width: 1100px; margin: 0 auto; display: grid; gap: 12px; }
+  .table-wrap { overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; border-bottom: 1px solid #e2e8f0; padding: 8px 10px; font-size: 0.85rem; }
+  th { background: #f8fafc; color: #334155; font-weight: 700; }
+  .validation-totals { display: flex; gap: 20px; justify-content: flex-end; }
+  .validation-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 60;
+    display: flex; align-items: center; justify-content: center; padding: 12px;
+  }
+  .modal { width: min(640px, 100%); display: grid; gap: 10px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; }
+  .client-list { max-height: 320px; overflow-y: auto; display: grid; gap: 6px; }
+  .client-item { border: 1px solid var(--border); border-radius: 8px; background: #fff; text-align: left; padding: 8px 10px; cursor: pointer; }
+  .client-item:hover { background: var(--bg); }
+  .client-item strong { display: block; color: var(--text); font-size: 0.84rem; }
+  .client-item small { color: var(--text-muted); font-size: 0.75rem; }
+
+  .entity-wrap { margin-bottom: 8px; position: relative; }
+  .entity-wrap:hover { z-index: 20; }
+  .runtime-card { border-left: 5px solid var(--primary-mid); }
+  .mini-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px;
+    border: 1px solid var(--border-dark);
+    border-radius: 8px;
+    background: #fff;
+    cursor: grab;
+    transition: box-shadow 0.12s, border-color 0.12s;
+  }
+  .mini-card:hover {
+    box-shadow: 0 2px 8px rgba(45, 90, 39, 0.16);
+    border-color: var(--primary-mid);
+  }
+  .mini-card.is-dragging {
+    opacity: 0.35;
+    cursor: grabbing;
+  }
+  .mini-card h5 { margin: 0; font-size: 0.84rem; line-height: 1.25; }
+  .mini-main { min-width: 0; }
+  .category-badge {
+    background: var(--primary-bg);
+    color: var(--primary);
+    font-size: 0.64rem;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    display: inline-block;
+  }
+  .catalog-formula { margin: 5px 0 0; color: var(--text-muted); font-size: 0.74rem; font-family: var(--mono); }
+  .card-actions { display: flex; align-items: flex-start; gap: 8px; margin-left: 8px; }
+
+  .rules-indicator { position: relative; z-index: 26; }
+  .rules-dot { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; border: 1px solid transparent; }
+  .dot-ok { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  .dot-warn { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+  .dot-error { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+  .rules-popover { position: absolute; top: 30px; left: 0; z-index: 30; width: 250px; max-height: 280px; overflow-y: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15); }
+  .rules-popover-right { left: auto; right: 0; }
+  .popover-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: #94a3b8; background: #f8fafc; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+  .popover-empty { font-size: 0.76rem; color: #94a3b8; padding: 10px; }
+  .popover-rule-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #334155; padding: 8px 10px; border-top: 1px solid #f1f5f9; }
+  .popover-rule-row.row-error { background: #fef2f2; color: #991b1b; }
+  .popover-rule-row.row-warn { background: #fffbeb; color: #92400e; }
+
+  .acc-total-pill { display: inline-flex; align-items: center; padding: 3px 11px; background: #e8f2ec; color: #1a3d2b; border-radius: 20px; font-size: 0.74rem; font-weight: 700; font-family: var(--mono); }
+  .accordion-item { background: #fff; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; overflow: hidden; margin-bottom: 10px; }
+  .accordion-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; background: #fff; }
+  .accordion-body { border-top: 1px solid var(--border); background: #fafafa; padding: 12px; }
+  .accordion-layout { display: grid; grid-template-columns: 200px minmax(180px, 1fr) 40px; gap: 12px; }
+  .control-group label { font-size: 0.75rem; color: #475569; font-weight: 600; display: flex; gap: 6px; margin-bottom: 4px; }
+  .control-group input { width: 100%; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px 8px; font-size: 0.85rem; background: #fff; }
+  .field-user-set input { border-color: #f97316; background: #fff7ed; }
+  .manual-badge { background: #f97316; color: #fff; font-size: 0.62rem; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; font-weight: 700; }
+  .line-price-box { margin-top: 6px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+  .line-price-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #334155; margin-bottom: 4px; }
+  .line-price-row.total-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; font-weight: 700; }
+  .accordion-col-middle textarea { width: 100%; resize: vertical; min-height: 92px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font: inherit; font-size: 0.82rem; background: #fff; }
+  .accordion-col-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .icon-action { width: 30px; height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #64748b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .icon-action.danger { color: #b91c1c; border-color: #fecaca; }
+
+  @media (max-width: 920px) {
+    .workspace { grid-template-columns: 1fr; }
+    .sidebar, .main { max-height: none; }
+    .config-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 820px) {
+    .accordion-layout,
+    .validation-totals { grid-template-columns: 1fr; display: grid; }
+    .config-grid { grid-template-columns: 1fr; }
+    .accordion-col-actions { flex-direction: row; justify-content: flex-start; }
+  }
+</style>

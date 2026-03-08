@@ -21,11 +21,16 @@ Step 01 is the smallest production-relevant integration slice.
 Build a category playground route that:
 
 1. Loads DB seed once.
-2. Lets the user select one category.
-3. Resolves all active category items through `resolveItemDefinition`.
-4. Creates one item actor per runtime entry.
-5. Broadcasts context (`paxGlobal`, `dia`, `hora`) to every child actor via `SET_CONTEXT`.
-6. Aggregates snapshot collections into category display state.
+2. Maps seed using shared adapter `seedToResolverDb(seed)`.
+3. Lets the user select one category.
+4. Resolves all active category items through `resolveItemDefinition`.
+5. Creates one item actor per runtime entry.
+6. Broadcasts context (`paxGlobal`, `dia`, `hora`) to every child actor via `SET_CONTEXT`.
+7. Aggregates snapshot collections into category display state.
+
+Presentation constraint for this step:
+
+- Use the shared item catalog HTML (`catalogRuntimeHtml`) instead of duplicating card markup in category templates.
 
 Identity rule for this and all next steps:
 
@@ -34,11 +39,11 @@ Identity rule for this and all next steps:
 
 ## Objectives
 
-- [ ] Add `Category` container runtime contract for one selected category.
-- [ ] Load all active items for that category from DB.
-- [ ] Aggregate `subtotal`, `hasErrors`, `hasWarnings` from child snapshots.
-- [ ] Expose aggregated rule collections for debugging and validation.
-- [ ] Guarantee clean actor subscription teardown on reload/switch/destroy.
+- [x] Add `Category` container runtime contract for one selected category.
+- [x] Load all active items for that category from DB.
+- [x] Aggregate `subtotal`, `hasErrors`, `hasWarnings` from child snapshots.
+- [x] Expose aggregated rule collections for debugging and validation.
+- [x] Guarantee clean actor subscription teardown on reload/switch/destroy.
 
 ## Detailed Subagent Instructions
 

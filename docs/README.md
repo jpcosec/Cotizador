@@ -28,6 +28,11 @@ Practical how-tos and tutorials.
 - `testing-components.md` — Testing patterns, setup, and test structure
 - `debugging-components.md` — Common debugging techniques and troubleshooting
 
+### DEPLOYMENT/
+Build and deployment flows.
+
+- `gas-bundling.md` — Rollup + GAS workspace generation and clasp deploy steps
+
 ### DOMAIN/
 Domain model and business logic documentation.
 

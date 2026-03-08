@@ -32,13 +32,17 @@ Preserve identity contract:
 - item identity from `ID_Item`.
 - runtime entry identity with generated `entryId`.
 
+Reuse constraint:
+
+- Keep using shared seed mapping (`seedToResolverDb`) and shared item catalog rendering sections; do not fork per-category card HTML.
+
 ## Objectives
 
-- [ ] Render all active categories from DB.
-- [ ] Provide category expand/collapse behavior.
-- [ ] Keep category-level aggregates visible and correct.
-- [ ] Use lazy runtime initialization to avoid unnecessary actor creation.
-- [ ] Keep teardown deterministic when categories deactivate.
+- [x] Render all active categories from DB.
+- [x] Provide category expand/collapse behavior.
+- [x] Keep category-level aggregates visible and correct.
+- [x] Use lazy runtime initialization to avoid unnecessary actor creation.
+- [x] Keep teardown deterministic when categories deactivate.
 
 ## Detailed Subagent Instructions
 

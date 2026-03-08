@@ -1,0 +1,307 @@
+{
+  "_meta": {
+    "date": "2026-03-07",
+    "branch": "fix/i3-from-step-01",
+    "tests_passing": 529,
+    "method": "cross-referenced changelog, git log, plan objectives, and filesystem"
+  },
+
+  "0-cleanup": {
+    "status": "not_started",
+    "goal": "Remove thin wrapper delegation layer in apps/quotation/ and relocate premature quotation assembly out of packages/",
+    "blocking_reason": "Deferred because quotation flow was assembled before its constituent components (catalog, basket) were individually built and verified. Still the case today.",
+    "done": [],
+    "todo": [
+      {
+        "item": "Delete apps/quotation/state/AppStateMachine.js",
+        "file": "apps/quotation/state/AppStateMachine.js",
+        "check": "file exists"
+      },
+      {
+        "item": "Delete apps/quotation/components/HomePage.js",
+        "file": "apps/quotation/components/HomePage.js",
+        "check": "file exists"
+      },
+      {
+        "item": "Delete apps/quotation/components/ClientSelector.js",
+        "file": "apps/quotation/components/ClientSelector.js",
+        "check": "file exists"
+      },
+      {
+        "item": "Update test imports to reference packages/ directly (appStateMachine.test.js, home.test.js, clientSelector.test.js)",
+        "files": [
+          "apps/quotation/state/appStateMachine.test.js",
+          "apps/quotation/components/home.test.js",
+          "apps/quotation/components/clientSelector.test.js"
+        ]
+      },
+      {
+        "item": "Move apps/quotation/components/ClientSelector.html to packages/components/quotation/modals/ClientSelector.html"
+      },
+      {
+        "item": "Move packages/components/quotation/ to apps/quotation/pkg/ — packages/ should contain only individually-verified components",
+        "from": "packages/components/quotation/",
+        "to": "apps/quotation/pkg/"
+      },
+      {
+        "item": "Verify no file imports from old packages/components/quotation/ path",
+        "check": "grep -r 'packages/components/quotation' . --include=*.js --include=*.html | grep -v node_modules => 0 results"
+      }
+    ],
+    "unblock_condition": "Can be done at any time — independent of I-3. Recommended before phase 05 wires the full quotation UI."
+  },
+
+  "I-1-database": {
+    "status": "partial",
+    "goal": "Verified seed, edit operations, validation rules, and interactive DB browser playground",
+    "done": [
+      {
+        "item": "seed.js with real DB field names for all tables",
+        "file": "packages/database/src/seed.js"
+      },
+      {
+        "item": "seed.test.js conformance tests",
+        "file": "packages/database/src/seed.test.js"
+      },
+      {
+        "item": "editService.js exposing updateRow / addRow / deleteRow",
+        "file": "packages/database/src/services/editService.js"
+      },
+      {
+        "item": "validation.js with per-table field rules",
+        "file": "packages/database/src/validation.js"
+      },
+      {
+        "item": "DB browser playground (read-only, table navigation, column sort, tag filters)",
+        "file": "apps/sandbox/routes/step-I1-database/index.html"
+      },
+      {
+        "item": "All 11 tables loaded and browsable (including transactional tables with 0 rows)"
+      }
+    ],
+    "todo": [
+      {
+        "item": "Wire editService into playground: double-click cell → inline edit → Enter commits / Escape cancels",
+        "affects": "apps/sandbox/routes/step-I1-database/index.html",
+        "note": "editService.js is written but not called from the playground"
+      },
+      {
+        "item": "Wire validation into playground: invalid input shows red outline + tooltip, blocks save",
+        "affects": "apps/sandbox/routes/step-I1-database/index.html",
+        "note": "validation.js is written but not called from the playground"
+      },
+      {
+        "item": "Add 'Add row' button in toolbar: appends blank row, enters edit mode on first required field, saves/cancels cleanly",
+        "affects": "apps/sandbox/routes/step-I1-database/index.html"
+      },
+      {
+        "item": "Add playground tests for inline-edit and add-row flows"
+      }
+    ],
+    "unblock_condition": "Independent — can be done at any time. Prerequisite for III-1-resolver."
+  },
+
+  "III-1-resolver": {
+    "status": "not_started",
+    "goal": "Read-only resolver panel in the DB viewer: select an item from ITEM_CATALOGO, see its fully-resolved definition (inherited profile, pricing rules, computed defaults)",
+    "prerequisite": "I-1-database must be complete (inline edit + add row wired)",
+    "done": [
+      {
+        "item": "resolveItemDefinition() pure function with 5-way join",
+        "file": "packages/database/src/resolveItemDefinition.js"
+      },
+      {
+        "item": "Resolver output contract documented",
+        "file": "plan/III-1-resolver/field_contracts.md"
+      },
+      {
+        "item": "Resolver panel HTML draft",
+        "file": "plan/III-1-resolver/html_resolver_panel_draft.html"
+      }
+    ],
+    "todo": [
+      {
+        "item": "Add resolverItemId and resolvedItem fields to databaseMachine context",
+        "file": "packages/database/src/machine/databaseMachine.js"
+      },
+      {
+        "item": "Add SELECT_RESOLVER_ITEM transition to databaseMachine (browsing → browsing, updates resolvedItem context)",
+        "file": "packages/database/src/machine/databaseMachine.js"
+      },
+      {
+        "item": "Wire resolver dropdown in playground: selecting ITEM_CATALOGO row fires SELECT_RESOLVER_ITEM",
+        "file": "apps/sandbox/routes/step-I1-database/index.html"
+      },
+      {
+        "item": "Render resolver panel (visible when resolvedItem !== null): inheritance chain, pricing profile, applicable rules",
+        "reference": "plan/III-1-resolver/html_resolver_panel_draft.html"
+      },
+      {
+        "item": "Add tests for SELECT_RESOLVER_ITEM transition and resolvedItem context shape"
+      }
+    ],
+    "unblock_condition": "Unblocked after I-1-database playground edits are wired (inline-edit + add-row). Can be deferred since resolveItemDefinition() already works — this is a debug/diagnostic UI feature."
+  },
+
+  "I-2-item": {
+    "status": "complete",
+    "done": [
+      "Item.fromDefinition() accepts real DB shape from resolveItemDefinition()",
+      "STATE_CONTRACT.md written and accurate",
+      "DB-grounded tests in Item.test.js",
+      "Playground with real seed item selector (no manual price sliders)",
+      "UI visibility flags from category dimension flags (showPax, showCantidad, showDuracion, showHora)",
+      "Category-profile inheritance and item-level override both working"
+    ],
+    "todo": []
+  },
+
+  "I-2b-item-cleanup": {
+    "status": "complete",
+    "done": [
+      "Dead files removed (ItemComponent.js, ItemComponent.html, RulesEditor.html, orphaned docs)",
+      "PERFILES_INICIALIZACION table added to Config_Schema.js + CSV seed",
+      "resolveItemDefinition upgraded to 5-way join (item + categoria + perfil + perfilInit + reglas)",
+      "Item.fromDefinition() maps perfilInit to defaultQuantities",
+      "Context zero-value bug fixed (string '0' → number 0)",
+      "UI split: ItemDisplay.html (production) + ResolverPanel.html (sandbox)"
+    ],
+    "todo": []
+  },
+
+  "I-3-category": {
+    "status": "phases_01_to_04_implemented_uncommitted__phase_05_pending",
+    "note": "All phase logic exists in working tree. Branch fix/i3-from-step-01 is fixing a regression in step-01 before the full set can be committed. Steps 02-04 artifacts are untracked in git.",
+
+    "git_state": {
+      "committed": ["phase 01 — single category loader (commit 11978b8)"],
+      "uncommitted_modified": [
+        "packages/components/category/machine/categoryMachine.js",
+        "packages/components/category/tests/categoryMachine.test.js"
+      ],
+      "uncommitted_untracked": [
+        "packages/components/catalog/",
+        "packages/components/basket/",
+        "packages/components/basket-day/",
+        "apps/sandbox/routes/step-I3-category-02/",
+        "apps/sandbox/routes/step-I3-basket-day-01/",
+        "apps/sandbox/routes/step-I3-basket-02/",
+        "apps/sandbox/playground/basket-day/",
+        "apps/sandbox/playground/basket/",
+        "apps/sandbox/playground/catalog/"
+      ]
+    },
+
+    "phases": {
+      "01_category_loader": {
+        "status": "complete_committed",
+        "artifacts": [
+          "packages/components/category/machine/categoryMachine.js",
+          "packages/components/category/tests/categoryMachine.test.js",
+          "apps/sandbox/playground/category/mountCategoryPlayground.js",
+          "apps/sandbox/routes/step-I3-category-01/index.html"
+        ],
+        "open_issue": "Branch fix/i3-from-step-01 indicates a teardown/regression bug found after commit. Fix in progress."
+      },
+      "02_full_catalog": {
+        "status": "implemented_not_committed",
+        "artifacts": [
+          "packages/components/catalog/machine/catalogMachine.js",
+          "packages/components/catalog/tests/catalogMachine.test.js",
+          "packages/components/catalog/ui/CatalogStandalone.html",
+          "apps/sandbox/playground/catalog/mountCatalogPlayground.js",
+          "apps/sandbox/routes/step-I3-category-02/index.html"
+        ],
+        "todo": ["Commit after phase-01 fix is resolved"]
+      },
+      "03_basket_single_day": {
+        "status": "implemented_not_committed",
+        "artifacts": [
+          "packages/components/basket-day/machine/basketDayMachine.js",
+          "packages/components/basket-day/tests/basketDayMachine.test.js",
+          "packages/components/basket-day/ui/BasketDayStandalone.html",
+          "apps/sandbox/playground/basket-day/mountBasketDayPlayground.js",
+          "apps/sandbox/routes/step-I3-basket-day-01/index.html"
+        ],
+        "todo": ["Commit after phase-01 fix and phase-02 commit"]
+      },
+      "04_basket_by_days": {
+        "status": "implemented_not_committed",
+        "artifacts": [
+          "packages/components/basket/machine/basketMachine.js",
+          "packages/components/basket/tests/basketMachine.test.js",
+          "packages/components/basket/ui/BasketStandalone.html",
+          "apps/sandbox/playground/basket/mountBasketPlayground.js",
+          "apps/sandbox/routes/step-I3-basket-02/index.html"
+        ],
+        "todo": ["Commit after phase-03 commit"]
+      },
+      "05_full_planned_ui_integration": {
+        "status": "pending",
+        "reference": "plan/I-3-category/phases/05_full_planned_ui_integration.md",
+        "draft_ui": "plan/I-3-category/html_playground_draft.html",
+        "todo": [
+          {
+            "subphase": "A — UI-to-event mapping matrix",
+            "item": "Map every control/gesture in html_playground_draft.html to its target orchestrator event and expected state impact. Produce a strict matrix used as implementation checklist."
+          },
+          {
+            "subphase": "B — Phased UI wiring",
+            "item": "1. Shell + panel regions layout",
+            "constraint": "No business logic in Alpine — only event dispatch and projection binding"
+          },
+          {
+            "subphase": "B — Phased UI wiring",
+            "item": "2. Read-only projection binding to existing toDisplayObject() shapes"
+          },
+          {
+            "subphase": "B — Phased UI wiring",
+            "item": "3. Interaction wiring: buttons, selectors, drag/drop mapped to existing container commands (ship, override, clear, move, replicate day)"
+          },
+          {
+            "subphase": "B — Phased UI wiring",
+            "item": "4. Timeline/scheduler gestures mapped to entry/day operations"
+          },
+          {
+            "subphase": "C — Acceptance and regression suite",
+            "item": "Add Playwright E2E tests: catalog-to-basket shipping, override behavior, day operations, full UI interactions"
+          }
+        ],
+        "constraints": [
+          "Must consume existing shared templates/adapters — no duplication of item card HTML or DB mapping helpers",
+          "Do not modify item domain functions or item machine contract",
+          "No direct business-state mutation in Alpine"
+        ],
+        "unblock_condition": "Phases 01-04 committed and all tests green"
+      }
+    }
+  },
+
+  "_immediate_priorities": [
+    {
+      "priority": 1,
+      "action": "Resolve fix/i3-from-step-01 — fix the phase-01 teardown regression, then commit phases 02-04 in sequence",
+      "unblocks": "I-3 phase 05"
+    },
+    {
+      "priority": 2,
+      "action": "I-1 playground edit wiring — connect editService.js and validation.js to the DB browser UI",
+      "unblocks": "III-1-resolver"
+    },
+    {
+      "priority": 3,
+      "action": "I-3 phase 05 — full planned UI integration over the now-stable catalog/basket/basket-day contracts",
+      "unblocks": "0-cleanup (natural moment to restructure quotation assembly)"
+    },
+    {
+      "priority": 4,
+      "action": "III-1-resolver panel — wire SELECT_RESOLVER_ITEM into DB playground",
+      "unblocks": "nothing critical — diagnostic utility"
+    },
+    {
+      "priority": 5,
+      "action": "0-cleanup — remove thin wrapper layer in apps/quotation/, move quotation assembly to apps/quotation/pkg/",
+      "unblocks": "clean package boundaries for future GAS bundling"
+    }
+  ]
+}

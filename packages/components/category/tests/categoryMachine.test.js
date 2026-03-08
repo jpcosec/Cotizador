@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createCategoryActor } from '../machine/categoryMachine.js';
 
 function makeDbFixture() {
@@ -128,6 +128,36 @@ function nextTick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function makeStubItemActorFactory() {
+  const created = [];
+
+  function createItemActorImpl(seed) {
+    const unsubscribe = vi.fn();
+    const actor = {
+      send: vi.fn(),
+      stop: vi.fn(),
+      subscribe: vi.fn(() => ({ unsubscribe })),
+      getSnapshot: vi.fn(() => ({
+        context: {
+          total: 0,
+          available: true,
+          ruleWarnings: [],
+          ruleErrors: [],
+          appliedRules: [],
+          definition: { rules: [] },
+          ...seed,
+        },
+      })),
+      _unsubscribe: unsubscribe,
+    };
+
+    created.push(actor);
+    return actor;
+  }
+
+  return { createItemActorImpl, created };
+}
+
 describe('categoryMachine', () => {
   it('loads all active items for selected category and aggregates subtotal', () => {
     const actor = createCategoryActor({
@@ -198,5 +228,35 @@ describe('categoryMachine', () => {
     expect(snapshot.state.subtotal).toBe(1900);
 
     actor.stop();
+  });
+
+  it('tears down child subscriptions and actors on switch and stop', async () => {
+    const { createItemActorImpl, created } = makeStubItemActorFactory();
+    const actor = createCategoryActor({
+      db: makeDbFixture(),
+      initialCategoryId: 'CAT_A',
+      initialContext: { paxGlobal: 10, dia: 1, hora: '09:00' },
+      createItemActorImpl,
+    });
+
+    expect(created).toHaveLength(2);
+    const initialActors = [...created];
+
+    actor.send({ type: 'SELECT_CATEGORY', categoryId: 'CAT_B' });
+    await nextTick();
+
+    for (const child of initialActors) {
+      expect(child._unsubscribe).toHaveBeenCalledTimes(1);
+      expect(child.stop).toHaveBeenCalledTimes(1);
+    }
+
+    expect(created).toHaveLength(3);
+    const currentChild = created[2];
+    expect(currentChild.stop).not.toHaveBeenCalled();
+
+    actor.stop();
+
+    expect(currentChild._unsubscribe).toHaveBeenCalledTimes(1);
+    expect(currentChild.stop).toHaveBeenCalledTimes(1);
   });
 });

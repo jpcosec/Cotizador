@@ -4,7 +4,14 @@ export const catalogRuntimeHtml = `
           </template>
           <template x-for="entry in catalogEntries" :key="entry.id">
             <div class="entity-wrap">
-              <article class="mini-card runtime-card catalog-card" x-data="{ showGlosa: false, rulesHover: false }" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false; rulesHover = false">
+              <article class="mini-card runtime-card catalog-card"
+                       :class="(typeof isDraggingCatalogItem === 'function' && isDraggingCatalogItem(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)) ? 'is-dragging' : ''"
+                       :draggable="typeof startCatalogDrag === 'function'"
+                       @dragstart="typeof startCatalogDrag === 'function' && startCatalogDrag(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item, $event)"
+                       @dragend="typeof endCatalogDrag === 'function' && endCatalogDrag()"
+                       x-data="{ showGlosa: false, rulesHover: false }"
+                       @mouseenter="showGlosa = true"
+                       @mouseleave="showGlosa = false; rulesHover = false">
                 <div class="mini-main">
                   <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
                   <h5 x-text="entry.state.definition?.name || 'Item'"></h5>
@@ -35,6 +42,13 @@ export const catalogRuntimeHtml = `
                       </template>
                     </div>
                   </div>
+                  <button class="icon-action"
+                          x-show="typeof shipCatalogEntry === 'function'"
+                          @click.stop="shipCatalogEntry(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)"
+                          title="Ship to basket"
+                          aria-label="Ship to basket">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
                 </div>
               </article>
             </div>
@@ -134,8 +148,8 @@ export const basketRuntimeHtml = `
 
                   <div class="accordion-col-actions">
                     <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)"><i class="fa-solid fa-rotate-left"></i></button>
-                    <button class="icon-action" title="Copy"><i class="fa-solid fa-forward-step"></i></button>
-                    <button class="icon-action" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
+                    <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' && copyBasketEntry(entry.id)"><i class="fa-solid fa-forward-step"></i></button>
+                    <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' && duplicateBasketEntry(entry.id)"><i class="fa-solid fa-copy"></i></button>
                     <button class="icon-action danger" title="Remove" aria-label="Remove" @click="destroyRuntimeEntry('basket', entry.id)"><i class="fa-solid fa-trash"></i></button>
                   </div>
                 </div>
