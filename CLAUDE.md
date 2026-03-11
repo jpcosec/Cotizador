@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> Important: `claps_codelab_rebuild_components/` is the active implementation worktree.
+> `claps_codelab/` is kept as legacy/reference only.
+> If anything in this document conflicts with the rebuild worktree docs, follow:
+> - `claps_codelab_rebuild_components/README.md`
+> - `claps_codelab_rebuild_components/docs/README.md`
+> - `claps_codelab_rebuild_components/plan/`
+
 ---
 
 ## Quick Context: The Cotizador Lodge Ecosystem
