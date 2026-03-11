@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-03-11 (plan: urgent track U-series for save/editor/GAS/PDF)
+- Moved legacy plans (I-1, I-3, III-1, 0-cleanup) to `plan/legacy/`.
+- Created urgent implementation plan with 4 tracks:
+  - `plan/U-1-save/` — save vertical slice (local persistence via PersistencePort).
+  - `plan/U-2-editor/` — editor basic drag&drop (timeline grid mapped to existing events).
+  - `plan/U-3-gas/` — GAS persistence (Google Sheets via GasSheetAdapter).
+  - `plan/U-4-pdf/` — PDF export (server-side generation via HtmlService + DriveApp).
+- Each track follows established plan structure: `objectives.md`, `agent_guideline.md`, `phases/README.md`, individual phase specs.
+- Added `plan/README.md` with dependency graph and execution order.
+- Updated `plan/implementation-status.json` to reflect U-series status.
+- Updated `docs/README.md` with active plan references.
+
+### 2026-03-11 (docs: add Vistas parallel design graph)
+- Added `docs/plans/2026-03-11-vistas-parallel-design-graph.md` with a dependency graph for parallel implementation paths from current rebuild state to full `Vistas.md` parity.
+- Included explicit gates and a critical path to separate strict blockers from parallelizable tracks.
+- Linked the new graph from `docs/README.md` under Plans and Design Maps.
+
 ### 2026-03-11 (docs: prune legacy and completed planning artifacts)
 - Removed legacy/comment-only inline notes from mixin architecture docs and converted them into explicit guidance:
   - `docs/ARCHITECTURE/mixin-arch/01_system_overview.md`

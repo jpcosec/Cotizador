@@ -31,14 +31,24 @@ Technical documentation for the active rebuild worktree.
 ## Plans and Design Maps
 
 - `plans/2026-03-11-vistas-design-map.md` - implementation map from `Vistas.md` to rebuild status.
+- `plans/2026-03-11-vistas-parallel-design-graph.md` - dependency graph for parallel implementation paths.
 - `plans/2026-03-04-quotation-internal-rebuild-plan.md` - quotation internal runtime plan.
 - `plans/2026-03-04-legacy-functionality-recovery-mapping.md` - legacy parity and recovery gaps.
 - `plans/2026-03-04-legacy-quotation-ui-blueprint.md` - legacy UI layout blueprint.
 
+## Active Implementation Plans (Urgent Track)
+
+- `../plan/README.md` - plan index and dependency graph.
+- `../plan/U-1-save/` - save vertical slice (local persistence).
+- `../plan/U-2-editor/` - editor basic drag&drop (timeline grid).
+- `../plan/U-3-gas/` - GAS persistence (Google Sheets).
+- `../plan/U-4-pdf/` - PDF export.
+- `../plan/implementation-status.json` - latest phase-by-phase execution status.
+
 ## Operational References
 
-- `../plan/implementation-status.json` - latest phase-by-phase execution status.
 - `../changelog.md` - major change history.
+- `../plan/legacy/` - archived component-build plans (I-1, I-3, III-1, etc.).
 
 ## Quick Commands
 
