@@ -1,16 +1,15 @@
 # Rebuild Components Worktree
 
-From-scratch reconstruction of the SF Lodge Cotizador components using XState v5.28.0 + Alpine.js v3.12.0.
+From-scratch reconstruction of SF Lodge Cotizador components using XState + Alpine + pure JS modules.
 
-## Status: ✅ Rebuild in progress, 529 tests passing
+## Status
 
-Roadmap: See `ROADMAP.md` for the agreed 10-step sequence and progress tracking.
-
-### Current focus:
-- Item component domain + machine (`catalog` and `basket` modes)
-- Category loader over item actors
-- Database browser playground
-- Quotation playground composition
+- Rebuild in progress.
+- Current suite: `545` passing tests, `1` skipped (Vitest run on 2026-03-11).
+- Active implementation references:
+  - `plan/implementation-status.json`
+  - `plan/I-3-category/phases/README.md`
+  - `docs/plans/2026-03-11-vistas-design-map.md`
 
 ## Quick Start
 
@@ -40,16 +39,24 @@ Visit:
 
 ## Documentation
 
-- **[ROADMAP.md](./ROADMAP.md)** — 10-step sequence, current progress
-- **[PLAN_NEXT_STEPS.md](./PLAN_NEXT_STEPS.md)** — Detailed implementation plan for each step
-- **[changelog.md](./changelog.md)** — Version history and features added
-- **[docs/DEPLOYMENT/gas-bundling.md](./docs/DEPLOYMENT/gas-bundling.md)** — GAS bundling and deploy flow
-- **[PLAN_ITEM_REFACTOR.md](./PLAN_ITEM_REFACTOR.md)** — Architecture decision: one XState actor per item
+- **[docs/README.md](./docs/README.md)** — Documentation index
+- **[changelog.md](./changelog.md)** — Version history and major updates
+- **[docs/DEPLOYMENT/gas-bundling.md](./docs/DEPLOYMENT/gas-bundling.md)** — GAS bundling and local preview flow
+- **[plan/implementation-status.json](./plan/implementation-status.json)** — Current implementation state by phase
+- **[docs/plans/2026-03-11-vistas-design-map.md](./docs/plans/2026-03-11-vistas-design-map.md)** — Vistas-to-rebuild capability mapping
 
 ## Test Suite
 
-Located in `packages/components/item/tests/`:
-- `pricing.test.js` — 82 tests (enums, type conversion, kind detection)
-- `quantity.test.js` — 80 tests (context resolution, override precedence)
-- `formatting.test.js` — display string generation
-- `Item.test.js` — factories, modes, calculations, serialization
+Run all tests:
+
+```bash
+npm test
+```
+
+Main tested areas include:
+
+- item domain + machine behavior,
+- category/catalog/basket orchestration,
+- quotation modal/view classes,
+- database seed + resolver adapters,
+- common base/mixins contracts.

@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-03-11 (docs: cleanup pass for active references)
+- Updated top-level docs entrypoints to remove dead links and stale test references:
+  - `README.md`
+  - `docs/README.md`
+  - `docs/PACKAGES/components.md`
+  - `docs/GUIDES/testing-components.md` (Playwright-first guidance).
+- Removed legacy/planning-heavy docs from active `docs/` root to reduce ambiguity:
+  - `docs/COMPONENT_ARCHITECTURE.md`
+  - `docs/FINAL_COMPONENT_HIERARCHY.md`
+  - `docs/MIXINS_COMPLETE_INVENTORY.md`
+  - `docs/documentation-gaps.json`
+
+### 2026-03-11 (docs: Vistas design map against rebuild status)
+- Added `docs/plans/2026-03-11-vistas-design-map.md` to translate `Vistas.md` into a processing-ready implementation map.
+- Included a capability matrix with `DONE/NEAR/MISSING` status, ownership typing (`COMPONENT`, `SCREEN`, `WORKFLOW`, `SERVICE`, `TOOL`), and explicit gap-to-close notes.
+- Documented evidence sources including runtime validation on GAS preview (`http://localhost:8082`) via Playwright to avoid code-only assessment.
+
 ### 2026-03-08 (build: GAS bundling pipeline)
 - Added full bundling pipeline scripts in `package.json`: `build`, `build:bundle`, `build:gas`, `serve:gas`, and `dev:gas`.
 - Added Rollup IIFE build for browser/GAS runtime in `rollup.config.mjs` and new bundling entrypoints:
