@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-03-11 (docs: prune legacy and completed planning artifacts)
+- Removed legacy/comment-only inline notes from mixin architecture docs and converted them into explicit guidance:
+  - `docs/ARCHITECTURE/mixin-arch/01_system_overview.md`
+  - `docs/ARCHITECTURE/mixin-arch/03_critique.md`
+- Deleted planning artifacts that were legacy or already implemented to reduce navigation noise:
+  - `plan/antecedents/**`
+  - `plan/I-2-item/**`
+  - `plan/I-2b-item-cleanup/**`
+  - `docs/plans/2026-02-24-ui-component-flow-design.md`
+  - `docs/plans/2026-03-01-item-db-integration-design.md`
+
 ### 2026-03-11 (docs: cleanup pass for active references)
 - Updated top-level docs entrypoints to remove dead links and stale test references:
   - `README.md`

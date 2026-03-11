@@ -122,3 +122,5 @@ These improvements address the specific structural weaknesses described above wi
 **Construction-time abstract method check.** The `Alpineable` constructor checks whether `this.toDisplayObject === Alpineable.prototype.toDisplayObject` and throws if so. Same for `Storable.toStorageObject` and `Formable.validate`. This catches missing implementations at construction rather than rendering.
 
 **Documented composition order rationale.** Each base class definition includes a comment specifying why each mixin appears in its position — particularly for cases where order matters.
+
+**Utility extraction as an alternative.** Cross-cutting, framework-agnostic behavior can be extracted into plain utility modules when mixin composition depth becomes hard to reason about. This improves discoverability, but trades away declarative capability composition at class definition sites.

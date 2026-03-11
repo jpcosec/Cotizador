@@ -39,6 +39,8 @@ Adds three user-settable quantity fields — `pax`, `cantidad`, `duracion` — e
 
 Depends on `this._inheritedContext` being present. This field is provided by `Rulable`. If composed without `Rulable`, `resolveQuantities` falls back to `{}` silently.
 
+`Prizable` is item/leaf-oriented. Day, basket, and future kit pricing should be derived through aggregation layers, not by reusing leaf quantity semantics directly.
+
 ---
 
 **`Aggregable(Base)`**
@@ -48,6 +50,11 @@ Adds `_children` as a `Map` keyed by child id. Provides:
 - `subtotal` getter — last aggregated subtotal
 
 `Rulable.propagateContext()` iterates `this._children` — so `Aggregable` must appear below `Rulable` in the composition chain for propagation to work on containers.
+
+Flow model summary:
+
+- Downward flow: context and rule effects travel parent -> child (`Rulable.propagateContext`).
+- Upward flow: totals, warnings, and errors travel child -> parent (`Aggregable.aggregate`).
 
 ---
 
@@ -67,6 +74,7 @@ The evaluator is passed at call time, not stored. This keeps the rule evaluation
 **`Storable(Base)`**
 Adds database identity fields: `ID_Linea`, `ID_Item`, `ID_Categoria`, `ID_Cotizacion`. Provides:
 - `toStorageObject()` — throws until implemented by the concrete class
+- `fromStorageObject(...)` — expected as a concrete class-level constructor/factory counterpart
 - `markDirty()` / `markClean()` — dirty tracking via `_isDirty`
 - `hasStorageIdentity()` — true if any ID field is non-null
 - `isSaved()` — true if not dirty and has identity
@@ -95,7 +103,7 @@ This is the Alpine.js synchronization boundary. Alpine templates call `toDisplay
 
 ---
 
-**`Eventable(Base)`**
+**`Eventable(Base)`** 
 Observer/emitter. Provides:
 - `on(eventName, callback)` — registers a listener
 - `emit(eventName, data)` — calls all registered listeners for the event
@@ -149,6 +157,12 @@ ViewBase            = Alpineable(Eventable(class {}))
 ```
 
 Each base class is a fixed composition. Concrete classes only need to extend the appropriate base and implement the abstract methods (`toDisplayObject`, `toStorageObject`, `validate`).
+
+Current usage reality:
+
+- `ModalControllerBase`, `UIContainerBase`, and `ViewBase` are used by quotation modal/view classes.
+- The `Item` runtime class follows a standalone pattern and does not currently extend `ItemBase`.
+- Container runtimes (`category`, `catalog`, `basket-day`, `basket`) are actor-first modules and do not currently rely on `ContainerBase`.
 
 ---
 
