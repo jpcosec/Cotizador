@@ -52,6 +52,14 @@ export function createQuotationFlowComponent(options = {}) {
       rows: [],
       totals: { subtotal: 0, iva: 0, total: 0 },
     },
+    persistence: {
+      isSaving: false,
+      isLoading: false,
+      error: null,
+      quotationId: null,
+      lastLoadedId: null,
+    },
+    loadQuotationId: '',
     draggingCatalogItemId: null,
 
     init() {
@@ -76,6 +84,13 @@ export function createQuotationFlowComponent(options = {}) {
           rows: [],
           totals: { subtotal: 0, iva: 0, total: 0 },
         };
+        this.persistence = snapshot.persistence || {
+          isSaving: false,
+          isLoading: false,
+          error: null,
+          quotationId: null,
+          lastLoadedId: null,
+        };
       };
 
       sync(runtime.getSnapshot());
@@ -86,12 +101,30 @@ export function createQuotationFlowComponent(options = {}) {
       runtime.startQuotation();
     },
 
+    resetToBrowse() {
+      runtime.resetToBrowse();
+    },
+
     goValidation() {
       runtime.advanceToValidation();
     },
 
     backToBasket() {
       runtime.backToBasket();
+    },
+
+    async confirmAndSave() {
+      await runtime.confirmSave();
+    },
+
+    async loadQuotationById() {
+      const quotationId = String(this.loadQuotationId || '').trim();
+      if (!quotationId) return;
+      await runtime.loadQuotation(quotationId);
+    },
+
+    clearPersistenceError() {
+      runtime.clearPersistenceError();
     },
 
     openClientModal() {

@@ -4,9 +4,9 @@ Execution order is strict. Do not start a phase before the previous phase is com
 
 ## Phase Order
 
-1. `01_gas_server.md` - GAS server functions for save/load
-2. `02_gas_adapter.md` - client-side GasSheetAdapter + local shim extensions
-3. `03_integration.md` - adapter selection, bundle, and real GAS smoke test
+1. `01_gas_server.md` - port legacy save/load server semantics
+2. `02_gas_adapter.md` - implement boundary adapter and local shim parity
+3. `03_integration.md` - deploy and verify save/load against real Sheets
 
 ## Current Status
 
@@ -16,25 +16,20 @@ Execution order is strict. Do not start a phase before the previous phase is com
 
 ## Shared Constraints
 
-- `PersistencePort` interface must not be modified.
-- Payload shape over `google.script.run` must be JSON-serializable.
-- Local GAS shim must remain functional for development.
-- GAS server functions use `getActiveSpreadsheet()`, not `openById()`.
-- All existing tests must remain green after every phase.
+- Legacy flow must be reviewed before implementation.
+- `PersistencePort` remains the only runtime boundary.
+- Local preview and real GAS must share the same contract shape.
 
 ## Go / No-Go Gate Per Phase
 
 A phase is complete only if all are true:
 
-1. Objectives checklist in that phase document is complete.
-2. Automated test suite passes for touched scope.
-3. Manual verification passes for phase behavior.
-4. Commit created with the exact phase commit message.
+1. Legacy-referenced checklist for the phase is complete.
+2. Automated tests pass for touched scope.
+3. Manual verification passes in local preview and/or real GAS as required.
 
 ## Commit Sequence
 
-1. `feat: add saveQuotation/loadQuotation to GAS server template`
-2. `feat: add GasSheetAdapter client-side persistence`
-3. `feat: extend Local_GAS_Shim with save/load persistence`
-4. `feat: add environment-based persistence adapter selection`
-5. `test: verify GAS persistence smoke test`
+1. `docs(plan): define U-3 GAS server contract from legacy`
+2. `feat: implement GasSheetAdapter and local shim parity`
+3. `test: verify GAS save/load round-trip on real sheets`

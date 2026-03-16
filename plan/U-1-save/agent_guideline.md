@@ -1,222 +1,118 @@
-# U-1 Save Vertical Slice — Agent Guideline
+# U-1 Save Vertical Slice - Agent Guideline
 
 ## Context
 
-You are implementing the first persistence vertical slice. The quotation runtime already produces a complete in-memory snapshot with client, settings, and basket state across multiple days. Your job is to:
+This track must start from legacy behavior already implemented in `claps_codelab`.
+Do not design save/load as a blank slate.
 
-1. Define a SavePayload contract mapping runtime snapshot → DB schema tables.
-2. Build a pure serialization mapper.
-3. Build a persistence port with a local adapter.
-4. Wire `confirmSave()` into the runtime and UI.
+Baseline to review first:
 
-Prerequisites: The quotation internal runtime (`createQuotationInternalRuntime`) must be functional with basket state including entries across days. This is already the case.
+- `claps_codelab/Codigo.js` (router endpoints)
+- `claps_codelab/Controller_Cotizacion.js` (service orchestration)
+- `claps_codelab/Models.js` + `claps_codelab/SheetDB.js` (persistence behavior)
+- `claps_codelab/Stores_App.html` (UI trigger sequence)
 
-Run `npm test` after every step. Do not proceed if tests fail.
-
----
-
-## Step 1 — Write SavePayload contract
-
-File: `packages/database/src/persistence/SavePayload.md`
-
-Document before writing any code:
-
-1. **Input** — what comes from `runtime.getSnapshot()` (client, settings, basket.days[].entries[])
-2. **Output** — what gets written to `COTIZACIONES` and `LINEA_DETALLE` (exact field names from `Config_Schema.js`)
-3. **Mapping rules** — how each runtime field maps to each DB column
-4. **ID generation** — `COT-{timestamp}-{random}` for cotizacion, `LIN-{seq}` for lineas
-
-Cross-reference:
-- `packages/database/src/Config_Schema.js:119-146` for table schemas
-- `apps/quotation/state/createQuotationInternalRuntime.js:62-86` for `buildValidationProjection()`
-- `packages/components/item/Item.js` for `toSeed()` shape
-
-Commit: `docs: add SavePayload contract for quotation persistence`
+Run `npm test` after each step.
 
 ---
 
-## Step 2 — Implement serialization mapper
+## Step 1 - Legacy extraction (mandatory)
 
-File: `packages/database/src/persistence/serializeQuotation.js`
+Document what is already solved in legacy:
 
-Pure function:
+1. Save input semantics.
+2. Save return semantics.
+3. Load reconstruction semantics.
+4. Save-before-PDF dependency.
 
-```
-serializeQuotation({ client, settings, basketState }) → { cotizacion, lineas }
-```
+Please priorotize copy/pasting then editing rather than reconstructing.
+
+Output file:
+
+- `packages/database/src/persistence/SavePayload.md` (first section: legacy behavior).
+
+---
+
+## Step 2 - Rebuild contract mapping
+
+In the same contract document, add rebuild mapping:
+
+1. Map runtime snapshot fields to `Config_Schema.js` transactional tables.
+2. Define normalized response contract for `PersistencePort`.
+3. Define ID strategy as pluggable policy (not hard-coded runtime rule).
+
+---
+
+## Step 3 - Implement pure serializer
+
+Create serializer from runtime snapshot to transactional payload.
 
 Rules:
-- `cotizacion` is a single object with all `COTIZACIONES` columns populated
-- `lineas` is an array of objects, one per entry across all days, with all `LINEA_DETALLE` columns
-- Generate `ID_Cotizacion` using `COT-{Date.now()}-{random}`
-- Generate `ID_Linea` using `LIN-{cotizacionId}-{seq}`
-- Map overrides: `entry.state.overrides.pax` → `Override_Pax`, etc.
-- Map schedule: `entry.state.schedule.hora` → `Hora_Inicio`
-- Map comments: `entry.state.overrides.comentarios` → `Comentarios`
-- Set `Estado` to `'Borrador'` and `Estado_Linea` to `'ACTIVA'`
-- Set `Updated_At` to current ISO timestamp
 
-Write tests first in `packages/database/src/persistence/serializeQuotation.test.js`:
-- Serializes single-day quotation correctly
-- Serializes multi-day quotation with entries distributed across days
-- Maps all override fields
-- Generates unique IDs
-- Handles empty basket gracefully
+- pure function,
+- no store calls,
+- deterministic mapping.
 
-Commit: `feat: add serializeQuotation mapper with tests`
+Add tests for:
+
+- multi-day entries,
+- overrides,
+- empty/edge cases,
+- ID policy injection.
 
 ---
 
-## Step 3 — Implement PersistencePort + LocalPersistenceAdapter
+## Step 4 - Implement PersistencePort and local adapter
 
-Files:
-- `packages/database/src/persistence/PersistencePort.js`
-- `packages/database/src/persistence/LocalPersistenceAdapter.js`
+Create/adjust:
 
-### PersistencePort interface
+- `PersistencePort` interface,
+- `LocalPersistenceAdapter` implementation.
 
-```js
-export class PersistencePort {
-  async save(payload) { throw new Error('Not implemented'); }
-  async load(id) { throw new Error('Not implemented'); }
-}
-```
+Rules:
 
-### LocalPersistenceAdapter
-
-- Constructor receives `{ models }` (from `createDatabase()`)
-- `save(payload)`:
-  - Inserts `payload.cotizacion` into `models.COTIZACIONES`
-  - Inserts each `payload.lineas[i]` into `models.LINEA_DETALLE`
-  - Returns `{ ok: true, id: payload.cotizacion.ID_Cotizacion }`
-  - On error returns `{ ok: false, error: message }`
-- `load(id)`:
-  - Finds cotizacion by `ID_Cotizacion`
-  - Finds all lineas where `ID_Cotizacion` matches
-  - Returns `{ ok: true, data: { cotizacion, lineas } }`
-  - On error returns `{ ok: false, error: message }`
-
-Add tests:
-- Save writes both tables
-- Load retrieves matching records
-- Load with unknown ID returns error
-- Save with duplicate ID returns error
-
-Commit: `feat: add PersistencePort and LocalPersistenceAdapter`
+- runtime never sees physical database details,
+- adapter normalizes output to the port contract,
+- save and load are both covered by tests.
 
 ---
 
-## Step 4 — Wire confirmSave() into runtime
+## Step 5 - Runtime and UI wiring
 
-File: `apps/quotation/state/createQuotationInternalRuntime.js`
+Wire:
 
-Add to the runtime factory options:
-- Accept `persistence` option (a `PersistencePort` instance)
-- Default to `LocalPersistenceAdapter` backed by a separate `createDatabase()` instance for transactional tables
+- `confirmSave()`
+- `loadQuotation(id)`
 
-Add to the runtime API:
+in runtime and flow component, using only `PersistencePort`.
 
-```js
-async confirmSave() {
-  const snapshot = getSnapshot();
-  const payload = serializeQuotation({
-    client: selectedClient,
-    settings,
-    basketState: basketActor.getSnapshot().context.state,
-  });
-  const result = await persistence.save(payload);
-  if (result.ok) {
-    stage = 'completed';
-    quotationId = result.id;
-    notify();
-  }
-  return result;
-}
+UI behavior:
 
-async loadQuotation(id) {
-  const result = await persistence.load(id);
-  // Reconstruct basket state from lineas (future — for now just return data)
-  return result;
-}
-```
-
-Add `quotationId` to `getSnapshot()` output.
-
-Commit: `feat: wire confirmSave command into quotation runtime`
+- `Confirm & Save` active in validation,
+- quotation ID visible in completed stage,
+- error path visible when save fails.
 
 ---
 
-## Step 5 — Wire UI
+## Step 6 - Validation
 
-Files:
-- `apps/quotation/playground/QuotationFlowInternal.html`
-- `bundling/createQuotationFlowComponent.js`
+Validate in both:
 
-### QuotationFlowInternal.html changes
+1. sandbox route,
+2. GAS preview route.
 
-Replace:
-```html
-<button class="btn btn-small btn-primary" disabled>Confirm (deferred)</button>
-```
+Checklist:
 
-With:
-```html
-<button class="btn btn-small btn-primary" @click="confirmSave()">Confirm & Save</button>
-```
-
-Add completed stage:
-```html
-<template x-if="stage === 'completed'">
-  <section class="panel validation-panel">
-    <h2>Quotation Saved</h2>
-    <p>ID: <strong x-text="quotationId"></strong></p>
-    <button class="btn btn-small btn-secondary" @click="resetToBrowse()">New Quotation</button>
-  </section>
-</template>
-```
-
-### createQuotationFlowComponent.js changes
-
-Add `quotationId: null` to initial state.
-Add `confirmSave()` method that calls `runtime.confirmSave()`.
-Sync `quotationId` from snapshot.
-
-Rebuild bundle:
-```bash
-npm run build
-```
-
-Commit: `feat: enable Confirm & Save in quotation UI`
-
----
-
-## Step 6 — E2E verification
-
-### Automated
-```bash
-npm test
-```
-
-### Manual (sandbox)
-```bash
-npm run serve:sandbox
-# Open quotation route, create items, validate, confirm
-```
-
-### Manual (GAS preview)
-```bash
-npm run dev:gas
-# Same flow at http://localhost:8082
-```
-
-Commit: `test: add save flow integration tests`
+- save works,
+- ID returned,
+- load round-trip shape correct,
+- no runtime dependency on adapter internals.
 
 ---
 
 ## What NOT to do
 
-- Do not implement GAS SpreadsheetApp writes — that is U-3
-- Do not implement PDF generation — that is U-4
-- Do not modify item/basket/catalog machine contracts
-- Do not add async loading from Google Sheets — keep local for now
-- Do not implement `loadQuotation` basket reconstruction yet — just the data retrieval
+- Do not bypass `PersistencePort` from UI/runtime.
+- Do not copy legacy DB schema directly into rebuild runtime.
+- Do not lock ID format in runtime code.
+- Do not postpone legacy extraction until after implementation.

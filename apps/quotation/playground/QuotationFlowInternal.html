@@ -7,6 +7,19 @@
         <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
         <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
       </div>
+      <div class="load-actions">
+        <input
+          type="text"
+          placeholder="Quotation ID (ex: COT-0001)"
+          x-model="loadQuotationId"
+          @keydown.enter.prevent="loadQuotationById()"
+        />
+        <button class="btn btn-small btn-secondary" @click="loadQuotationById()" :disabled="persistence.isLoading">
+          <span x-show="!persistence.isLoading">Load Quotation</span>
+          <span x-show="persistence.isLoading">Loading...</span>
+        </button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
       <p class="muted" x-show="selectedClient">
         Selected client: <strong x-text="selectedClient?.nombre"></strong>
       </p>
@@ -186,8 +199,27 @@
 
       <div class="validation-actions">
         <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
-        <button class="btn btn-small btn-primary" disabled>Confirm (deferred)</button>
+        <button class="btn btn-small btn-primary" @click="confirmAndSave()" :disabled="persistence.isSaving || validation.rows.length === 0">
+          <span x-show="!persistence.isSaving">Confirm & Save</span>
+          <span x-show="persistence.isSaving">Saving...</span>
+        </button>
       </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
+    </section>
+  </template>
+
+  <template x-if="stage === 'completed'">
+    <section class="panel validation-panel">
+      <h2>Quotation Saved</h2>
+      <p class="muted">
+        Quotation ID:
+        <strong x-text="persistence.quotationId || '-' "></strong>
+      </p>
+      <div class="validation-actions">
+        <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-secondary" @click="resetToBrowse()">Go Home</button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
     </section>
   </template>
 
@@ -245,6 +277,17 @@
 
   .home-panel { max-width: 720px; margin: 30px auto; display: grid; gap: 10px; }
   .home-actions { display: flex; gap: 8px; }
+  .load-actions { display: flex; gap: 8px; align-items: center; }
+  .load-actions input { flex: 1; }
+  .error-text {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 0.78rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
 
   .workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; }
   .sidebar {

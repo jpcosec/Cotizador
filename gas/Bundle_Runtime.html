@@ -5590,7 +5590,7 @@ var QuotationEngine = (function (exports) {
     hora: '09:00',
   };
 
-  function cleanupSubscription$3(subscription) {
+  function cleanupSubscription$4(subscription) {
     if (!subscription) return;
     if (typeof subscription === 'function') {
       subscription();
@@ -5709,7 +5709,7 @@ var QuotationEngine = (function (exports) {
 
   function destroyRuntimeEntries$1(runtimeEntries) {
     for (const entry of runtimeEntries.values()) {
-      cleanupSubscription$3(entry.subscription);
+      cleanupSubscription$4(entry.subscription);
       entry.actor?.stop?.();
     }
     runtimeEntries.clear();
@@ -5832,7 +5832,7 @@ var QuotationEngine = (function (exports) {
     hora: '09:00',
   };
 
-  function cleanupSubscription$2(subscription) {
+  function cleanupSubscription$3(subscription) {
     if (!subscription) return;
     if (typeof subscription === 'function') {
       subscription();
@@ -5951,7 +5951,7 @@ var QuotationEngine = (function (exports) {
     const runtime = runtimeByCategoryId.get(categoryId);
     if (!runtime) return;
 
-    cleanupSubscription$2(runtime.subscription);
+    cleanupSubscription$3(runtime.subscription);
     runtime.actor?.stop?.();
     runtimeByCategoryId.delete(categoryId);
   }
@@ -6120,7 +6120,7 @@ var QuotationEngine = (function (exports) {
     duracionMin: 120,
   };
 
-  function cleanupSubscription$1(subscription) {
+  function cleanupSubscription$2(subscription) {
     if (!subscription) return;
     if (typeof subscription === 'function') {
       subscription();
@@ -6220,7 +6220,7 @@ var QuotationEngine = (function (exports) {
 
   function destroyRuntimeEntries(runtimeEntries) {
     for (const entry of runtimeEntries.values()) {
-      cleanupSubscription$1(entry.subscription);
+      cleanupSubscription$2(entry.subscription);
       entry.actor?.stop?.();
     }
     runtimeEntries.clear();
@@ -6229,7 +6229,7 @@ var QuotationEngine = (function (exports) {
   function destroyRuntimeEntry(runtimeEntries, entryId) {
     const entry = runtimeEntries.get(entryId);
     if (!entry) return;
-    cleanupSubscription$1(entry.subscription);
+    cleanupSubscription$2(entry.subscription);
     entry.actor?.stop?.();
     runtimeEntries.delete(entryId);
   }
@@ -6402,7 +6402,7 @@ var QuotationEngine = (function (exports) {
     duracionMin: 120,
   };
 
-  function cleanupSubscription(subscription) {
+  function cleanupSubscription$1(subscription) {
     if (!subscription) return;
     if (typeof subscription === 'function') {
       subscription();
@@ -6550,7 +6550,7 @@ var QuotationEngine = (function (exports) {
 
     function stopAllDayRuntimes() {
       for (const runtime of runtimeByDayIndex.values()) {
-        cleanupSubscription(runtime.subscription);
+        cleanupSubscription$1(runtime.subscription);
         runtime.actor?.stop?.();
       }
       runtimeByDayIndex.clear();
@@ -7278,6 +7278,967 @@ var QuotationEngine = (function (exports) {
     return api;
   }
 
+  function toIsoString(now) {
+    if (now instanceof Date) return now.toISOString();
+    if (typeof now === 'string') {
+      const date = new Date(now);
+      if (!Number.isNaN(date.getTime())) return date.toISOString();
+    }
+    const resolved = new Date(now ?? Date.now());
+    if (Number.isNaN(resolved.getTime())) {
+      throw new Error('serializeQuotation: invalid "now" value');
+    }
+    return resolved.toISOString();
+  }
+
+  function toPositiveInteger$1(value, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(1, Math.floor(parsed));
+  }
+
+  function toNullableNumber$1(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function toStringOrFallback(value, fallback = '') {
+    if (value === undefined || value === null) return fallback;
+    return String(value);
+  }
+
+  function resolveClientId(selectedClient) {
+    const id = selectedClient?.id ?? selectedClient?.ID_Cliente;
+    if (id === undefined || id === null || id === '') return null;
+    return String(id);
+  }
+
+  function resolveItemId(entry) {
+    const id = entry?.itemId ?? entry?.state?.definition?.id ?? entry?.state?.definition?.ID_Item;
+    if (id === undefined || id === null || id === '') return null;
+    return String(id);
+  }
+
+  function resolveHour(entry, fallbackHour) {
+    const overrideHour = entry?.state?.overrides?.hora;
+    if (overrideHour !== undefined && overrideHour !== null && overrideHour !== '') {
+      return String(overrideHour);
+    }
+
+    const scheduleHour = entry?.state?.schedule?.hora;
+    if (scheduleHour !== undefined && scheduleHour !== null && scheduleHour !== '') {
+      return String(scheduleHour);
+    }
+
+    return toStringOrFallback(fallbackHour, '09:00');
+  }
+
+  function normalizeDays(days = []) {
+    const indexedDays = (days || []).map((day, index) => ({
+      day,
+      order: index,
+      dayIndex: toPositiveInteger$1(day?.dayIndex, index + 1),
+    }));
+
+    indexedDays.sort((left, right) => {
+      if (left.dayIndex !== right.dayIndex) return left.dayIndex - right.dayIndex;
+      return left.order - right.order;
+    });
+
+    return indexedDays;
+  }
+
+  function flattenEntries(days = []) {
+    const out = [];
+    const normalizedDays = normalizeDays(days);
+
+    for (const normalizedDay of normalizedDays) {
+      const entries = normalizedDay.day?.entries || [];
+      for (const entry of entries) {
+        out.push({ dayIndex: normalizedDay.dayIndex, entry });
+      }
+    }
+
+    return out;
+  }
+
+  function assertPolicy(policy) {
+    if (!policy || typeof policy.createQuotationId !== 'function' || typeof policy.createLineId !== 'function') {
+      throw new Error('serializeQuotation: idPolicy must provide createQuotationId and createLineId');
+    }
+  }
+
+  function createDefaultIdPolicy() {
+    return {
+      createQuotationId({ nowIso }) {
+        const compact = String(nowIso || '').replace(/[^0-9]/g, '').slice(0, 17);
+        return `COT-${compact || '00000000000000000'}`;
+      },
+      createLineId({ quotationId, lineIndex }) {
+        const padded = String(lineIndex + 1).padStart(4, '0');
+        return `LIN-${quotationId}-${padded}`;
+      },
+    };
+  }
+
+  function serializeQuotation({
+    selectedClient,
+    settings = {},
+    basketState = {},
+    quotationId = null,
+    idPolicy = null,
+    now = new Date(),
+  } = {}) {
+    const clientId = resolveClientId(selectedClient);
+    if (!clientId) {
+      throw new Error('serializeQuotation: selectedClient id is required');
+    }
+
+    const nowIso = toIsoString(now);
+    const policy = idPolicy || createDefaultIdPolicy();
+    assertPolicy(policy);
+
+    const generatedQuotationId = policy.createQuotationId({
+      selectedClient,
+      settings,
+      basketState,
+      nowIso,
+    });
+
+    const resolvedQuotationId = toStringOrFallback(quotationId, generatedQuotationId);
+    if (!resolvedQuotationId) {
+      throw new Error('serializeQuotation: quotationId cannot be empty');
+    }
+
+    const cotizacion = {
+      ID_Cotizacion: resolvedQuotationId,
+      ID_Cliente: clientId,
+      Estado: 'Borrador',
+      Fecha_Evento: toStringOrFallback(settings.fechaInicio),
+      Duracion_Dias: toPositiveInteger$1(settings.duracionDias, 1),
+      Pax_Global: toPositiveInteger$1(settings.paxGlobal, 1),
+      Updated_At: nowIso,
+    };
+
+    const entries = flattenEntries(basketState.days || []);
+
+    const lineas = entries.map(({ dayIndex, entry }, lineIndex) => {
+      const overrides = entry?.state?.overrides || {};
+
+      return {
+        ID_Linea: String(policy.createLineId({
+          quotationId: resolvedQuotationId,
+          lineIndex,
+          dayIndex,
+          entry,
+        })),
+        ID_Cotizacion: resolvedQuotationId,
+        ID_Item: resolveItemId(entry),
+        Estado_Linea: 'ACTIVA',
+        Dia_Numero: dayIndex,
+        Hora_Inicio: resolveHour(entry, settings.horaInicio),
+        Override_Pax: toNullableNumber$1(overrides.pax),
+        Override_Cantidad: toNullableNumber$1(overrides.cantidad),
+        Override_Duracion_Min: toNullableNumber$1(overrides.duracionMin),
+        Comentarios: toStringOrFallback(overrides.comentarios),
+        Updated_At: nowIso,
+      };
+    });
+
+    return { cotizacion, lineas };
+  }
+
+  const EMPTY_PERSISTENCE = {
+    isSaving: false,
+    isLoading: false,
+    error: null,
+    quotationId: null,
+    lastLoadedId: null,
+  };
+
+  function toMessage(errorLike, fallback = 'Persistence operation failed') {
+    if (!errorLike) return fallback;
+    if (typeof errorLike === 'string') return errorLike;
+    if (typeof errorLike.message === 'string' && errorLike.message) return errorLike.message;
+    if (typeof errorLike.error === 'string' && errorLike.error) return errorLike.error;
+    if (errorLike.error && typeof errorLike.error.message === 'string') return errorLike.error.message;
+    return fallback;
+  }
+
+  function toId$1(value) {
+    const normalized = String(value || '').trim();
+    return normalized || null;
+  }
+
+  function toPositiveInteger(value, fallback = 1) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(1, Math.floor(parsed));
+  }
+
+  function toNullableNumber(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeLineas(lineas = []) {
+    return [...(lineas || [])].sort((left, right) => {
+      const leftDay = toPositiveInteger(left?.Dia_Numero, 1);
+      const rightDay = toPositiveInteger(right?.Dia_Numero, 1);
+      if (leftDay !== rightDay) return leftDay - rightDay;
+      return String(left?.ID_Linea || '').localeCompare(String(right?.ID_Linea || ''));
+    });
+  }
+
+  function settingsFromPayload(cotizacion, lineas, fallbackSettings = {}) {
+    const sortedLineas = normalizeLineas(lineas);
+    const maxDayFromLines = sortedLineas.reduce(
+      (maxDay, linea) => Math.max(maxDay, toPositiveInteger(linea?.Dia_Numero, 1)),
+      1
+    );
+
+    const durationFromHeader = toPositiveInteger(cotizacion?.Duracion_Dias, 1);
+    const duration = Math.max(durationFromHeader, maxDayFromLines);
+    const firstHour = sortedLineas.find((linea) => toId$1(linea?.Hora_Inicio))?.Hora_Inicio;
+
+    return {
+      fechaInicio: String(cotizacion?.Fecha_Evento || fallbackSettings.fechaInicio || new Date().toISOString().slice(0, 10)),
+      duracionDias: duration,
+      paxGlobal: toPositiveInteger(cotizacion?.Pax_Global, toPositiveInteger(fallbackSettings.paxGlobal, 1)),
+      dia: 1,
+      horaInicio: String(firstHour || fallbackSettings.horaInicio || '09:00'),
+      duracionMin: Number.isFinite(Number(fallbackSettings.duracionMin))
+        ? Math.max(0, Math.floor(Number(fallbackSettings.duracionMin)))
+        : 120,
+    };
+  }
+
+  function overridePatchFromLinea(linea) {
+    const patch = {};
+    const pax = toNullableNumber(linea?.Override_Pax);
+    const cantidad = toNullableNumber(linea?.Override_Cantidad);
+    const duracionMin = toNullableNumber(linea?.Override_Duracion_Min);
+    const hora = toId$1(linea?.Hora_Inicio);
+
+    if (pax !== null) patch.pax = pax;
+    if (cantidad !== null) patch.cantidad = cantidad;
+    if (duracionMin !== null) patch.duracionMin = duracionMin;
+    if (hora) patch.hora = hora;
+
+    if (linea?.Comentarios !== undefined && linea?.Comentarios !== null && linea?.Comentarios !== '') {
+      patch.comentarios = String(linea.Comentarios);
+    }
+
+    return patch;
+  }
+
+  function findDayEntries(snapshot, dayIndex) {
+    const days = snapshot?.basket?.days || [];
+    return days.find((day) => Number(day.dayIndex) === Number(dayIndex))?.entries || [];
+  }
+
+  function cleanupSubscription(subscription) {
+    if (!subscription) return;
+    if (typeof subscription === 'function') {
+      subscription();
+      return;
+    }
+    subscription.unsubscribe?.();
+  }
+
+  function createPersistedQuotationRuntime({
+    createRuntime,
+    persistencePort,
+    idPolicy = null,
+  } = {}) {
+    if (typeof createRuntime !== 'function') {
+      throw new Error('createPersistedQuotationRuntime: createRuntime is required');
+    }
+
+    let runtime = createRuntime();
+    let runtimeSubscription = null;
+    let listeners = new Set();
+    let stageOverride = null;
+    let persistence = { ...EMPTY_PERSISTENCE };
+
+    function setPersistence(patch = {}, shouldNotify = true) {
+      persistence = { ...persistence, ...patch };
+      if (shouldNotify) notify();
+    }
+
+    function clearStageOverride() {
+      if (!stageOverride) return;
+      stageOverride = null;
+    }
+
+    function getSnapshot() {
+      const base = runtime.getSnapshot();
+      return {
+        ...base,
+        stage: stageOverride || base.stage,
+        persistence: { ...persistence },
+      };
+    }
+
+    function notify() {
+      const snapshot = getSnapshot();
+      for (const listener of listeners) {
+        listener(snapshot);
+      }
+    }
+
+    function attachRuntime(nextRuntime) {
+      runtime = nextRuntime;
+      runtimeSubscription = runtime.subscribe(() => notify());
+    }
+
+    function detachRuntime() {
+      cleanupSubscription(runtimeSubscription);
+      runtimeSubscription = null;
+      runtime.stop?.();
+    }
+
+    function replaceRuntime(nextRuntime) {
+      detachRuntime();
+      attachRuntime(nextRuntime);
+    }
+
+    function applyLoadedLine(runtimeInstance, linea, duration) {
+      const itemId = toId$1(linea?.ID_Item);
+      if (!itemId) return;
+
+      const dayIndex = Math.min(duration, toPositiveInteger(linea?.Dia_Numero, 1));
+      runtimeInstance.selectDay(dayIndex);
+
+      const beforeEntries = findDayEntries(runtimeInstance.getSnapshot(), dayIndex);
+      const beforeIds = new Set(beforeEntries.map((entry) => entry.entryId));
+
+      runtimeInstance.shipItemToSelectedDay(itemId);
+
+      const afterEntries = findDayEntries(runtimeInstance.getSnapshot(), dayIndex);
+      const createdEntry = afterEntries.find((entry) => !beforeIds.has(entry.entryId));
+      if (!createdEntry) return;
+
+      const overridePatch = overridePatchFromLinea(linea);
+      for (const [key, value] of Object.entries(overridePatch)) {
+        runtimeInstance.setEntryOverride(createdEntry.entryId, key, value);
+      }
+    }
+
+    function hydrateFromLoadData(data) {
+      const cotizacion = data?.cotizacion || null;
+      const lineas = normalizeLineas(data?.lineas || []);
+      if (!cotizacion) {
+        throw new Error('Invalid load payload: missing cotizacion');
+      }
+
+      const fallbackSettings = runtime.getSnapshot().settings || {};
+      const loadedSettings = settingsFromPayload(cotizacion, lineas, fallbackSettings);
+      const nextRuntime = createRuntime(loadedSettings);
+      const nextSnapshot = nextRuntime.getSnapshot();
+      const targetClientId = toId$1(cotizacion.ID_Cliente);
+      const selected = (nextSnapshot.clients || []).find((client) => toId$1(client.id) === targetClientId);
+
+      if (!selected) {
+        nextRuntime.stop?.();
+        throw new Error(`Loaded client not available in runtime: ${targetClientId || 'unknown'}`);
+      }
+
+      nextRuntime.selectClient(selected.id);
+      nextRuntime.startQuotation();
+
+      for (const linea of lineas) {
+        applyLoadedLine(nextRuntime, linea, loadedSettings.duracionDias);
+      }
+
+      nextRuntime.selectDay(1);
+      nextRuntime.backToBasket();
+      replaceRuntime(nextRuntime);
+    }
+
+    attachRuntime(runtime);
+
+    const passthrough = [
+      'openClientModal',
+      'closeClientModal',
+      'selectClient',
+      'startQuotation',
+      'resetToBrowse',
+      'advanceToValidation',
+      'backToBasket',
+      'setCatalogSearch',
+      'toggleCategory',
+      'selectDay',
+      'setQuotationSettings',
+      'shipItemToSelectedDay',
+      'setEntryOverride',
+      'clearEntryOverride',
+      'resetEntryOverrides',
+      'removeEntry',
+      'duplicateEntryInDay',
+      'copyEntryToDay',
+      'moveEntryToDay',
+      'copySelectedDayToNextDay',
+    ];
+
+    const api = {
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+
+      getSnapshot,
+
+      clearPersistenceError() {
+        setPersistence({ error: null });
+      },
+
+      async confirmSave() {
+        if (!persistencePort || typeof persistencePort.save !== 'function') {
+          setPersistence({ error: 'Persistence adapter is not configured' });
+          return { ok: false };
+        }
+
+        const snapshot = getSnapshot();
+        if (snapshot.stage !== 'validation') {
+          return { ok: false };
+        }
+
+        setPersistence({ isSaving: true, error: null });
+
+        try {
+          const payload = serializeQuotation({
+            selectedClient: snapshot.selectedClient,
+            settings: snapshot.settings,
+            basketState: snapshot.basket,
+            quotationId: persistence.quotationId,
+            idPolicy,
+          });
+
+          const result = await persistencePort.save(payload);
+          if (!result?.ok) {
+            setPersistence({
+              isSaving: false,
+              error: toMessage(result?.error, 'Unable to save quotation'),
+            });
+            return result || { ok: false };
+          }
+
+          const quotationId =
+            toId$1(result.data?.quotationId) ||
+            toId$1(result.data?.id) ||
+            toId$1(payload.cotizacion.ID_Cotizacion);
+
+          stageOverride = 'completed';
+          setPersistence({
+            isSaving: false,
+            error: null,
+            quotationId,
+          });
+
+          return { ok: true, data: result.data, id: quotationId };
+        } catch (error) {
+          setPersistence({
+            isSaving: false,
+            error: toMessage(error, 'Unable to save quotation'),
+          });
+          return { ok: false, error: toMessage(error) };
+        }
+      },
+
+      async loadQuotation(id) {
+        if (!persistencePort || typeof persistencePort.load !== 'function') {
+          setPersistence({ error: 'Persistence adapter is not configured' });
+          return { ok: false };
+        }
+
+        const quotationId = toId$1(id);
+        if (!quotationId) {
+          setPersistence({ error: 'Quotation ID is required' });
+          return { ok: false };
+        }
+
+        setPersistence({ isLoading: true, error: null });
+
+        try {
+          const result = await persistencePort.load(quotationId);
+          if (!result?.ok) {
+            setPersistence({
+              isLoading: false,
+              error: toMessage(result?.error, 'Unable to load quotation'),
+            });
+            return result || { ok: false };
+          }
+
+          hydrateFromLoadData(result.data);
+          clearStageOverride();
+          setPersistence({
+            isLoading: false,
+            error: null,
+            quotationId: toId$1(result.data?.quotationId) || quotationId,
+            lastLoadedId: quotationId,
+          });
+
+          return { ok: true, data: result.data };
+        } catch (error) {
+          setPersistence({
+            isLoading: false,
+            error: toMessage(error, 'Unable to load quotation'),
+          });
+          return { ok: false, error: toMessage(error) };
+        }
+      },
+
+      stop() {
+        detachRuntime();
+        listeners.clear();
+      },
+    };
+
+    for (const methodName of passthrough) {
+      api[methodName] = (...args) => {
+        clearStageOverride();
+        const result = runtime[methodName](...args);
+        return result;
+      };
+    }
+
+    return api;
+  }
+
+  // Source of truth for the data structure of the system.
+  // Synced from claps_codelab/src/Config/Config_Schema.js
+  // Version: 3.2.0
+
+  const DATA_SCHEMA = {
+
+    // ==========================================
+    // BLOQUE 1: MASTER DATA (Configuración)
+    // ==========================================
+
+    CLIENTES: {
+      description: 'Base de datos de clientes.',
+      columns: [
+        { name: 'ID_Cliente', type: 'PK', desc: 'Identificador' },
+        { name: 'Nombre_Empresa', type: 'TEXT', desc: 'Razón Social' },
+        { name: 'RUT', type: 'TEXT', desc: 'Identificador Fiscal' },
+        { name: 'Email', type: 'TEXT', desc: 'Contacto Principal' },
+        { name: 'Telefono', type: 'TEXT', desc: 'Contacto' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    CATEGORIAS: {
+      description: 'Configurador de dimensiones de pricing y defaults de UI por tipo de ítem.',
+      columns: [
+        { name: 'ID_Categoria', type: 'PK', desc: 'Identificador categoría' },
+        { name: 'Nombre', type: 'TEXT', desc: 'Nombre visible' },
+        { name: 'ID_Perfil_Precio_Default', type: 'FK', ref: 'PERFILES_PRECIO', desc: 'Perfil de precio base heredable' },
+        { name: 'ID_Perfil_Init_Default', type: 'FK', ref: 'PERFILES_INICIALIZACION', desc: 'Perfil de inicialización por defecto' },
+        { name: 'Def_Requiere_Pax', type: 'BOOLEAN', desc: 'Pricing depende de pax (P)' },
+        { name: 'Def_Requiere_Cant', type: 'BOOLEAN', desc: 'Pricing depende de cantidad (Q)' },
+        { name: 'Def_Requiere_Tiempo', type: 'BOOLEAN', desc: 'Pricing depende de tiempo (T)' },
+        { name: 'Def_Requiere_Hora', type: 'BOOLEAN', desc: 'UI: mostrar selectores de hora' },
+        { name: 'Icono_UI', type: 'TEXT', desc: 'Nombre de icono para UI' },
+        { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    ITEM_CATALOGO: {
+      description: 'Inventario vendible. Hereda dimensiones de categoría, permite override de precio y calculador.',
+      columns: [
+        { name: 'ID_Item', type: 'PK', desc: 'SKU único' },
+        { name: 'Nombre', type: 'TEXT', desc: 'Nombre comercial' },
+        { name: 'ID_Categoria', type: 'FK', ref: 'CATEGORIAS', desc: 'Categoría base' },
+        { name: 'ID_Perfil_Precio_Override', type: 'FK', ref: 'PERFILES_PRECIO', desc: 'Override de perfil de precio' },
+        { name: 'ID_Perfil_Init_Override', type: 'FK', ref: 'PERFILES_INICIALIZACION', desc: 'Override del perfil de inicialización' },
+        { name: 'Default_Glosa', type: 'TEXT', desc: 'Descripción/comentario por defecto' },
+        { name: 'Activo', type: 'BOOLEAN', desc: 'Borrado lógico' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    PERFILES_PRECIO: {
+      description: 'Componentes base de precio. Fórmula: Neto = Base + (P * Cp) + (T * Ct) + (Q * Cq).',
+      columns: [
+        { name: 'ID_Perfil_Precio', type: 'PK', desc: 'Identificador del perfil' },
+        { name: 'Nombre', type: 'TEXT', desc: 'Nombre legible' },
+        { name: 'Costo_Base_Fijo', type: 'MONEY', desc: 'Base fija' },
+        { name: 'Costo_Unitario_Pax', type: 'MONEY', desc: 'Costo por pax' },
+        { name: 'Costo_Unitario_Tiempo', type: 'MONEY', desc: 'Costo por minuto/hora' },
+        { name: 'Costo_Unitario_Item', type: 'MONEY', desc: 'Costo por unidad/cantidad' },
+        { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    PERFILES_INICIALIZACION: {
+      description: 'Perfil de inicialización de cantidades. Cómo se resuelve la cantidad default según pricing kind.',
+      columns: [
+        { name: 'ID_Perfil_Init', type: 'PK', desc: 'Identificador' },
+        { name: 'Nombre', type: 'TEXT', desc: 'Nombre legible' },
+        { name: 'Duracion_Min', type: 'INTEGER', desc: 'Duración default (FIXED_AMOUNT for TIME)' },
+        { name: 'Unidades_Por_Pax', type: 'DECIMAL', desc: 'Multiplicador und/pax (CONTEXT_PAX for UNITS)' },
+        { name: 'Unidades_Por_Hora', type: 'DECIMAL', desc: 'Multiplicador und/hora (CONTEXT_TIME for UNITS)' },
+        { name: 'Minutos_Por_Usuario', type: 'DECIMAL', desc: 'Multiplicador min/usuario (CONTEXT_PAX for TIME)' },
+        { name: 'Cantidad_Fija', type: 'DECIMAL', desc: 'Cantidad fija (FIXED_AMOUNT for UNITS)' },
+        { name: 'Pax_Fijo', type: 'INTEGER', desc: 'Pax fijo (FIXED_AMOUNT for PAX)' },
+        { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    COMPOSICION_KIT: {
+      description: 'Estructura recursiva Padre-Hijo para packs/kits.',
+      columns: [
+        { name: 'ID_Composicion', type: 'PK', desc: 'ID relación' },
+        { name: 'ID_Item_Padre', type: 'FK', ref: 'ITEM_CATALOGO', desc: 'Ítem comercial (pack/kit)' },
+        { name: 'ID_Item_Hijo', type: 'FK', ref: 'ITEM_CATALOGO', desc: 'Ítem operativo' },
+        { name: 'Cantidad', type: 'DECIMAL', desc: 'Multiplicador' },
+        { name: 'Tipo_Precio', type: 'ENUM', options: ['ABSORBIDO', 'SUMAR'], desc: 'Cómo contribuye al precio' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    REGLAS_NEGOCIO: {
+      description: 'Motor unificado de reglas por etapa. Una regla se asigna a un tipo de componente (Scope) y opcionalmente a una instancia específica (ID_Componente). Sin ID_Componente, aplica a todas las instancias del Scope.',
+      columns: [
+        { name: 'ID_Regla', type: 'PK', desc: 'Identificador único' },
+        { name: 'Nombre', type: 'TEXT', desc: 'Nombre legible de la regla' },
+        { name: 'Etapa', type: 'ENUM', options: ['CANTIDAD_DEFAULT', 'RESTRICCION_UI', 'AJUSTE_LINEA', 'AJUSTE_GLOBAL', 'IMPUESTO'], desc: 'Fase del pipeline donde se evalúa la regla' },
+        { name: 'Scope', type: 'ENUM', options: ['LINEA', 'ITEM', 'CATEGORIA', 'COTIZACION', 'CLIENTE', 'COMPOSICION'], desc: 'Tipo de componente al que aplica' },
+        { name: 'ID_Componente', type: 'TEXT', nullable: true, desc: 'ID del componente específico (ID_Item, ID_Categoria, ID_Composicion…). Null = aplica a todas las instancias del Scope' },
+        { name: 'Tipo_Accion', type: 'ENUM', options: ['SET_VALUE', 'MULTIPLY', 'ADD_FIXED', 'ADD_ITEM', 'INVALIDATE_BASKET', 'WARNING', 'ERROR', 'SET_TAX', 'SET_DEFAULT'], desc: 'Acción ejecutable' },
+        { name: 'Hook', type: 'ENUM', options: ['pre_execution', 'execute', 'post_execution', null], desc: 'Lifecycle hook filter' },
+        { name: 'Condicion_JSON', type: 'JSON', desc: 'Predicado para activar la regla (JSON-Logic)' },
+        { name: 'Payload_JSON', type: 'JSON', desc: 'Parámetros para ejecutar la acción' },
+        { name: 'Prioridad', type: 'INTEGER', desc: 'Orden de ejecución dentro de su etapa' },
+        { name: 'Acumulable', type: 'BOOLEAN', desc: 'Si puede combinarse con otras reglas' },
+        { name: 'Activo', type: 'BOOLEAN', desc: 'Vigencia' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    // ==========================================
+    // BLOQUE 2: TRANSACTIONAL DATA (Operación)
+    // ==========================================
+
+    COTIZACIONES: {
+      description: 'Encabezados de venta.',
+      columns: [
+        { name: 'ID_Cotizacion', type: 'PK', desc: 'Folio' },
+        { name: 'ID_Cliente', type: 'FK', ref: 'CLIENTES', desc: 'Cliente' },
+        { name: 'Estado', type: 'ENUM', options: ['Borrador', 'Enviada', 'Pendiente_Aprobacion', 'Aprobada', 'Finalizada'], desc: 'Workflow' },
+        { name: 'Fecha_Evento', type: 'DATE', desc: 'Inicio del evento' },
+        { name: 'Duracion_Dias', type: 'INTEGER', desc: 'Duración global' },
+        { name: 'Pax_Global', type: 'INTEGER', desc: 'Pax base' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    LINEA_DETALLE: {
+      description: 'Inputs de venta.',
+      columns: [
+        { name: 'ID_Linea', type: 'PK', desc: 'ID único' },
+        { name: 'ID_Cotizacion', type: 'FK', ref: 'COTIZACIONES', desc: 'Cotización padre' },
+        { name: 'ID_Item', type: 'FK', ref: 'ITEM_CATALOGO', desc: 'Ítem de catálogo' },
+        { name: 'Estado_Linea', type: 'ENUM', options: ['ACTIVA', 'REMOVIDA'], desc: 'Estado de ciclo de vida' },
+        { name: 'Dia_Numero', type: 'INTEGER', desc: 'Día relativo (1..N)' },
+        { name: 'Hora_Inicio', type: 'TIME', desc: 'Inicio servicio' },
+        { name: 'Override_Pax', type: 'INTEGER', desc: 'Pax override por usuario' },
+        { name: 'Override_Cantidad', type: 'DECIMAL', desc: 'Cantidad override por usuario' },
+        { name: 'Override_Duracion_Min', type: 'INTEGER', desc: 'Duración override en minutos' },
+        { name: 'Comentarios', type: 'TEXT', desc: 'Observaciones' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    AJUSTES_COTIZACION: {
+      description: 'Intervenciones manuales del usuario sobre los cálculos automáticos.',
+      columns: [
+        { name: 'ID_Ajuste', type: 'PK', desc: 'Identificador' },
+        { name: 'ID_Cotizacion', type: 'FK', ref: 'COTIZACIONES', desc: 'Cotización afectada' },
+        { name: 'ID_Linea', type: 'FK', ref: 'LINEA_DETALLE', desc: 'Línea afectada' },
+        { name: 'Tipo_Ajuste', type: 'ENUM', options: ['OVERRIDE_PRECIO', 'OVERRIDE_PAX', 'OVERRIDE_CANTIDAD', 'OVERRIDE_DURACION', 'DESCUENTO_LINEA', 'DESCUENTO_GLOBAL', 'RECARGO'], desc: 'Tipo de intervención' },
+        { name: 'Valor_Original', type: 'MONEY', desc: 'Lo que calculó el sistema' },
+        { name: 'Valor_Nuevo', type: 'MONEY', desc: 'Lo que el usuario puso' },
+        { name: 'Motivo', type: 'TEXT', desc: 'Justificación del cambio' },
+        { name: 'Usuario', type: 'TEXT', desc: 'Quién hizo el ajuste' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última modificación' }
+      ]
+    },
+
+    CACHE_COTIZACION: {
+      description: 'JSON snapshot de resultados calculados.',
+      columns: [
+        { name: 'ID_Cotizacion', type: 'PK/FK', ref: 'COTIZACIONES', desc: '1:1 con cotización' },
+        { name: 'Snapshot_JSON', type: 'JSON', desc: 'Resultado completo' },
+        { name: 'Updated_At', type: 'DATETIME', desc: 'Última regeneración' }
+      ]
+    },
+
+    HISTORIAL_COTIZACION: {
+      description: 'Auditoría de cambios.',
+      columns: [
+        { name: 'ID_Log', type: 'PK', desc: 'ID evento' },
+        { name: 'ID_Cotizacion', type: 'FK', ref: 'COTIZACIONES', desc: 'Target' },
+        { name: 'Timestamp', type: 'DATETIME', desc: 'Cuándo' },
+        { name: 'Usuario', type: 'TEXT', desc: 'Quién' },
+        { name: 'Accion', type: 'TEXT', desc: 'Qué hizo' },
+        { name: 'Detalle_Cambio', type: 'JSON', desc: 'Valores ant/nue' }
+      ]
+    }
+  };
+
+  function inferPrimaryKey$1(columns) {
+    const pkColumn = columns.find((column) => String(column.type || '').includes('PK'));
+    return pkColumn ? pkColumn.name : '_id';
+  }
+
+  function buildModel({ tableName, schema, store }) {
+    const columns = schema.columns || [];
+    const primaryKey = inferPrimaryKey$1(columns);
+
+    return {
+      tableName,
+      schema,
+      primaryKey,
+
+      all() {
+        return store.all();
+      },
+
+      where(predicate) {
+        return store.where(predicate);
+      },
+
+      find(predicate) {
+        return store.find(predicate);
+      },
+
+      findById(id) {
+        return store.find((record) => String(record[primaryKey]) === String(id));
+      },
+
+      create(data) {
+        return store.insert(data);
+      },
+
+      update(data) {
+        return store.update(data);
+      },
+
+      deleteById(id) {
+        return store.deleteById(id);
+      },
+
+      truncate() {
+        return store.truncate();
+      },
+
+      getColumns() {
+        return store.getColumns();
+      }
+    };
+  }
+
+  class ModelFactory {
+    static createModels({ schema, storeFactory }) {
+      const models = {};
+
+      for (const [tableName, tableSchema] of Object.entries(schema)) {
+        const store = storeFactory({
+          tableName,
+          schema: tableSchema,
+          columns: tableSchema.columns || []
+        });
+
+        models[tableName] = buildModel({
+          tableName,
+          schema: tableSchema,
+          store
+        });
+      }
+
+      return models;
+    }
+  }
+
+  class IStore {
+    all() {
+      throw new Error('Not implemented');
+    }
+
+    where(_predicate) {
+      throw new Error('Not implemented');
+    }
+
+    find(_predicate) {
+      throw new Error('Not implemented');
+    }
+
+    insert(_data) {
+      throw new Error('Not implemented');
+    }
+
+    update(_data) {
+      throw new Error('Not implemented');
+    }
+
+    deleteById(_id) {
+      throw new Error('Not implemented');
+    }
+
+    truncate() {
+      throw new Error('Not implemented');
+    }
+
+    getColumns() {
+      throw new Error('Not implemented');
+    }
+
+    getByRowIndex(_rowIndex) {
+      throw new Error('Not implemented');
+    }
+  }
+
+  function deepClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function inferPrimaryKey(columns) {
+    const pkColumn = columns.find((column) => String(column.type || '').includes('PK'));
+    return pkColumn ? pkColumn.name : '_id';
+  }
+
+  class InMemoryStore extends IStore {
+    constructor({ tableName, columns = [] }) {
+      super();
+      this.tableName = tableName;
+      this.columns = columns;
+      this.primaryKey = inferPrimaryKey(columns);
+      this.records = new Map();
+      this.nextId = 1;
+    }
+
+    _generateId() {
+      return `${this.tableName}_${this.nextId++}`;
+    }
+
+    _touchCounterFromId(id) {
+      const match = String(id).match(/_(\d+)$/);
+      if (!match) return;
+
+      const seen = Number.parseInt(match[1], 10);
+      if (Number.isInteger(seen) && seen >= this.nextId) {
+        this.nextId = seen + 1;
+      }
+    }
+
+    all() {
+      return Array.from(this.records.values()).map((record) => deepClone(record));
+    }
+
+    where(predicate) {
+      return this.all().filter((record) => predicate(record));
+    }
+
+    find(predicate) {
+      const result = this.where(predicate);
+      return result.length > 0 ? result[0] : null;
+    }
+
+    insert(data) {
+      const record = deepClone(data || {});
+      const existingId = record[this.primaryKey];
+
+      if (existingId === undefined || existingId === null || existingId === '') {
+        record[this.primaryKey] = this._generateId();
+      } else {
+        this._touchCounterFromId(existingId);
+      }
+
+      const id = record[this.primaryKey];
+      this.records.set(String(id), record);
+      return deepClone(record);
+    }
+
+    update(data) {
+      const record = deepClone(data || {});
+      const id = record[this.primaryKey];
+
+      if (id === undefined || id === null || id === '') {
+        throw new Error(`Missing primary key "${this.primaryKey}" for table "${this.tableName}"`);
+      }
+
+      if (!this.records.has(String(id))) {
+        throw new Error(`Record not found in "${this.tableName}" for id "${id}"`);
+      }
+
+      this.records.set(String(id), record);
+      return deepClone(record);
+    }
+
+    deleteById(id) {
+      return this.records.delete(String(id));
+    }
+
+    truncate() {
+      this.records.clear();
+      this.nextId = 1;
+    }
+
+    getColumns() {
+      return this.columns.map((column) => column.name);
+    }
+
+    getByRowIndex(rowIndex) {
+      const all = this.all();
+      if (rowIndex < 0 || rowIndex >= all.length) {
+        return null;
+      }
+
+      return all[rowIndex];
+    }
+  }
+
+  /**
+   * Create a database instance backed by the given adapter.
+   *
+   * Supported adapters:
+   * - 'memory' (default) — in-memory, suitable for tests and browser use
+   *
+   * @param {Object} [options]
+   * @param {'memory'} [options.adapter='memory']
+   * @param {Object} [options.adapterOptions={}]
+   * @param {Object} [options.schema=DATA_SCHEMA]
+   * @param {Array}  [options.seed=[]] - Array of { table, records[] } to pre-populate
+   * @returns {{ adapter, schema, models }}
+   */
+  function createDatabase({ adapter = 'memory', adapterOptions = {}, schema = DATA_SCHEMA, seed = [] } = {}) {
+    if (adapter !== 'memory') {
+      throw new Error(`Unsupported adapter "${adapter}". Use: memory`);
+    }
+
+    const models = ModelFactory.createModels({
+      schema,
+      storeFactory: ({ tableName, columns }) => new InMemoryStore({ ...adapterOptions, tableName, columns })
+    });
+
+    for (const { table, records } of seed) {
+      const model = models[table];
+      if (!model) continue;
+      for (const record of records) {
+        model.create(record);
+      }
+    }
+
+    return { adapter, schema, models };
+  }
+
   function toSeedMap(seed = []) {
     return Object.fromEntries((seed || []).map(({ table, records }) => [table, records]));
   }
@@ -7291,6 +8252,357 @@ var QuotationEngine = (function (exports) {
       perfilesInit: seedMap.PERFILES_INICIALIZACION || [],
       reglas: seedMap.REGLAS_NEGOCIO || [],
     };
+  }
+
+  const PERSISTENCE_ERROR_CODES = {
+    INVALID_ARGUMENT: 'INVALID_ARGUMENT',
+    NOT_FOUND: 'NOT_FOUND',
+    STORAGE_ERROR: 'STORAGE_ERROR',
+  };
+
+  function persistenceOk(data) {
+    return { ok: true, data };
+  }
+
+  function persistenceError(code, message, details = null) {
+    const error = { code, message };
+    if (details !== null && details !== undefined) {
+      error.details = details;
+    }
+    return { ok: false, error };
+  }
+
+  class PersistencePort {
+    async save(_payload) {
+      throw new Error('PersistencePort.save not implemented');
+    }
+
+    async load(_id) {
+      throw new Error('PersistencePort.load not implemented');
+    }
+  }
+
+  function toErrorMessage(error) {
+    if (!error) return 'Unknown GAS error';
+    if (typeof error === 'string') return error;
+    if (typeof error.message === 'string' && error.message) return error.message;
+    return 'Unknown GAS error';
+  }
+
+  function normalizeErrorObject(raw, fallbackCode = PERSISTENCE_ERROR_CODES.STORAGE_ERROR) {
+    if (raw && typeof raw === 'object' && raw.error && typeof raw.error === 'object') {
+      const code = raw.error.code || fallbackCode;
+      const message = raw.error.message || 'Unknown persistence error';
+      return persistenceError(code, message, raw.error.details);
+    }
+
+    if (raw && raw.ok === false && typeof raw.error === 'string') {
+      return persistenceError(fallbackCode, raw.error);
+    }
+
+    if (raw && raw.success === false) {
+      return persistenceError(fallbackCode, raw.message || raw.error || 'Persistence request failed');
+    }
+
+    return null;
+  }
+
+  function normalizeSaveResponse(raw, fallbackQuotationId = null) {
+    const normalizedError = normalizeErrorObject(raw);
+    if (normalizedError) return normalizedError;
+
+    if (raw && raw.ok === true) {
+      const data = raw.data || {};
+      return persistenceOk({
+        quotationId: data.quotationId || data.id || raw.id || fallbackQuotationId,
+        cotizacion: data.cotizacion || null,
+        lineas: Array.isArray(data.lineas) ? data.lineas : [],
+        lineCount: Number(data.lineCount || (Array.isArray(data.lineas) ? data.lineas.length : 0)),
+      });
+    }
+
+    if (raw && raw.success === true) {
+      return persistenceOk({
+        quotationId: raw.id || fallbackQuotationId,
+        cotizacion: raw.cotizacion || null,
+        lineas: Array.isArray(raw.lineas) ? raw.lineas : [],
+        lineCount: Number(raw.lineCount || (Array.isArray(raw.lineas) ? raw.lineas.length : 0)),
+        message: raw.mensaje || raw.message || '',
+      });
+    }
+
+    return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'Unexpected save response from GAS');
+  }
+
+  function normalizeLoadResponse(raw, requestedId) {
+    const normalizedError = normalizeErrorObject(raw, PERSISTENCE_ERROR_CODES.NOT_FOUND);
+    if (normalizedError) return normalizedError;
+
+    if (raw && raw.ok === true && raw.data) {
+      const data = raw.data;
+      return persistenceOk({
+        quotationId: data.quotationId || data.id || requestedId,
+        cotizacion: data.cotizacion || null,
+        lineas: Array.isArray(data.lineas) ? data.lineas : [],
+        lineCount: Number(data.lineCount || (Array.isArray(data.lineas) ? data.lineas.length : 0)),
+      });
+    }
+
+    if (raw && raw.success === true && raw.data) {
+      const data = raw.data;
+      return persistenceOk({
+        quotationId: data.quotationId || data.id || requestedId,
+        cotizacion: data.cotizacion || null,
+        lineas: Array.isArray(data.lineas) ? data.lineas : [],
+        lineCount: Number(data.lineCount || (Array.isArray(data.lineas) ? data.lineas.length : 0)),
+      });
+    }
+
+    return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'Unexpected load response from GAS');
+  }
+
+  function createGoogleScriptInvoker() {
+    return function invoke(method, ...args) {
+      return new Promise((resolve, reject) => {
+        const runner = globalThis?.google?.script?.run;
+        if (!runner || typeof runner.withSuccessHandler !== 'function') {
+          reject(new Error('google.script.run is not available'));
+          return;
+        }
+
+        let chain = runner.withSuccessHandler((result) => resolve(result));
+        chain = chain.withFailureHandler((error) => reject(new Error(toErrorMessage(error))));
+
+        if (typeof chain[method] !== 'function') {
+          reject(new Error(`google.script.run method not found: ${method}`));
+          return;
+        }
+
+        chain[method](...args);
+      });
+    };
+  }
+
+  function isNotFoundMethodError(error) {
+    const message = toErrorMessage(error).toLowerCase();
+    return message.includes('not found') || message.includes('no existe') || message.includes('undefined');
+  }
+
+  class GasSheetAdapter extends PersistencePort {
+    constructor({
+      invoke = null,
+      saveMethods = ['guardarCotizacionV2', 'guardarCotizacion'],
+      loadMethods = ['cargarCotizacionV2', 'cargarCotizacion'],
+    } = {}) {
+      super();
+      this.invoke = invoke || createGoogleScriptInvoker();
+      this.saveMethods = Array.isArray(saveMethods) ? saveMethods : ['guardarCotizacion'];
+      this.loadMethods = Array.isArray(loadMethods) ? loadMethods : ['cargarCotizacion'];
+    }
+
+    async #invokeWithFallback(methods, ...args) {
+      let lastError = null;
+
+      for (const method of methods) {
+        try {
+          return await this.invoke(method, ...args);
+        } catch (error) {
+          lastError = error;
+          if (!isNotFoundMethodError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      throw lastError || new Error('No GAS method available');
+    }
+
+    async save(payload) {
+      if (!payload || typeof payload !== 'object' || !payload.cotizacion) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.INVALID_ARGUMENT,
+          'payload.cotizacion is required'
+        );
+      }
+
+      try {
+        const raw = await this.#invokeWithFallback(this.saveMethods, payload);
+        return normalizeSaveResponse(raw, payload?.cotizacion?.ID_Cotizacion || null);
+      } catch (error) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+      }
+    }
+
+    async load(id) {
+      const quotationId = String(id || '').trim();
+      if (!quotationId) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.INVALID_ARGUMENT, 'quotation id is required');
+      }
+
+      try {
+        const raw = await this.#invokeWithFallback(this.loadMethods, quotationId);
+        return normalizeLoadResponse(raw, quotationId);
+      } catch (error) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+      }
+    }
+  }
+
+  function toId(value) {
+    if (value === undefined || value === null || value === '') return null;
+    return String(value);
+  }
+
+  function sortLineas(lineas = []) {
+    return [...lineas].sort((left, right) => {
+      const leftDay = Number(left?.Dia_Numero || 0);
+      const rightDay = Number(right?.Dia_Numero || 0);
+      if (leftDay !== rightDay) return leftDay - rightDay;
+      return String(left?.ID_Linea || '').localeCompare(String(right?.ID_Linea || ''));
+    });
+  }
+
+  function toResultData(quotationId, cotizacion, lineas) {
+    const normalizedLineas = sortLineas(lineas);
+    return {
+      quotationId,
+      cotizacion,
+      lineas: normalizedLineas,
+      lineCount: normalizedLineas.length,
+    };
+  }
+
+  function ensureSavePayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return 'payload object is required';
+    }
+
+    if (!payload.cotizacion || typeof payload.cotizacion !== 'object') {
+      return 'payload.cotizacion is required';
+    }
+
+    if (payload.lineas !== undefined && !Array.isArray(payload.lineas)) {
+      return 'payload.lineas must be an array';
+    }
+
+    const quotationId = toId(payload.cotizacion.ID_Cotizacion);
+    if (!quotationId) {
+      return 'payload.cotizacion.ID_Cotizacion is required';
+    }
+
+    return null;
+  }
+
+  class LocalPersistenceAdapter extends PersistencePort {
+    constructor({ models } = {}) {
+      super();
+      if (!models?.COTIZACIONES || !models?.LINEA_DETALLE) {
+        throw new Error('LocalPersistenceAdapter requires COTIZACIONES and LINEA_DETALLE models');
+      }
+      this.models = models;
+    }
+
+    static createDefault() {
+      const db = createDatabase();
+      return new LocalPersistenceAdapter({ models: db.models });
+    }
+
+    #removeExistingLineas(quotationId) {
+      const existingLineas = this.models.LINEA_DETALLE.where(
+        (linea) => String(linea.ID_Cotizacion) === quotationId
+      );
+      const pk = this.models.LINEA_DETALLE.primaryKey || 'ID_Linea';
+      for (const linea of existingLineas) {
+        this.models.LINEA_DETALLE.deleteById(linea[pk]);
+      }
+    }
+
+    #upsertCotizacion(cotizacion) {
+      const quotationId = String(cotizacion.ID_Cotizacion);
+      const existing = this.models.COTIZACIONES.findById(quotationId);
+      if (existing) {
+        return this.models.COTIZACIONES.update({
+          ...existing,
+          ...cotizacion,
+          ID_Cotizacion: quotationId,
+        });
+      }
+      return this.models.COTIZACIONES.create({
+        ...cotizacion,
+        ID_Cotizacion: quotationId,
+      });
+    }
+
+    #createLineas(quotationId, lineas) {
+      const created = [];
+      for (const linea of lineas) {
+        created.push(
+          this.models.LINEA_DETALLE.create({
+            ...linea,
+            ID_Cotizacion: quotationId,
+          })
+        );
+      }
+      return created;
+    }
+
+    async save(payload) {
+      const payloadError = ensureSavePayload(payload);
+      if (payloadError) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.INVALID_ARGUMENT, payloadError);
+      }
+
+      try {
+        const quotationId = String(payload.cotizacion.ID_Cotizacion);
+        const lineas = Array.isArray(payload.lineas) ? payload.lineas : [];
+
+        const savedHeader = this.#upsertCotizacion({
+          ...payload.cotizacion,
+          ID_Cotizacion: quotationId,
+        });
+
+        this.#removeExistingLineas(quotationId);
+        const savedLineas = this.#createLineas(quotationId, lineas);
+
+        return persistenceOk(toResultData(quotationId, savedHeader, savedLineas));
+      } catch (error) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+          error?.message || 'Unable to save quotation'
+        );
+      }
+    }
+
+    async load(id) {
+      const quotationId = toId(id);
+      if (!quotationId) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.INVALID_ARGUMENT,
+          'quotation id is required'
+        );
+      }
+
+      try {
+        const cotizacion = this.models.COTIZACIONES.findById(quotationId);
+        if (!cotizacion) {
+          return persistenceError(
+            PERSISTENCE_ERROR_CODES.NOT_FOUND,
+            `Quotation not found: ${quotationId}`
+          );
+        }
+
+        const lineas = this.models.LINEA_DETALLE.where(
+          (row) => String(row.ID_Cotizacion) === quotationId
+        );
+
+        return persistenceOk(toResultData(quotationId, cotizacion, lineas));
+      } catch (error) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+          error?.message || 'Unable to load quotation'
+        );
+      }
+    }
   }
 
   // AUTO-GENERATED by tools/generate_local_init_tables.mjs
@@ -12239,6 +13551,26 @@ var QuotationEngine = (function (exports) {
     }));
   }
 
+  function hasGoogleScriptRun() {
+    return !!globalThis?.google?.script?.run;
+  }
+
+  function createPersistencePort({
+    persistencePort,
+    persistenceMode,
+    seedEntries,
+  }) {
+    if (persistencePort) return persistencePort;
+
+    const mode = String(persistenceMode || '').trim().toLowerCase();
+    if (mode === 'gas' || (mode !== 'local' && hasGoogleScriptRun())) {
+      return new GasSheetAdapter();
+    }
+
+    const db = createDatabase({ seed: seedEntries });
+    return new LocalPersistenceAdapter({ models: db.models });
+  }
+
   function createQuotationRuntime(options = {}) {
     const sourceSeedEntries = options.seedEntries
       ? normalizeSeedEntries(options.seedEntries)
@@ -12246,11 +13578,22 @@ var QuotationEngine = (function (exports) {
 
     const db = options.db || seedToResolverDb(sourceSeedEntries);
     const clients = options.clients || extractClients(sourceSeedEntries);
+    const persistencePort = createPersistencePort({
+      persistencePort: options.persistencePort,
+      persistenceMode: options.persistenceMode,
+      seedEntries: sourceSeedEntries,
+    });
 
-    return createQuotationInternalRuntime({
-      db,
-      clients,
-      initialSettings: options.initialSettings || {},
+    return createPersistedQuotationRuntime({
+      createRuntime(initialSettings = options.initialSettings || {}) {
+        return createQuotationInternalRuntime({
+          db,
+          clients,
+          initialSettings,
+        });
+      },
+      persistencePort,
+      idPolicy: options.idPolicy || null,
     });
   }
 
@@ -12306,6 +13649,14 @@ var QuotationEngine = (function (exports) {
         rows: [],
         totals: { subtotal: 0, iva: 0, total: 0 },
       },
+      persistence: {
+        isSaving: false,
+        isLoading: false,
+        error: null,
+        quotationId: null,
+        lastLoadedId: null,
+      },
+      loadQuotationId: '',
       draggingCatalogItemId: null,
 
       init() {
@@ -12330,6 +13681,13 @@ var QuotationEngine = (function (exports) {
             rows: [],
             totals: { subtotal: 0, iva: 0, total: 0 },
           };
+          this.persistence = snapshot.persistence || {
+            isSaving: false,
+            isLoading: false,
+            error: null,
+            quotationId: null,
+            lastLoadedId: null,
+          };
         };
 
         sync(runtime.getSnapshot());
@@ -12340,12 +13698,30 @@ var QuotationEngine = (function (exports) {
         runtime.startQuotation();
       },
 
+      resetToBrowse() {
+        runtime.resetToBrowse();
+      },
+
       goValidation() {
         runtime.advanceToValidation();
       },
 
       backToBasket() {
         runtime.backToBasket();
+      },
+
+      async confirmAndSave() {
+        await runtime.confirmSave();
+      },
+
+      async loadQuotationById() {
+        const quotationId = String(this.loadQuotationId || '').trim();
+        if (!quotationId) return;
+        await runtime.loadQuotation(quotationId);
+      },
+
+      clearPersistenceError() {
+        runtime.clearPersistenceError();
       },
 
       openClientModal() {

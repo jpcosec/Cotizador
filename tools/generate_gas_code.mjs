@@ -31,6 +31,394 @@ function healthcheck() {
     at: new Date().toISOString(),
   };
 }
+
+var PERSISTENCE_TABLES = {
+  COTIZACIONES: 'COTIZACIONES',
+  LINEA_DETALLE: 'LINEA_DETALLE',
+};
+
+var COTIZACIONES_COLUMNS = [
+  'ID_Cotizacion',
+  'ID_Cliente',
+  'Estado',
+  'Fecha_Evento',
+  'Duracion_Dias',
+  'Pax_Global',
+  'Updated_At',
+];
+
+var LINEA_DETALLE_COLUMNS = [
+  'ID_Linea',
+  'ID_Cotizacion',
+  'ID_Item',
+  'Estado_Linea',
+  'Dia_Numero',
+  'Hora_Inicio',
+  'Override_Pax',
+  'Override_Cantidad',
+  'Override_Duracion_Min',
+  'Comentarios',
+  'Updated_At',
+];
+
+function guardarCotizacion(payloadOrClient, carrito) {
+  return guardarCotizacionV2(payloadOrClient, carrito);
+}
+
+function guardarCotizacionV2(payloadOrClient, carrito) {
+  try {
+    var payload = _normalizeSaveInput(payloadOrClient, carrito);
+    var saved = _savePayload(payload);
+
+    return {
+      ok: true,
+      data: saved,
+      success: true,
+      id: saved.quotationId,
+      mensaje: 'Cotizacion guardada correctamente.',
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'STORAGE_ERROR',
+        message: String(error && error.message ? error.message : error),
+      },
+      success: false,
+    };
+  }
+}
+
+function cargarCotizacion(idCotizacion) {
+  return cargarCotizacionV2(idCotizacion);
+}
+
+function cargarCotizacionV2(idCotizacion) {
+  try {
+    var quotationId = String(idCotizacion || '').trim();
+    if (!quotationId) {
+      return {
+        ok: false,
+        error: {
+          code: 'INVALID_ARGUMENT',
+          message: 'quotation id is required',
+        },
+        success: false,
+      };
+    }
+
+    var loaded = _loadPayload(quotationId);
+    if (!loaded) {
+      return {
+        ok: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Quotation not found: ' + quotationId,
+        },
+        success: false,
+      };
+    }
+
+    return {
+      ok: true,
+      data: loaded,
+      success: true,
+      cotizacion: loaded.cotizacion,
+      lineas: loaded.lineas,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'STORAGE_ERROR',
+        message: String(error && error.message ? error.message : error),
+      },
+      success: false,
+    };
+  }
+}
+
+function _normalizeSaveInput(payloadOrClient, carrito) {
+  if (payloadOrClient && typeof payloadOrClient === 'object' && payloadOrClient.cotizacion) {
+    return {
+      cotizacion: payloadOrClient.cotizacion,
+      lineas: Array.isArray(payloadOrClient.lineas) ? payloadOrClient.lineas : [],
+    };
+  }
+
+  if (!Array.isArray(carrito)) {
+    throw new Error('guardarCotizacion: payload or carrito array is required');
+  }
+
+  var nowIso = new Date().toISOString();
+  var client = payloadOrClient || {};
+  var clientId = client.ID_Cliente || client.id;
+  if (!clientId) {
+    throw new Error('guardarCotizacion: client id is required');
+  }
+
+  var quotationId = _createId('COT');
+  var neto = carrito.reduce(function(sum, line) {
+    return sum + Number(line && line.total ? line.total : 0);
+  }, 0);
+  var paxFromCart = Number(carrito[0] && carrito[0].cantidad ? carrito[0].cantidad : 1);
+
+  return {
+    cotizacion: {
+      ID_Cotizacion: quotationId,
+      ID_Cliente: String(clientId),
+      Estado: 'Borrador',
+      Fecha_Evento: String(carrito[0] && carrito[0].fecha ? carrito[0].fecha : _todayIsoDate()),
+      Duracion_Dias: Math.max(1, _safeInt(carrito.reduce(function(maxDia, line) {
+        return Math.max(maxDia, _safeInt(line && line.dia, 1));
+      }, 1), 1)),
+      Pax_Global: Math.max(1, _safeInt(paxFromCart, 1)),
+      Updated_At: nowIso,
+      Total_Neto: neto,
+    },
+    lineas: carrito.map(function(linea, index) {
+      return {
+        ID_Linea: _createId('LIN-' + (index + 1)),
+        ID_Cotizacion: quotationId,
+        ID_Item: String(linea && (linea.itemId || linea.ID_Item || linea.nombre || 'ITEM-UNKNOWN')),
+        Estado_Linea: 'ACTIVA',
+        Dia_Numero: _safeInt(linea && linea.dia, 1),
+        Hora_Inicio: String(linea && linea.hora ? linea.hora : '09:00'),
+        Override_Pax: _nullableNumber(linea && linea.pax),
+        Override_Cantidad: _nullableNumber(linea && linea.cantidad),
+        Override_Duracion_Min: _nullableNumber(linea && linea.duracionMin),
+        Comentarios: String(linea && (linea.comentarios || linea.glosa || '') ? (linea.comentarios || linea.glosa || '') : ''),
+        Updated_At: nowIso,
+      };
+    }),
+  };
+}
+
+function _savePayload(payload) {
+  var quotationId = String(payload.cotizacion && payload.cotizacion.ID_Cotizacion || '').trim();
+  if (!quotationId) {
+    throw new Error('ID_Cotizacion is required');
+  }
+
+  var spreadsheet = _openPersistenceSpreadsheet();
+  var cotizacionesSheet = _getOrCreateSheet(spreadsheet, PERSISTENCE_TABLES.COTIZACIONES, COTIZACIONES_COLUMNS);
+  var lineasSheet = _getOrCreateSheet(spreadsheet, PERSISTENCE_TABLES.LINEA_DETALLE, LINEA_DETALLE_COLUMNS);
+
+  var header = _normalizeCotizacionRecord(payload.cotizacion);
+  _upsertByPrimaryKey(cotizacionesSheet, 'ID_Cotizacion', header, COTIZACIONES_COLUMNS);
+
+  var normalizedLineas = (payload.lineas || []).map(function(linea, index) {
+    return _normalizeLineaRecord(linea, quotationId, index);
+  });
+
+  _replaceLineasForQuotation(lineasSheet, quotationId, normalizedLineas, LINEA_DETALLE_COLUMNS);
+
+  return _loadPayload(quotationId);
+}
+
+function _loadPayload(quotationId) {
+  var normalizedId = String(quotationId || '').trim();
+  if (!normalizedId) return null;
+
+  var spreadsheet = _openPersistenceSpreadsheet();
+  var cotizacionesSheet = _getOrCreateSheet(spreadsheet, PERSISTENCE_TABLES.COTIZACIONES, COTIZACIONES_COLUMNS);
+  var lineasSheet = _getOrCreateSheet(spreadsheet, PERSISTENCE_TABLES.LINEA_DETALLE, LINEA_DETALLE_COLUMNS);
+
+  var cotizaciones = _readAllRecords(cotizacionesSheet, COTIZACIONES_COLUMNS);
+  var cotizacion = cotizaciones.find(function(row) {
+    return String(row.ID_Cotizacion || '') === normalizedId;
+  });
+
+  if (!cotizacion) return null;
+
+  var lineas = _readAllRecords(lineasSheet, LINEA_DETALLE_COLUMNS)
+    .filter(function(row) {
+      return String(row.ID_Cotizacion || '') === normalizedId;
+    })
+    .sort(function(left, right) {
+      var leftDay = _safeInt(left.Dia_Numero, 1);
+      var rightDay = _safeInt(right.Dia_Numero, 1);
+      if (leftDay !== rightDay) return leftDay - rightDay;
+      return String(left.ID_Linea || '').localeCompare(String(right.ID_Linea || ''));
+    });
+
+  return {
+    quotationId: normalizedId,
+    cotizacion: cotizacion,
+    lineas: lineas,
+    lineCount: lineas.length,
+  };
+}
+
+function _openPersistenceSpreadsheet() {
+  var properties = PropertiesService.getScriptProperties();
+  var configuredId = properties.getProperty('COTIZADOR_SHEET_ID');
+  if (configuredId) {
+    return SpreadsheetApp.openById(configuredId);
+  }
+
+  try {
+    var active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) return active;
+  } catch (_error) {
+    // ignored, fallback below
+  }
+
+  throw new Error('No spreadsheet configured. Set COTIZADOR_SHEET_ID script property or bind script to a sheet.');
+}
+
+function _getOrCreateSheet(spreadsheet, sheetName, columns) {
+  var sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+  }
+
+  _ensureSheetHeaders(sheet, columns);
+  return sheet;
+}
+
+function _ensureSheetHeaders(sheet, columns) {
+  var lastColumn = Math.max(sheet.getLastColumn(), columns.length);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, columns.length).setValues([columns]);
+    return;
+  }
+
+  var headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  var changed = false;
+
+  for (var i = 0; i < columns.length; i += 1) {
+    if (headers[i] !== columns[i]) {
+      headers[i] = columns[i];
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    sheet.getRange(1, 1, 1, columns.length).setValues([headers.slice(0, columns.length)]);
+  }
+}
+
+function _readAllRecords(sheet, columns) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  var data = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  return data.map(function(row) {
+    var out = {};
+    for (var i = 0; i < columns.length; i += 1) {
+      out[columns[i]] = row[i];
+    }
+    return out;
+  });
+}
+
+function _findRowIndexByPrimaryKey(sheet, pkColumn, pkValue, columns) {
+  var rows = _readAllRecords(sheet, columns);
+  for (var i = 0; i < rows.length; i += 1) {
+    if (String(rows[i][pkColumn] || '') === String(pkValue)) {
+      return i + 2;
+    }
+  }
+  return null;
+}
+
+function _upsertByPrimaryKey(sheet, pkColumn, record, columns) {
+  var pkValue = record[pkColumn];
+  if (!pkValue) {
+    throw new Error('Missing primary key column: ' + pkColumn);
+  }
+
+  var rowIndex = _findRowIndexByPrimaryKey(sheet, pkColumn, pkValue, columns);
+  var row = _recordToRow(record, columns);
+  if (rowIndex) {
+    sheet.getRange(rowIndex, 1, 1, columns.length).setValues([row]);
+    return;
+  }
+
+  sheet.appendRow(row);
+}
+
+function _replaceLineasForQuotation(sheet, quotationId, lineas, columns) {
+  var allRows = _readAllRecords(sheet, columns);
+  var rowIndexesToDelete = [];
+
+  for (var i = 0; i < allRows.length; i += 1) {
+    if (String(allRows[i].ID_Cotizacion || '') === String(quotationId)) {
+      rowIndexesToDelete.push(i + 2);
+    }
+  }
+
+  rowIndexesToDelete.sort(function(left, right) {
+    return right - left;
+  });
+
+  rowIndexesToDelete.forEach(function(rowIndex) {
+    sheet.deleteRow(rowIndex);
+  });
+
+  lineas.forEach(function(linea) {
+    sheet.appendRow(_recordToRow(linea, columns));
+  });
+}
+
+function _recordToRow(record, columns) {
+  return columns.map(function(column) {
+    var value = record[column];
+    if (value === undefined || value === null) return '';
+    return value;
+  });
+}
+
+function _normalizeCotizacionRecord(cotizacion) {
+  var nowIso = new Date().toISOString();
+  return {
+    ID_Cotizacion: String(cotizacion.ID_Cotizacion || _createId('COT')),
+    ID_Cliente: String(cotizacion.ID_Cliente || ''),
+    Estado: String(cotizacion.Estado || 'Borrador'),
+    Fecha_Evento: String(cotizacion.Fecha_Evento || _todayIsoDate()),
+    Duracion_Dias: _safeInt(cotizacion.Duracion_Dias, 1),
+    Pax_Global: _safeInt(cotizacion.Pax_Global, 1),
+    Updated_At: String(cotizacion.Updated_At || nowIso),
+  };
+}
+
+function _normalizeLineaRecord(linea, quotationId, index) {
+  var nowIso = new Date().toISOString();
+  return {
+    ID_Linea: String(linea.ID_Linea || _createId('LIN-' + (index + 1))),
+    ID_Cotizacion: String(quotationId),
+    ID_Item: String(linea.ID_Item || ''),
+    Estado_Linea: String(linea.Estado_Linea || 'ACTIVA'),
+    Dia_Numero: _safeInt(linea.Dia_Numero, 1),
+    Hora_Inicio: String(linea.Hora_Inicio || '09:00'),
+    Override_Pax: _nullableNumber(linea.Override_Pax),
+    Override_Cantidad: _nullableNumber(linea.Override_Cantidad),
+    Override_Duracion_Min: _nullableNumber(linea.Override_Duracion_Min),
+    Comentarios: String(linea.Comentarios || ''),
+    Updated_At: String(linea.Updated_At || nowIso),
+  };
+}
+
+function _safeInt(value, fallback) {
+  var parsed = Number(value);
+  if (!isFinite(parsed)) return fallback;
+  return Math.max(1, Math.floor(parsed));
+}
+
+function _nullableNumber(value) {
+  if (value === undefined || value === null || value === '') return '';
+  var parsed = Number(value);
+  return isFinite(parsed) ? parsed : '';
+}
+
+function _todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function _createId(prefix) {
+  return String(prefix) + '-' + Utilities.getUuid().slice(0, 8);
+}
 `;
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true });

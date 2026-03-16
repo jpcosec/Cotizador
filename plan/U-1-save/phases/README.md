@@ -4,9 +4,9 @@ Execution order is strict. Do not start a phase before the previous phase is com
 
 ## Phase Order
 
-1. `01_save_contract.md` - define SavePayload shape and serialization mapper
-2. `02_persistence_port.md` - implement PersistencePort interface and local adapter
-3. `03_runtime_wiring.md` - wire confirmSave/loadQuotation into runtime and UI
+1. `01_save_contract.md` - legacy extraction + rebuild save contract
+2. `02_persistence_port.md` - boundary and local adapter implementation
+3. `03_runtime_wiring.md` - runtime/UI integration using the boundary
 
 ## Current Status
 
@@ -16,26 +16,23 @@ Execution order is strict. Do not start a phase before the previous phase is com
 
 ## Shared Constraints
 
-- Mapper is a pure function — no I/O, no side effects.
-- PersistencePort is an interface — adapter is injected, never hard-coded.
-- Local adapter uses existing InMemoryStore from `packages/database/`.
-- Field names in persistence layer match `Config_Schema.js` exactly.
-- Do not modify item/basket/catalog runtime contracts.
-- All existing tests must remain green after every phase.
+- Legacy behavior must be reviewed first (`Codigo.js`, `Controller_Cotizacion.js`, `Models.js`, `SheetDB.js`, `Stores_App.html`).
+- Mapper is pure (no I/O).
+- Runtime depends only on `PersistencePort`.
+- Adapter owns physical persistence details.
+- Field names in persisted payload match `Config_Schema.js`.
 
 ## Go / No-Go Gate Per Phase
 
 A phase is complete only if all are true:
 
-1. Objectives checklist in that phase document is complete.
-2. Automated test suite passes for touched scope.
-3. Manual verification passes for phase behavior.
-4. Commit created with the exact phase commit message.
+1. Legacy baseline references are captured in the phase output.
+2. Objectives checklist in that phase document is complete.
+3. Automated tests pass for touched scope.
+4. Manual flow verification passes.
 
 ## Commit Sequence
 
-1. `docs: add SavePayload contract for quotation persistence`
-2. `feat: add serializeQuotation mapper with tests`
-3. `feat: add PersistencePort and LocalPersistenceAdapter`
-4. `feat: wire confirmSave command into quotation runtime`
-5. `feat: enable Confirm & Save in quotation UI`
+1. `docs(plan): align U-1 save contract with legacy behavior`
+2. `feat: implement persistence boundary and local adapter`
+3. `feat: wire save/load flow through PersistencePort`

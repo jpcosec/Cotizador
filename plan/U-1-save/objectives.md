@@ -1,8 +1,32 @@
-# U-1 Save Vertical Slice — Objectives
+# U-1 Save Vertical Slice - Objectives
 
 ## Goal
 
-Enable the `Confirm` button in the validation stage to save a quotation to local persistence (CSV-simulated InMemoryStore), producing a recoverable `ID_Cotizacion`. This establishes the `SavePayload` contract that U-3 (GAS) and U-4 (PDF) depend on.
+Enable `Confirm` to persist quotation data end-to-end in rebuild, while preserving the validated behavior already implemented in `claps_codelab` for save/load flow.
+
+This step defines the canonical save contract used by:
+
+- local simulation (InMemory/CSV-backed flow),
+- GAS save/load adapters,
+- PDF generation flow (save-first).
+
+---
+
+## Legacy Decisions To Preserve
+
+From `claps_codelab`:
+
+1. Save/Load/PDF are routed via GAS-facing functions (`guardarCotizacion`, `cargarCotizacion`, `generarPDF`).
+2. Save-first flow is mandatory before PDF generation.
+3. Business flow is layered: router -> controller/service -> model/store.
+4. Client + quotation + detail rows are persisted together as one business operation.
+
+References:
+
+- `claps_codelab/Codigo.js`
+- `claps_codelab/Controller_Cotizacion.js`
+- `claps_codelab/Models.js`
+- `claps_codelab/Stores_App.html`
 
 ---
 
@@ -10,79 +34,68 @@ Enable the `Confirm` button in the validation stage to save a quotation to local
 
 | Artifact | Location |
 |---|---|
-| `SavePayload` type contract | `packages/database/src/persistence/SavePayload.md` |
-| `serializeQuotation(snapshot)` mapper | `packages/database/src/persistence/serializeQuotation.js` |
-| `PersistencePort` interface | `packages/database/src/persistence/PersistencePort.js` |
-| `LocalPersistenceAdapter` (InMemory) | `packages/database/src/persistence/LocalPersistenceAdapter.js` |
-| `confirmSave()` command in runtime | `apps/quotation/state/createQuotationInternalRuntime.js` |
-| `loadQuotation(id)` command in runtime | `apps/quotation/state/createQuotationInternalRuntime.js` |
-| UI wiring for Confirm button | `apps/quotation/playground/QuotationFlowInternal.html` |
-| Bundled flow component wiring | `bundling/createQuotationFlowComponent.js` |
-| Tests | `packages/database/src/persistence/serializeQuotation.test.js` |
+| Save contract (legacy parity + rebuild schema mapping) | `packages/database/src/persistence/SavePayload.md` |
+| Snapshot serializer (pure) | `packages/database/src/persistence/serializeQuotation.js` |
+| Persistence boundary interface | `packages/database/src/persistence/PersistencePort.js` |
+| Local adapter (InMemory/CSV simulation) | `packages/database/src/persistence/LocalPersistenceAdapter.js` |
+| Runtime wiring (`confirmSave`, `loadQuotation`) | `apps/quotation/state/createQuotationInternalRuntime.js` |
+| UI wiring (`Confirm & Save`) | `apps/quotation/playground/QuotationFlowInternal.html` |
+| Bundle wiring | `bundling/createQuotationFlowComponent.js` |
 
 ---
 
 ## Completion Criteria
 
-### SavePayload contract
-- [ ] `SavePayload.md` documents the exact shape of data written to `COTIZACIONES` and `LINEA_DETALLE`
-- [ ] Shape maps 1:1 to `Config_Schema.js` column definitions for both tables
+### Contract
 
-### Serialization mapper
-- [ ] `serializeQuotation(snapshot, client, settings)` produces `{ cotizacion: {...}, lineas: [...] }`
-- [ ] `cotizacion` fields: `ID_Cotizacion`, `ID_Cliente`, `Estado`, `Fecha_Evento`, `Duracion_Dias`, `Pax_Global`, `Updated_At`
-- [ ] Each `linea` fields: `ID_Linea`, `ID_Cotizacion`, `ID_Item`, `Estado_Linea`, `Dia_Numero`, `Hora_Inicio`, `Override_Pax`, `Override_Cantidad`, `Override_Duracion_Min`, `Comentarios`, `Updated_At`
-- [ ] Mapper is a pure function with zero side effects
+- [ ] `SavePayload.md` includes two mappings:
+  - legacy semantic mapping (`claps_codelab` fields and responses),
+  - rebuild schema mapping (`COTIZACIONES`, `LINEA_DETALLE` in `Config_Schema.js`).
+- [ ] ID strategy is configurable via boundary (no hard-coded format in runtime).
 
-### PersistencePort
-- [ ] Interface defines `save(payload)` → `{ ok, id, error }` and `load(id)` → `{ ok, data, error }`
-- [ ] `LocalPersistenceAdapter` implements the interface using `createDatabase` models
-- [ ] Save writes to `COTIZACIONES` and `LINEA_DETALLE` tables in InMemoryStore
-- [ ] Load reads back and reconstructs a snapshot-compatible shape
+### Serializer
 
-### Runtime integration
-- [ ] `confirmSave()` added to `createQuotationInternalRuntime` API
-- [ ] `loadQuotation(id)` added to runtime API
-- [ ] Save transitions stage from `validation` → `completed` with `quotationId` available
-- [ ] Load reconstructs basket state from persisted lineas
+- [ ] `serializeQuotation(...)` is pure and deterministic.
+- [ ] All required transactional columns are populated.
+- [ ] Overrides are mapped (`pax`, `cantidad`, `duracionMin`, `hora`, `comentarios`).
 
-### UI wiring
-- [ ] `Confirm (deferred)` button becomes active `Confirm & Save`
-- [ ] After save, `quotationId` is displayed in completed stage
-- [ ] Bundled GAS flow component exposes the same confirm/load commands
+### Boundary
+
+- [ ] Runtime depends only on `PersistencePort`.
+- [ ] Local adapter implements `save/load` with no UI dependency.
+- [ ] Response contract normalizes legacy shape and rebuild shape.
+
+### Runtime/UI
+
+- [ ] `confirmSave()` transitions `validation -> completed` on success.
+- [ ] `quotationId` is visible after save.
+- [ ] `loadQuotation(id)` path exists and returns normalized payload.
 
 ---
 
 ## Testing Criteria
 
 **Automated:**
+
 ```bash
 npm test
-# All existing tests pass + new serialization/persistence tests
 ```
 
-**Manual (sandbox):**
-- [ ] Create quotation with items across 2+ days
-- [ ] Click Confirm → see quotation ID
-- [ ] Verify serialized data shape matches SavePayload contract
+**Manual (sandbox + GAS preview):**
 
-**Manual (GAS preview):**
-```bash
-npm run dev:gas
-# Open http://localhost:8082
-```
-- [ ] Same confirm flow works in GAS preview mode
+- [ ] Create quotation with entries across multiple days.
+- [ ] Save succeeds and returns visible quotation ID.
+- [ ] Load by ID returns expected header + detail rows.
+- [ ] Behavior matches legacy save/load expectations.
 
 ---
 
 ## Key Constraints
 
-- Mapper must be pure — no database access, no I/O
-- PersistencePort is an interface — adapter selection happens at runtime factory level
-- Local adapter uses existing `InMemoryStore` — no new store implementations
-- Do not modify `Config_Schema.js`
-- Do not modify item/basket/catalog machine contracts
-- `ID_Cotizacion` format: `COT-{timestamp}-{random}` (matches legacy pattern)
+- Keep layer separation strict: runtime -> interface -> adapter -> storage.
+- Do not bind runtime/UI to physical DB details.
+- Do not bypass `PersistencePort` from UI code.
+- Do not change pricing/item/basket contracts to implement persistence.
 
 ---
 
@@ -90,14 +103,8 @@ npm run dev:gas
 
 | Artifact | Status | Location |
 |---|---|---|
-| `COTIZACIONES` + `LINEA_DETALLE` schema | ✅ Defined | `packages/database/src/Config_Schema.js:119-146` |
-| `InMemoryStore` with insert/update/all | ✅ Complete | `packages/database/src/stores/InMemoryStore.js` |
-| `createDatabase({ seed })` factory | ✅ Complete | `packages/database/src/createDatabase.js` |
-| `IStore` interface | ✅ Complete | `packages/database/src/IStore.js` |
-| `Item.toSeed()` serialization | ✅ Complete | `packages/components/item/Item.js` |
-| `buildValidationProjection()` | ✅ Complete | `apps/quotation/state/createQuotationInternalRuntime.js:62-86` |
-| Runtime `getSnapshot()` with full basket state | ✅ Complete | `apps/quotation/state/createQuotationInternalRuntime.js:225-258` |
-| `QuotationHeader` emits `SAVE_CLICKED` | ✅ Complete | `packages/components/quotation/views/QuotationHeader.js:28` |
-| `AppState` handles `SAVE_QUOTATION` / `CONFIRM_SAVE` | ✅ Complete | `packages/components/quotation/modals/AppState.js:160-176` |
-| Legacy `guardarCotizacion()` reference | ✅ Reference | `claps_codelab/Stores_App.html:199-213` |
-| Legacy `servicioGuardarCotizacion()` reference | ✅ Reference | `claps_codelab/Codigo.js:56-58` |
+| Transactional schema (`COTIZACIONES`, `LINEA_DETALLE`) | ✅ | `packages/database/src/Config_Schema.js` |
+| In-memory store and model factory | ✅ | `packages/database/src/stores/InMemoryStore.js`, `packages/database/src/createDatabase.js` |
+| Runtime snapshot/projection | ✅ | `apps/quotation/state/createQuotationInternalRuntime.js` |
+| Legacy save/load behavior | ✅ reference | `claps_codelab/Controller_Cotizacion.js` |
+| Legacy UI calls (`google.script.run`) | ✅ reference | `claps_codelab/Stores_App.html` |

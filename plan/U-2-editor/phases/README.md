@@ -1,12 +1,12 @@
-# U-2 Editor Basic Drag & Drop - Phase Index
+# U-2 Editor Basic - Phase Index
 
 Execution order is strict. Do not start a phase before the previous phase is complete and verified.
 
 ## Phase Order
 
-1. `01_gesture_matrix.md` - document gesture-to-event mapping from draft HTML
-2. `02_timeline_grid.md` - build grid layout and catalog drop
-3. `03_move_and_resize.md` - wire entry re-drag and resize interactions
+1. `01_gesture_matrix.md` - legacy/draft interaction inventory and event mapping
+2. `02_timeline_grid.md` - timeline layer over current editor (catalog drop included)
+3. `03_move_and_resize.md` - move/resize interactions and regression gates
 
 ## Current Status
 
@@ -16,27 +16,21 @@ Execution order is strict. Do not start a phase before the previous phase is com
 
 ## Shared Constraints
 
-- All gestures map to existing runtime events. No new machine logic.
-- Timeline grid is a presentation overlay. Accordion view remains as alternate.
-- Do not implement kit/group/pack drop zones.
-- Preserve all existing drag-to-day-tab behavior.
-- All existing tests must remain green after every phase.
+- Keep legacy editor semantics from `claps_codelab/Components_Timeline.html`.
+- Map gestures to existing runtime events first.
+- Keep list editor available while timeline is introduced.
+- Group/kit drag is out of scope for this urgent track.
 
 ## Go / No-Go Gate Per Phase
 
 A phase is complete only if all are true:
 
-1. Objectives checklist in that phase document is complete.
-2. Automated test suite passes for touched scope.
-3. Manual verification passes for phase behavior.
-4. Commit created with the exact phase commit message.
+1. Phase checklist is complete.
+2. Regression checks for existing editor behavior pass.
+3. Automated tests for touched scope pass.
 
 ## Commit Sequence
 
-1. `docs: add editor gesture-to-event mapping matrix`
-2. `feat: add timeline grid layout to basket editor`
-3. `feat: wire catalog-to-timeline-grid drop`
-4. `feat: wire entry move-to-hour on timeline grid`
-5. `feat: wire entry duration resize on timeline grid`
-6. `feat: add timeline drag interactions to GAS bundle`
-7. `test: add E2E tests for editor drag interactions`
+1. `docs(plan): define U-2 gesture matrix and baseline`
+2. `feat: add timeline layer for catalog drop`
+3. `feat: add move and resize interactions with regression coverage`

@@ -1,5 +1,9 @@
 import { createQuotationInternalRuntime } from '../apps/quotation/state/createQuotationInternalRuntime.js';
+import { createPersistedQuotationRuntime } from '../apps/quotation/state/createPersistedQuotationRuntime.js';
+import { createDatabase } from '../packages/database/src/createDatabase.js';
 import { seedToResolverDb } from '../packages/database/src/playgroundAdapter.js';
+import { GasSheetAdapter } from '../packages/database/src/persistence/GasSheetAdapter.js';
+import { LocalPersistenceAdapter } from '../packages/database/src/persistence/LocalPersistenceAdapter.js';
 import { LOCAL_INIT_TABLES } from './generated/localInitTables.js';
 
 function normalizeSeedEntries(seedEntries = []) {
@@ -26,6 +30,26 @@ function extractClients(seedEntries = []) {
   }));
 }
 
+function hasGoogleScriptRun() {
+  return !!globalThis?.google?.script?.run;
+}
+
+function createPersistencePort({
+  persistencePort,
+  persistenceMode,
+  seedEntries,
+}) {
+  if (persistencePort) return persistencePort;
+
+  const mode = String(persistenceMode || '').trim().toLowerCase();
+  if (mode === 'gas' || (mode !== 'local' && hasGoogleScriptRun())) {
+    return new GasSheetAdapter();
+  }
+
+  const db = createDatabase({ seed: seedEntries });
+  return new LocalPersistenceAdapter({ models: db.models });
+}
+
 export function createQuotationRuntime(options = {}) {
   const sourceSeedEntries = options.seedEntries
     ? normalizeSeedEntries(options.seedEntries)
@@ -33,10 +57,21 @@ export function createQuotationRuntime(options = {}) {
 
   const db = options.db || seedToResolverDb(sourceSeedEntries);
   const clients = options.clients || extractClients(sourceSeedEntries);
+  const persistencePort = createPersistencePort({
+    persistencePort: options.persistencePort,
+    persistenceMode: options.persistenceMode,
+    seedEntries: sourceSeedEntries,
+  });
 
-  return createQuotationInternalRuntime({
-    db,
-    clients,
-    initialSettings: options.initialSettings || {},
+  return createPersistedQuotationRuntime({
+    createRuntime(initialSettings = options.initialSettings || {}) {
+      return createQuotationInternalRuntime({
+        db,
+        clients,
+        initialSettings,
+      });
+    },
+    persistencePort,
+    idPolicy: options.idPolicy || null,
   });
 }

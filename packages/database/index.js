@@ -11,3 +11,12 @@ export { validateField, validateRow, isRowValid } from './src/validation.js';
 export { createDatabaseActor, BROWSER_TABLES } from './src/machine/databaseMachine.js';
 export { resolveItemDefinition } from './src/resolveItemDefinition.js';
 export { seedToResolverDb, getPrimaryKeyForTable } from './src/playgroundAdapter.js';
+export { serializeQuotation, createDefaultIdPolicy } from './src/persistence/serializeQuotation.js';
+export {
+  PersistencePort,
+  PERSISTENCE_ERROR_CODES,
+  persistenceOk,
+  persistenceError,
+} from './src/persistence/PersistencePort.js';
+export { LocalPersistenceAdapter } from './src/persistence/LocalPersistenceAdapter.js';
+export { GasSheetAdapter } from './src/persistence/GasSheetAdapter.js';

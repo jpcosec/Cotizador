@@ -1,5 +1,5 @@
 # Vistas to Rebuild Design Map
-
+<!-- This was craeted without considering the info of claps_codelab, there are definitions and implementations that might be already made there. -->
 Date: 2026-03-11
 
 ## Purpose

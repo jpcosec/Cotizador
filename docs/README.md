@@ -5,6 +5,8 @@ Technical documentation for the active rebuild worktree.
 ## Architecture
 
 - `ARCHITECTURE/component-architecture.md` - current component layering and conventions.
+- `ARCHITECTURE/design-principles.md` - cross-cutting engineering principles for architecture and delivery.
+- `ARCHITECTURE/legacy-ui-recovery.md` - legacy parity scope split (backend contracts vs rebuild-native UI implementation).
 - `ARCHITECTURE/item-component.md` - Item-specific behavior and contracts.
 - `ARCHITECTURE/rules-engine-integration.md` - rule evaluation model.
 - `ARCHITECTURE/app-flow-state-screen-foundation.md` - app flow base taxonomy (screen/state/event).
@@ -59,4 +61,4 @@ npm run build
 npm run dev:gas
 ```
 
-Last update: 2026-03-11
+Last update: 2026-03-15

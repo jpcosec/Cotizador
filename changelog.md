@@ -2,6 +2,68 @@
 
 ## [Unreleased]
 
+### 2026-03-15 (docs: legacy UI recovery policy + planning rule scope)
+- Added `docs/ARCHITECTURE/legacy-ui-recovery.md` to formalize legacy parity policy with explicit scope split:
+  - backend/service compatibility remains migration-first,
+  - frontend implementation remains rebuild-native (Alpine/XState/domain/adapters).
+- Added `docs/ARCHITECTURE/design-principles.md` as the canonical cross-cutting principles document for layer boundaries, mutation ownership, adapter-first I/O, testability, and documentation discipline.
+- Deepened and documented architecture principles for UI recovery work (mutation boundary, adapter-first integration, screen/state/event discipline, no backend knowledge in templates).
+- Updated `plan/README.md` Planning Rule to clarify that migration-first applies to backend contracts, while UI implementation must follow rebuild component architecture.
+- Updated `docs/README.md` Architecture index with the new policy document.
+
+### 2026-03-13 (U-1 save phases 01-02: contract, serializer, persistence boundary)
+- Expanded persistence contract documentation in `packages/database/src/persistence/SavePayload.md` with:
+  - extracted legacy save/load semantics from `claps_codelab` (`guardarCotizacion`, `cargarCotizacion`, save-first PDF dependency),
+  - rebuild mapping from runtime snapshot to transactional tables (`COTIZACIONES`, `LINEA_DETALLE`),
+  - normalized `PersistencePort` success/error response contract,
+  - pluggable ID strategy policy contract.
+- Refactored `packages/database/src/persistence/serializeQuotation.js` into a deterministic pure mapper with:
+  - explicit normalization helpers,
+  - day/order-stable line flattening,
+  - injectable ID policy (`createDefaultIdPolicy` exported),
+  - stricter validation for required client identity.
+- Hardened persistence boundary implementation:
+  - added normalized result helpers and error codes in `packages/database/src/persistence/PersistencePort.js`,
+  - updated `packages/database/src/persistence/LocalPersistenceAdapter.js` to validate inputs, upsert quotation headers, replace prior detail lines on re-save, and normalize save/load responses.
+- Added test coverage for U-1 phases 01-02 artifacts:
+  - `packages/database/src/persistence/serializeQuotation.test.js`,
+  - `packages/database/src/persistence/LocalPersistenceAdapter.test.js`.
+- Exported persistence modules from `packages/database/index.js` for runtime/adapters integration in upcoming U-1 phase 03.
+
+### 2026-03-13 (U-1 phase 03 + U-3 GAS wiring)
+- Added persisted runtime orchestration wrapper `apps/quotation/state/createPersistedQuotationRuntime.js` that keeps quotation runtime storage-agnostic while providing:
+  - `confirmSave()` and `loadQuotation(id)` through `PersistencePort`,
+  - persisted state projection (`isSaving`, `isLoading`, `error`, `quotationId`, `lastLoadedId`),
+  - completed-stage transition after successful confirm save.
+- Wired persistence-aware runtime into both local playground and bundle runtime factories:
+  - `apps/quotation/playground/mountQuotationFlow.js`
+  - `bundling/createQuotationRuntime.js`
+  - `bundling/createQuotationFlowComponent.js`
+- Updated quotation flow UI shell `apps/quotation/playground/QuotationFlowInternal.html` with:
+  - load-by-ID controls,
+  - active `Confirm & Save` action,
+  - save/load error visibility,
+  - completed screen with saved quotation ID.
+- Implemented GAS persistence adapter `packages/database/src/persistence/GasSheetAdapter.js` with method fallback (`guardar/cargar` v2 -> legacy) and normalized boundary mapping.
+- Extended local GAS shim `apps/gas/Local_GAS_Shim.html` to simulate save/load contract parity (`guardarCotizacion*`, `cargarCotizacion*`) with in-memory data.
+- Implemented generated GAS server contract in `tools/generate_gas_code.mjs` (output `gas/Code.gs`) including:
+  - router-level save/load functions with legacy-compatible names,
+  - spreadsheet resolution (`COTIZADOR_SHEET_ID` script property or active spreadsheet fallback),
+  - upsert header + replace detail persistence behavior for `COTIZACIONES` and `LINEA_DETALLE`.
+- Added tests:
+  - `apps/quotation/state/createPersistedQuotationRuntime.test.js`
+  - `packages/database/src/persistence/GasSheetAdapter.test.js`
+
+### 2026-03-11 (plan: U-series realigned to legacy implementation)
+- Reworked urgent plans to explicitly start from `claps_codelab` decisions and existing code for save/load/PDF flow.
+- Removed inline review comments from active U-series documents and converted them into concrete constraints and baseline references.
+- Completed missing phase documents for:
+  - `plan/U-2-editor/phases/01_gesture_matrix.md`, `02_timeline_grid.md`, `03_move_and_resize.md`
+  - `plan/U-3-gas/phases/01_gas_server.md`, `02_gas_adapter.md`, `03_integration.md`
+  - `plan/U-4-pdf/phases/01_pdf_template.md`, `02_gas_server_pdf.md`, `03_ui_wiring.md`
+- Added `plan/U-2-editor/gesture_event_matrix.md` to anchor drag interactions to existing runtime events.
+- Updated `plan/README.md` and `plan/implementation-status.json` to reflect migration-first strategy and revised phase focus.
+
 ### 2026-03-11 (plan: urgent track U-series for save/editor/GAS/PDF)
 - Moved legacy plans (I-1, I-3, III-1, 0-cleanup) to `plan/legacy/`.
 - Created urgent implementation plan with 4 tracks:

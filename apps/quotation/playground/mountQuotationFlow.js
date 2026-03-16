@@ -1,10 +1,13 @@
 import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.browser.js';
+import { createDatabase } from '../../../packages/database/src/createDatabase.js';
 import { seedToResolverDb } from '../../../packages/database/src/playgroundAdapter.js';
+import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
 import {
   basketRuntimeHtml,
   catalogRuntimeHtml,
 } from '../../../packages/components/item/ui/playgroundItemSections.js';
 import { createQuotationInternalRuntime } from '../state/createQuotationInternalRuntime.js';
+import { createPersistedQuotationRuntime } from '../state/createPersistedQuotationRuntime.js';
 
 const CSV_BASE_URL = '/data/init';
 
@@ -53,7 +56,14 @@ export async function mountQuotationPlayground(root) {
 
   const db = seedToResolverDb(seed);
   const clients = extractClients(seed);
-  const runtime = createQuotationInternalRuntime({ db, clients });
+  const persistenceDb = createDatabase({ seed });
+  const persistencePort = new LocalPersistenceAdapter({ models: persistenceDb.models });
+  const runtime = createPersistedQuotationRuntime({
+    createRuntime(initialSettings = {}) {
+      return createQuotationInternalRuntime({ db, clients, initialSettings });
+    },
+    persistencePort,
+  });
 
   window.quotationFlowComponent = function quotationFlowComponent() {
     return {
@@ -82,6 +92,14 @@ export async function mountQuotationPlayground(root) {
         rows: [],
         totals: { subtotal: 0, iva: 0, total: 0 },
       },
+      persistence: {
+        isSaving: false,
+        isLoading: false,
+        error: null,
+        quotationId: null,
+        lastLoadedId: null,
+      },
+      loadQuotationId: '',
       draggingCatalogItemId: null,
       init() {
         const sync = (snapshot) => {
@@ -102,6 +120,13 @@ export async function mountQuotationPlayground(root) {
             rows: [],
             totals: { subtotal: 0, iva: 0, total: 0 },
           };
+          this.persistence = snapshot.persistence || {
+            isSaving: false,
+            isLoading: false,
+            error: null,
+            quotationId: null,
+            lastLoadedId: null,
+          };
         };
 
         sync(runtime.getSnapshot());
@@ -112,12 +137,30 @@ export async function mountQuotationPlayground(root) {
         runtime.startQuotation();
       },
 
+      resetToBrowse() {
+        runtime.resetToBrowse();
+      },
+
       goValidation() {
         runtime.advanceToValidation();
       },
 
       backToBasket() {
         runtime.backToBasket();
+      },
+
+      async confirmAndSave() {
+        await runtime.confirmSave();
+      },
+
+      async loadQuotationById() {
+        const quotationId = String(this.loadQuotationId || '').trim();
+        if (!quotationId) return;
+        await runtime.loadQuotation(quotationId);
+      },
+
+      clearPersistenceError() {
+        runtime.clearPersistenceError();
       },
 
       openClientModal() {
