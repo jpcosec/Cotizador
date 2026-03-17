@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### 2026-03-17 (entry-page database access + hover layering + save flow hardening)
+- Added explicit database editing entrypoint on quotation home screen (`Edit Database`) in `apps/quotation/playground/QuotationFlowInternal.html`, wired through:
+  - `bundling/createQuotationFlowComponent.js`
+  - `apps/quotation/playground/mountQuotationFlow.js`
+- Added environment-aware database editor URL resolution:
+  - local sandbox/GAS preview are routed to the DB editor,
+  - unsupported runtimes now show a clear inline error instead of opening a dead route.
+- Added direct basket-stage save action (`Save Quotation`) and kept validation review path intact.
+- Hardened `saveQuotation()` in both runtime wrappers to wait until stage becomes `validation` before calling `confirmSave()`, preventing stage-transition race failures in preview/runtime wiring.
+- Fixed hover layering/popover visibility issues in quotation UI by:
+  - enabling visible overflow on basket accordion container,
+  - adding explicit `glosa-popover` overlay styling and z-index behavior,
+  - preserving popover readability over neighboring cards/panels.
+- Fixed local GAS shim method-chain contract in `apps/gas/Local_GAS_Shim.html` so `withSuccessHandler()/withFailureHandler()` continue returning proxy-aware RPC methods (`guardar/cargar/getReferenceData`) correctly.
+- Updated local GAS shim to expose `google.script.run` as a fresh caller per access (getter-based), avoiding callback cross-talk under overlapping RPC calls.
+- Added regression tests for the new safeguards:
+  - `apps/gas/Local_GAS_Shim.test.js` validates fresh-caller semantics and concurrent callback isolation.
+  - `bundling/createQuotationFlowComponent.test.js` validates DB-editor unavailability handling and explicit URL override behavior.
+- Regenerated artifacts after changes:
+  - `dist/quotation-engine.iife.js` + map
+  - `gas/Quotation_App.html`, `gas/Bundle_Runtime.html`, `gas/Code.gs`, `gas/Local_GAS_Shim.html`
+- Verification:
+  - Vitest: `58` files passed, `572` tests passed, `1` skipped.
+  - Playwright (sandbox + GAS preview):
+    - database editor entrypoint reachable from home,
+    - quotation save completes and returns ID,
+    - saved quotation reload by ID succeeds,
+    - rules popover is visible and not clipped by ancestor containers.
+
 ### 2026-03-17 (runtime reference bootstrap + catalog normalization + timeline controls)
 - Added runtime reinitialization support in `apps/quotation/state/createPersistedQuotationRuntime.js` to allow safe runtime rebuilds while preserving current settings.
 - Added optional remote reference-data bootstrap in `bundling/createQuotationRuntime.js` and async startup wiring in `bundling/createQuotationFlowComponent.js`:

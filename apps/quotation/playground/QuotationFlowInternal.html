@@ -4,6 +4,12 @@
       <h2>Quotation Flow</h2>
       <p class="muted">Internal flow ready: select client, configure quotation, build basket by days.</p>
       <div class="home-actions">
+        <button class="btn btn-small btn-secondary"
+                @click="openDatabaseEditor()"
+                :disabled="!databaseEditorUrl"
+                :title="databaseEditorUrl ? 'Open database editor' : 'Database editor is unavailable in this runtime'">
+          Edit Database
+        </button>
         <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
         <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
       </div>
@@ -138,6 +144,12 @@
           </div>
           <div class="settings-actions">
             <button class="btn btn-small btn-secondary" @click="copyDayToNextDay()">Copy Day</button>
+            <button class="btn btn-small btn-secondary"
+                    @click="saveQuotation()"
+                    :disabled="basket.basketEntries.length === 0 || persistence.isSaving">
+              <span x-show="!persistence.isSaving">Save Quotation</span>
+              <span x-show="persistence.isSaving">Saving...</span>
+            </button>
             <button class="btn btn-small btn-primary" @click="goValidation()" :disabled="basket.basketEntries.length === 0">Validate</button>
           </div>
         </section>
@@ -284,7 +296,7 @@
   h2, h3 { margin: 0 0 10px; color: var(--text); font-size: 1rem; }
 
   .home-panel { max-width: 720px; margin: 30px auto; display: grid; gap: 10px; }
-  .home-actions { display: flex; gap: 8px; }
+  .home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .load-actions { display: flex; gap: 8px; align-items: center; }
   .load-actions input { flex: 1; }
   .error-text {
@@ -567,7 +579,16 @@
   .popover-rule-row.row-warn { background: #fffbeb; color: #92400e; }
 
   .acc-total-pill { display: inline-flex; align-items: center; padding: 3px 11px; background: #e8f2ec; color: #1a3d2b; border-radius: 20px; font-size: 0.74rem; font-weight: 700; font-family: var(--mono); }
-  .accordion-item { background: #fff; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; overflow: hidden; margin-bottom: 10px; }
+  .accordion-item {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 8px 8px 0;
+    overflow: visible;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+  }
   .accordion-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; background: #fff; }
   .accordion-body { border-top: 1px solid var(--border); background: #fafafa; padding: 12px; }
   .accordion-layout { display: grid; grid-template-columns: 200px minmax(180px, 1fr) 40px; gap: 12px; }
@@ -582,6 +603,23 @@
   .accordion-col-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
   .icon-action { width: 30px; height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #64748b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
   .icon-action.danger { color: #b91c1c; border-color: #fecaca; }
+  .glosa-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 32;
+    min-width: 220px;
+    max-width: 300px;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: #334155;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+    padding: 8px 10px;
+    pointer-events: none;
+  }
 
   @media (max-width: 920px) {
     .workspace { grid-template-columns: 1fr; }

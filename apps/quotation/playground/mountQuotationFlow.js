@@ -42,6 +42,16 @@ function extractClients(seed = []) {
   }));
 }
 
+function resolveDatabaseEditorUrl() {
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8082') {
+    return 'http://localhost:8090/step-I1-database';
+  }
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8090') {
+    return '/step-I1-database';
+  }
+  return null;
+}
+
 export async function mountQuotationPlayground(root) {
   if (!root) return;
 
@@ -101,6 +111,7 @@ export async function mountQuotationPlayground(root) {
       },
       loadQuotationId: '',
       draggingCatalogItemId: null,
+      databaseEditorUrl: resolveDatabaseEditorUrl(),
       init() {
         const sync = (snapshot) => {
           this.stage = snapshot.stage;
@@ -149,7 +160,37 @@ export async function mountQuotationPlayground(root) {
         runtime.backToBasket();
       },
 
+      openDatabaseEditor() {
+        if (typeof window === 'undefined') return;
+        const targetUrl = this.databaseEditorUrl || resolveDatabaseEditorUrl();
+        if (!targetUrl) {
+          this.persistence = {
+            ...(this.persistence || {}),
+            error: 'Database editor route is not configured for this environment',
+          };
+          return;
+        }
+        const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          window.location.assign(targetUrl);
+        }
+      },
+
       async confirmAndSave() {
+        if (this.persistence?.isSaving) return;
+        await runtime.confirmSave();
+      },
+
+      async saveQuotation() {
+        if (this.persistence?.isSaving) return;
+        runtime.advanceToValidation();
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          if (runtime.getSnapshot().stage === 'validation') break;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        if (runtime.getSnapshot().stage !== 'validation') {
+          return;
+        }
         await runtime.confirmSave();
       },
 
