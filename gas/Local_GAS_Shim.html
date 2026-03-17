@@ -118,6 +118,7 @@
   function makeCaller() {
     let successHandler = null;
     let failureHandler = null;
+    let proxy = null;
 
     function succeed(result) {
       if (successHandler) successHandler(result);
@@ -148,20 +149,21 @@
     const caller = {
       withSuccessHandler(handler) {
         successHandler = handler;
-        return caller;
+        return proxy;
       },
       withFailureHandler(handler) {
         failureHandler = handler;
-        return caller;
+        return proxy;
       },
       healthcheck() {
         setTimeout(() => {
           succeed({ ok: true, runtime: 'local-shim' });
         }, 0);
+        return proxy;
       },
     };
 
-    return new Proxy(caller, {
+    proxy = new Proxy(caller, {
       get(target, prop) {
         if (prop in target) return target[prop];
         return function(...args) {
@@ -173,16 +175,21 @@
               fail(error);
             }
           }, 0);
-          return caller;
+          return proxy;
         };
       },
     });
+
+    return proxy;
   }
 
-  window.google = {
-    script: {
-      run: makeCaller(),
+  const script = {};
+  Object.defineProperty(script, 'run', {
+    get() {
+      return makeCaller();
     },
-  };
+  });
+
+  window.google = { script };
 })();
 </script>
