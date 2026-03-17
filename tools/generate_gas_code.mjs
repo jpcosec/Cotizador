@@ -37,6 +37,15 @@ var PERSISTENCE_TABLES = {
   LINEA_DETALLE: 'LINEA_DETALLE',
 };
 
+var REFERENCE_TABLES = [
+  'CLIENTES',
+  'CATEGORIAS',
+  'ITEM_CATALOGO',
+  'PERFILES_PRECIO',
+  'PERFILES_INICIALIZACION',
+  'REGLAS_NEGOCIO',
+];
+
 var COTIZACIONES_COLUMNS = [
   'ID_Cotizacion',
   'ID_Cliente',
@@ -134,6 +143,42 @@ function cargarCotizacionV2(idCotizacion) {
         message: String(error && error.message ? error.message : error),
       },
       success: false,
+    };
+  }
+}
+
+function getReferenceData() {
+  return getReferenceDataV2();
+}
+
+function getReferenceDataV2() {
+  try {
+    var spreadsheet = _openPersistenceSpreadsheet();
+    var seedEntries = REFERENCE_TABLES.map(function(tableName) {
+      var sheet = spreadsheet.getSheetByName(tableName);
+      if (!sheet) {
+        return { table: tableName, records: [] };
+      }
+
+      var columns = _readSheetColumns(sheet);
+      var records = _readAllRecords(sheet, columns);
+      return { table: tableName, records: records };
+    });
+
+    return {
+      ok: true,
+      data: {
+        seedEntries: seedEntries,
+        tableCount: seedEntries.length,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'STORAGE_ERROR',
+        message: String(error && error.message ? error.message : error),
+      },
     };
   }
 }
@@ -311,6 +356,16 @@ function _readAllRecords(sheet, columns) {
     }
     return out;
   });
+}
+
+function _readSheetColumns(sheet) {
+  var lastColumn = sheet.getLastColumn();
+  if (lastColumn <= 0) return [];
+
+  var headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0] || [];
+  return headers
+    .map(function(value) { return String(value || '').trim(); })
+    .filter(function(value) { return value.length > 0; });
 }
 
 function _findRowIndexByPrimaryKey(sheet, pkColumn, pkValue, columns) {

@@ -39,10 +39,7 @@ function filterCatalogCategories(categories = [], term = '') {
   const needle = String(term || '').trim().toLowerCase();
   const mapped = categories.map((category) => ({
     ...category,
-    catalogEntries: (category.state?.items || []).map((entry) => ({
-      ...entry,
-      id: entry.entryId,
-    })),
+    catalogEntries: (category.state?.items || []).map(normalizeCatalogEntry),
   }));
 
   if (!needle) return mapped;
@@ -52,11 +49,43 @@ function filterCatalogCategories(categories = [], term = '') {
       const inCategory = String(category.nombre || '').toLowerCase().includes(needle);
       if (inCategory) return category;
       const entries = category.catalogEntries.filter((entry) =>
-        String(entry?.state?.definition?.name || '').toLowerCase().includes(needle)
+        [
+          entry?.name,
+          entry?.nombre,
+          entry?.itemId,
+          entry?.categoria,
+          entry?.state?.definition?.name,
+        ]
+          .map((value) => String(value || '').toLowerCase())
+          .some((value) => value.includes(needle))
       );
       return { ...category, catalogEntries: entries };
     })
     .filter((category) => category.catalogEntries.length > 0);
+}
+
+function normalizeCatalogEntry(entry = {}) {
+  const rawCategory = entry?.categoria || entry?.state?.categoria || entry?.state?.definition?.categoria;
+  const categoriaId =
+    entry?.categoriaId ||
+    rawCategory?.ID_Categoria ||
+    rawCategory?.id ||
+    null;
+  const categoria =
+    entry?.categoria ||
+    entry?.state?.definition?.category ||
+    rawCategory?.Nombre ||
+    rawCategory?.nombre ||
+    null;
+
+  return {
+    ...entry,
+    id: entry.entryId,
+    item: entry.item || entry.itemId,
+    nombre: entry.nombre || entry.name,
+    categoriaId,
+    categoria,
+  };
 }
 
 function buildValidationProjection(client, settings, basketState) {

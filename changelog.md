@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-03-17 (runtime reference bootstrap + catalog normalization + timeline controls)
+- Added runtime reinitialization support in `apps/quotation/state/createPersistedQuotationRuntime.js` to allow safe runtime rebuilds while preserving current settings.
+- Added optional remote reference-data bootstrap in `bundling/createQuotationRuntime.js` and async startup wiring in `bundling/createQuotationFlowComponent.js`:
+  - runtime now attempts `persistencePort.loadReferenceData()` when available,
+  - falls back safely to bundled seed tables when reference data is unavailable.
+- Extended persistence adapters with reference-data loading:
+  - `packages/database/src/persistence/GasSheetAdapter.js` now supports `getReferenceDataV2 -> getReferenceData` fallback,
+  - `packages/database/src/persistence/LocalPersistenceAdapter.js` now exposes deterministic seed entries from local models,
+  - `packages/database/src/persistence/PersistencePort.js` includes `loadReferenceData()` contract method.
+- Added GAS backend reference-data endpoints in `tools/generate_gas_code.mjs` output (`getReferenceData`, `getReferenceDataV2`) to provide seed entries for runtime bootstrap.
+- Updated local GAS shim (`apps/gas/Local_GAS_Shim.html`) with reference-data methods for contract parity.
+- Hardened basket shipping against unknown item IDs in `packages/components/basket-day/machine/basketDayMachine.js` to avoid crashes from invalid/missing item references.
+- Normalized catalog entry projections in `apps/quotation/state/createQuotationInternalRuntime.js` and `packages/components/category/machine/categoryMachine.js` to keep stable `id/item/nombre/categoria/categoriaId` fields.
+- Moved quotation action controls (`Copy Day`, `Validate`) above basket cards and introduced a timeline control bar in `apps/quotation/playground/QuotationFlowInternal.html` for closer legacy-aligned interaction flow.
+- Added/updated tests:
+  - `apps/quotation/state/createPersistedQuotationRuntime.test.js`
+  - `packages/database/src/persistence/LocalPersistenceAdapter.test.js`
+  - `packages/database/src/persistence/GasSheetAdapter.test.js`
+  - `packages/components/basket-day/tests/basketDayMachine.test.js`
+
 ### 2026-03-15 (docs: legacy UI recovery policy + planning rule scope)
 - Added `docs/ARCHITECTURE/legacy-ui-recovery.md` to formalize legacy parity policy with explicit scope split:
   - backend/service compatibility remains migration-first,

@@ -51,6 +51,15 @@ function ensureSavePayload(payload) {
   return null;
 }
 
+const REFERENCE_TABLES = [
+  'CLIENTES',
+  'CATEGORIAS',
+  'ITEM_CATALOGO',
+  'PERFILES_PRECIO',
+  'PERFILES_INICIALIZACION',
+  'REGLAS_NEGOCIO',
+];
+
 export class LocalPersistenceAdapter extends PersistencePort {
   constructor({ models } = {}) {
     super();
@@ -158,6 +167,26 @@ export class LocalPersistenceAdapter extends PersistencePort {
       return persistenceError(
         PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
         error?.message || 'Unable to load quotation'
+      );
+    }
+  }
+
+  async loadReferenceData() {
+    try {
+      const seedEntries = REFERENCE_TABLES.map((table) => {
+        const model = this.models?.[table];
+        const records = model && typeof model.all === 'function' ? model.all() : [];
+        return { table, records };
+      });
+
+      return persistenceOk({
+        seedEntries,
+        tableCount: seedEntries.length,
+      });
+    } catch (error) {
+      return persistenceError(
+        PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+        error?.message || 'Unable to load reference data'
       );
     }
   }

@@ -84,6 +84,25 @@ function normalizeLoadResponse(raw, requestedId) {
   return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'Unexpected load response from GAS');
 }
 
+function normalizeReferenceResponse(raw) {
+  const normalizedError = normalizeErrorObject(raw, PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
+  if (normalizedError) return normalizedError;
+
+  if (raw && raw.ok === true) {
+    const data = raw.data || {};
+    const seedEntries = Array.isArray(data.seedEntries) ? data.seedEntries : [];
+    return persistenceOk({
+      seedEntries,
+      tableCount: Number(data.tableCount || seedEntries.length),
+    });
+  }
+
+  return persistenceError(
+    PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+    'Unexpected reference-data response from GAS'
+  );
+}
+
 function createGoogleScriptInvoker() {
   return function invoke(method, ...args) {
     return new Promise((resolve, reject) => {
@@ -116,11 +135,15 @@ export class GasSheetAdapter extends PersistencePort {
     invoke = null,
     saveMethods = ['guardarCotizacionV2', 'guardarCotizacion'],
     loadMethods = ['cargarCotizacionV2', 'cargarCotizacion'],
+    referenceMethods = ['getReferenceDataV2', 'getReferenceData'],
   } = {}) {
     super();
     this.invoke = invoke || createGoogleScriptInvoker();
     this.saveMethods = Array.isArray(saveMethods) ? saveMethods : ['guardarCotizacion'];
     this.loadMethods = Array.isArray(loadMethods) ? loadMethods : ['cargarCotizacion'];
+    this.referenceMethods = Array.isArray(referenceMethods)
+      ? referenceMethods
+      : ['getReferenceDataV2', 'getReferenceData'];
   }
 
   async #invokeWithFallback(methods, ...args) {
@@ -165,6 +188,15 @@ export class GasSheetAdapter extends PersistencePort {
     try {
       const raw = await this.#invokeWithFallback(this.loadMethods, quotationId);
       return normalizeLoadResponse(raw, quotationId);
+    } catch (error) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+    }
+  }
+
+  async loadReferenceData() {
+    try {
+      const raw = await this.#invokeWithFallback(this.referenceMethods);
+      return normalizeReferenceResponse(raw);
     } catch (error) {
       return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
     }

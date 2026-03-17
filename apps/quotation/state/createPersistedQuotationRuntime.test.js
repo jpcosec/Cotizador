@@ -164,4 +164,47 @@ describe('createPersistedQuotationRuntime', () => {
 
     runtime.stop();
   });
+
+  it('reinitializes runtime with current settings and clears persistence state', async () => {
+    const { clients, runtime } = buildRuntime({
+      persistencePort: {
+        async save(payload) {
+          return {
+            ok: true,
+            data: {
+              quotationId: payload.cotizacion.ID_Cotizacion,
+              cotizacion: payload.cotizacion,
+              lineas: payload.lineas,
+              lineCount: payload.lineas.length,
+            },
+          };
+        },
+        async load() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+      },
+    });
+
+    runtime.selectClient(clients[0].id);
+    runtime.startQuotation();
+    runtime.setQuotationSettings({ paxGlobal: 77, duracionDias: 2 });
+    runtime.shipItemToSelectedDay('ITEM-001');
+    runtime.advanceToValidation();
+    await runtime.confirmSave();
+
+    const before = runtime.getSnapshot();
+    expect(before.stage).toBe('completed');
+    expect(before.persistence.quotationId).toBe('COT-TEST-001');
+
+    const result = runtime.reinitialize();
+    expect(result.ok).toBe(true);
+
+    const after = runtime.getSnapshot();
+    expect(after.stage).toBe('browse');
+    expect(after.settings.paxGlobal).toBe(77);
+    expect(after.persistence.quotationId).toBe(null);
+    expect(after.persistence.error).toBe(null);
+
+    runtime.stop();
+  });
 });

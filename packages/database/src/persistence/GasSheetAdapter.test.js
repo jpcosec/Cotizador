@@ -116,4 +116,30 @@ describe('GasSheetAdapter', () => {
     expect(result.error.code).toBe(PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
     expect(result.error.message).toBe('Execution failed');
   });
+
+  it('loads reference data with v2 and falls back to legacy method', async () => {
+    const calls = [];
+    const adapter = new GasSheetAdapter({
+      invoke: async (method) => {
+        calls.push(method);
+        if (method === 'getReferenceDataV2') {
+          throw new Error('Method not found: getReferenceDataV2');
+        }
+        return {
+          ok: true,
+          data: {
+            seedEntries: [
+              { table: 'CATEGORIAS', records: [{ ID_Categoria: 'CAT-1', Nombre: 'Cat 1' }] },
+              { table: 'ITEM_CATALOGO', records: [{ ID_Item: 'ITEM-1', ID_Categoria: 'CAT-1', Nombre: 'Item 1' }] },
+            ],
+          },
+        };
+      },
+    });
+
+    const result = await adapter.loadReferenceData();
+    expect(result.ok).toBe(true);
+    expect(result.data.tableCount).toBe(2);
+    expect(calls).toEqual(['getReferenceDataV2', 'getReferenceData']);
+  });
 });

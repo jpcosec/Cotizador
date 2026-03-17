@@ -34,6 +34,14 @@ function hasGoogleScriptRun() {
   return !!globalThis?.google?.script?.run;
 }
 
+function hasReferenceSeed(seedEntries = []) {
+  return (seedEntries || []).some((entry) => {
+    if (!entry || !entry.table) return false;
+    if (!Array.isArray(entry.records)) return false;
+    return entry.records.length > 0;
+  });
+}
+
 function createPersistencePort({
   persistencePort,
   persistenceMode,
@@ -55,23 +63,58 @@ export function createQuotationRuntime(options = {}) {
     ? normalizeSeedEntries(options.seedEntries)
     : seedEntriesFromTables(options.seedTables || LOCAL_INIT_TABLES);
 
-  const db = options.db || seedToResolverDb(sourceSeedEntries);
-  const clients = options.clients || extractClients(sourceSeedEntries);
+  let runtimeSeedEntries = sourceSeedEntries;
+  let runtimeDb = options.db || seedToResolverDb(runtimeSeedEntries);
+  let runtimeClients = options.clients || extractClients(runtimeSeedEntries);
+
   const persistencePort = createPersistencePort({
     persistencePort: options.persistencePort,
     persistenceMode: options.persistenceMode,
     seedEntries: sourceSeedEntries,
   });
 
-  return createPersistedQuotationRuntime({
+  const runtime = createPersistedQuotationRuntime({
     createRuntime(initialSettings = options.initialSettings || {}) {
       return createQuotationInternalRuntime({
-        db,
-        clients,
+        db: runtimeDb,
+        clients: runtimeClients,
         initialSettings,
       });
     },
     persistencePort,
     idPolicy: options.idPolicy || null,
   });
+
+  runtime.bootstrapReferenceData = async function bootstrapReferenceData() {
+    if (options.disableRemoteReferenceData) {
+      return { ok: false, skipped: true, reason: 'disabled' };
+    }
+    if (typeof persistencePort?.loadReferenceData !== 'function') {
+      return { ok: false, skipped: true, reason: 'adapter-missing-method' };
+    }
+
+    const result = await persistencePort.loadReferenceData();
+    if (!result?.ok) {
+      return result || { ok: false, skipped: true, reason: 'adapter-error' };
+    }
+
+    const nextSeedEntries = normalizeSeedEntries(result?.data?.seedEntries || []);
+    if (!hasReferenceSeed(nextSeedEntries)) {
+      return { ok: false, skipped: true, reason: 'empty-reference-seed' };
+    }
+
+    runtimeSeedEntries = nextSeedEntries;
+    runtimeDb = options.db || seedToResolverDb(runtimeSeedEntries);
+    runtimeClients = options.clients || extractClients(runtimeSeedEntries);
+    runtime.reinitialize(runtime.getSnapshot()?.settings || options.initialSettings || {});
+
+    return {
+      ok: true,
+      data: {
+        tables: runtimeSeedEntries.map((entry) => entry.table),
+      },
+    };
+  };
+
+  return runtime;
 }

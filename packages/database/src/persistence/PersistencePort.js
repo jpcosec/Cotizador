@@ -24,4 +24,11 @@ export class PersistencePort {
   async load(_id) {
     throw new Error('PersistencePort.load not implemented');
   }
+
+  async loadReferenceData() {
+    return persistenceError(
+      PERSISTENCE_ERROR_CODES.NOT_FOUND,
+      'PersistencePort.loadReferenceData not implemented'
+    );
+  }
 }

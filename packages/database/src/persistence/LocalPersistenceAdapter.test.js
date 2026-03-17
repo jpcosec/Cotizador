@@ -169,4 +169,14 @@ describe('LocalPersistenceAdapter', () => {
     expect(result.error.code).toBe(PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
     expect(result.error.message).toBe('exploded create');
   });
+
+  it('loads reference seed entries from local models', async () => {
+    const adapter = buildAdapter();
+    const result = await adapter.loadReferenceData();
+
+    expect(result.ok).toBe(true);
+    expect(result.data.tableCount).toBeGreaterThan(0);
+    expect(result.data.seedEntries.some((entry) => entry.table === 'ITEM_CATALOGO')).toBe(true);
+    expect(result.data.seedEntries.some((entry) => entry.table === 'CATEGORIAS')).toBe(true);
+  });
 });

@@ -9,6 +9,15 @@
     lineasByQuotationId: new Map(),
   };
 
+  const referenceTables = [
+    'CLIENTES',
+    'CATEGORIAS',
+    'ITEM_CATALOGO',
+    'PERFILES_PRECIO',
+    'PERFILES_INICIALIZACION',
+    'REGLAS_NEGOCIO',
+  ];
+
   function toId(value) {
     const normalized = String(value || '').trim();
     return normalized || null;
@@ -96,6 +105,16 @@
     };
   }
 
+  function loadReferenceData() {
+    return {
+      ok: true,
+      data: {
+        seedEntries: referenceTables.map((table) => ({ table, records: [] })),
+        tableCount: referenceTables.length,
+      },
+    };
+  }
+
   function makeCaller() {
     let successHandler = null;
     let failureHandler = null;
@@ -119,6 +138,9 @@
       }
       if (prop === 'cargarCotizacion' || prop === 'cargarCotizacionV2') {
         return loadQuotation(args[0]);
+      }
+      if (prop === 'getReferenceData' || prop === 'getReferenceDataV2') {
+        return loadReferenceData();
       }
       throw new Error(`Method not implemented in local shim: ${String(prop)}`);
     }

@@ -64,10 +64,22 @@ function annotateRules(entry, rules = []) {
 
 function toEntryState(entry) {
   const snapshot = entry.snapshot || {};
+  const definition = snapshot.definition || {};
+  const categoriaRaw = snapshot.categoria || definition.categoria || null;
+  const categoriaId =
+    categoriaRaw?.ID_Categoria || categoriaRaw?.id || definition.categoriaId || null;
+  const categoriaNombre =
+    definition.category || categoriaRaw?.Nombre || categoriaRaw?.nombre || null;
+
   return {
     entryId: entry.entryId,
+    id: entry.entryId,
     itemId: entry.itemId,
+    item: entry.itemId,
     name: entry.name,
+    nombre: entry.name,
+    categoriaId,
+    categoria: categoriaNombre,
     total: Number(snapshot.total || 0),
     available: snapshot.available ?? true,
     warnings: (snapshot.ruleWarnings || []).length,

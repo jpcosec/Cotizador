@@ -62,7 +62,7 @@ export function createQuotationFlowComponent(options = {}) {
     loadQuotationId: '',
     draggingCatalogItemId: null,
 
-    init() {
+    async init() {
       const sync = (snapshot) => {
         this.stage = snapshot.stage;
         this.clientModalOpen = snapshot.clientModalOpen;
@@ -95,6 +95,14 @@ export function createQuotationFlowComponent(options = {}) {
 
       sync(runtime.getSnapshot());
       runtime.subscribe(sync);
+
+      if (typeof runtime.bootstrapReferenceData === 'function') {
+        try {
+          await runtime.bootstrapReferenceData();
+        } catch (error) {
+          console.warn('bootstrapReferenceData failed, using bundled seed', error);
+        }
+      }
     },
 
     startQuotation() {

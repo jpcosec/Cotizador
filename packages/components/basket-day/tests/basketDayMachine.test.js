@@ -203,4 +203,21 @@ describe('basketDayMachine', () => {
 
     actor.stop();
   });
+
+  it('ignores unknown item ids without crashing', async () => {
+    const actor = createBasketDayActor({
+      db: makeDbFixture(),
+      dayIndex: 1,
+      initialContext: { paxGlobal: 5, dia: 1, hora: '09:00' },
+    });
+
+    actor.send({ type: 'SHIP_ITEM', itemId: 'ITEM_UNKNOWN' });
+    await nextTick();
+
+    const snapshot = actor.getSnapshot().context;
+    expect(snapshot.state.entryCount).toBe(0);
+    expect(snapshot.state.entries).toHaveLength(0);
+
+    actor.stop();
+  });
 });

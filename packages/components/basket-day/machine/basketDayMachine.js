@@ -146,15 +146,23 @@ export function createBasketDayActor({
 
   function addEntryByItemId(itemId, context) {
     if (!itemId) return false;
-    const resolvedDef = resolveItemDefinition(itemId, db);
-    const entry = createEntryRuntime({
-      resolvedDef,
-      globalContext: context,
-      onSnapshot: notifySnapshotUpdate,
-      createItemActorImpl,
-    });
-    runtimeEntries.set(entry.entryId, entry);
-    return true;
+    if (!itemOptions.some((item) => String(item.id) === String(itemId))) {
+      return false;
+    }
+
+    try {
+      const resolvedDef = resolveItemDefinition(itemId, db);
+      const entry = createEntryRuntime({
+        resolvedDef,
+        globalContext: context,
+        onSnapshot: notifySnapshotUpdate,
+        createItemActorImpl,
+      });
+      runtimeEntries.set(entry.entryId, entry);
+      return true;
+    } catch (_error) {
+      return false;
+    }
   }
 
   function pushContextToChildren(patch) {

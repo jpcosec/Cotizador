@@ -5645,10 +5645,22 @@ var QuotationEngine = (function (exports) {
 
   function toEntryState$1(entry) {
     const snapshot = entry.snapshot || {};
+    const definition = snapshot.definition || {};
+    const categoriaRaw = snapshot.categoria || definition.categoria || null;
+    const categoriaId =
+      categoriaRaw?.ID_Categoria || categoriaRaw?.id || definition.categoriaId || null;
+    const categoriaNombre =
+      definition.category || categoriaRaw?.Nombre || categoriaRaw?.nombre || null;
+
     return {
       entryId: entry.entryId,
+      id: entry.entryId,
       itemId: entry.itemId,
+      item: entry.itemId,
       name: entry.name,
+      nombre: entry.name,
+      categoriaId,
+      categoria: categoriaNombre,
       total: Number(snapshot.total || 0),
       available: snapshot.available ?? true,
       warnings: (snapshot.ruleWarnings || []).length,
@@ -6256,15 +6268,23 @@ var QuotationEngine = (function (exports) {
 
     function addEntryByItemId(itemId, context) {
       if (!itemId) return false;
-      const resolvedDef = resolveItemDefinition(itemId, db);
-      const entry = createEntryRuntime({
-        resolvedDef,
-        globalContext: context,
-        onSnapshot: notifySnapshotUpdate,
-        createItemActorImpl,
-      });
-      runtimeEntries.set(entry.entryId, entry);
-      return true;
+      if (!itemOptions.some((item) => String(item.id) === String(itemId))) {
+        return false;
+      }
+
+      try {
+        const resolvedDef = resolveItemDefinition(itemId, db);
+        const entry = createEntryRuntime({
+          resolvedDef,
+          globalContext: context,
+          onSnapshot: notifySnapshotUpdate,
+          createItemActorImpl,
+        });
+        runtimeEntries.set(entry.entryId, entry);
+        return true;
+      } catch (_error) {
+        return false;
+      }
     }
 
     function pushContextToChildren(patch) {
@@ -6825,10 +6845,7 @@ var QuotationEngine = (function (exports) {
     const needle = String(term || '').trim().toLowerCase();
     const mapped = categories.map((category) => ({
       ...category,
-      catalogEntries: (category.state?.items || []).map((entry) => ({
-        ...entry,
-        id: entry.entryId,
-      })),
+      catalogEntries: (category.state?.items || []).map(normalizeCatalogEntry),
     }));
 
     if (!needle) return mapped;
@@ -6838,11 +6855,43 @@ var QuotationEngine = (function (exports) {
         const inCategory = String(category.nombre || '').toLowerCase().includes(needle);
         if (inCategory) return category;
         const entries = category.catalogEntries.filter((entry) =>
-          String(entry?.state?.definition?.name || '').toLowerCase().includes(needle)
+          [
+            entry?.name,
+            entry?.nombre,
+            entry?.itemId,
+            entry?.categoria,
+            entry?.state?.definition?.name,
+          ]
+            .map((value) => String(value || '').toLowerCase())
+            .some((value) => value.includes(needle))
         );
         return { ...category, catalogEntries: entries };
       })
       .filter((category) => category.catalogEntries.length > 0);
+  }
+
+  function normalizeCatalogEntry(entry = {}) {
+    const rawCategory = entry?.categoria || entry?.state?.categoria || entry?.state?.definition?.categoria;
+    const categoriaId =
+      entry?.categoriaId ||
+      rawCategory?.ID_Categoria ||
+      rawCategory?.id ||
+      null;
+    const categoria =
+      entry?.categoria ||
+      entry?.state?.definition?.category ||
+      rawCategory?.Nombre ||
+      rawCategory?.nombre ||
+      null;
+
+    return {
+      ...entry,
+      id: entry.entryId,
+      item: entry.item || entry.itemId,
+      nombre: entry.nombre || entry.name,
+      categoriaId,
+      categoria,
+    };
   }
 
   function buildValidationProjection(client, settings, basketState) {
@@ -7695,6 +7744,16 @@ var QuotationEngine = (function (exports) {
         setPersistence({ error: null });
       },
 
+      reinitialize(initialSettings = null) {
+        const fallbackSettings = getSnapshot().settings || {};
+        const nextRuntime = createRuntime(initialSettings || fallbackSettings);
+        clearStageOverride();
+        setPersistence({ ...EMPTY_PERSISTENCE }, false);
+        replaceRuntime(nextRuntime);
+        notify();
+        return { ok: true };
+      },
+
       async confirmSave() {
         if (!persistencePort || typeof persistencePort.save !== 'function') {
           setPersistence({ error: 'Persistence adapter is not configured' });
@@ -8280,6 +8339,13 @@ var QuotationEngine = (function (exports) {
     async load(_id) {
       throw new Error('PersistencePort.load not implemented');
     }
+
+    async loadReferenceData() {
+      return persistenceError(
+        PERSISTENCE_ERROR_CODES.NOT_FOUND,
+        'PersistencePort.loadReferenceData not implemented'
+      );
+    }
   }
 
   function toErrorMessage(error) {
@@ -8361,6 +8427,25 @@ var QuotationEngine = (function (exports) {
     return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'Unexpected load response from GAS');
   }
 
+  function normalizeReferenceResponse(raw) {
+    const normalizedError = normalizeErrorObject(raw, PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
+    if (normalizedError) return normalizedError;
+
+    if (raw && raw.ok === true) {
+      const data = raw.data || {};
+      const seedEntries = Array.isArray(data.seedEntries) ? data.seedEntries : [];
+      return persistenceOk({
+        seedEntries,
+        tableCount: Number(data.tableCount || seedEntries.length),
+      });
+    }
+
+    return persistenceError(
+      PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+      'Unexpected reference-data response from GAS'
+    );
+  }
+
   function createGoogleScriptInvoker() {
     return function invoke(method, ...args) {
       return new Promise((resolve, reject) => {
@@ -8393,11 +8478,15 @@ var QuotationEngine = (function (exports) {
       invoke = null,
       saveMethods = ['guardarCotizacionV2', 'guardarCotizacion'],
       loadMethods = ['cargarCotizacionV2', 'cargarCotizacion'],
+      referenceMethods = ['getReferenceDataV2', 'getReferenceData'],
     } = {}) {
       super();
       this.invoke = invoke || createGoogleScriptInvoker();
       this.saveMethods = Array.isArray(saveMethods) ? saveMethods : ['guardarCotizacion'];
       this.loadMethods = Array.isArray(loadMethods) ? loadMethods : ['cargarCotizacion'];
+      this.referenceMethods = Array.isArray(referenceMethods)
+        ? referenceMethods
+        : ['getReferenceDataV2', 'getReferenceData'];
     }
 
     async #invokeWithFallback(methods, ...args) {
@@ -8442,6 +8531,15 @@ var QuotationEngine = (function (exports) {
       try {
         const raw = await this.#invokeWithFallback(this.loadMethods, quotationId);
         return normalizeLoadResponse(raw, quotationId);
+      } catch (error) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+      }
+    }
+
+    async loadReferenceData() {
+      try {
+        const raw = await this.#invokeWithFallback(this.referenceMethods);
+        return normalizeReferenceResponse(raw);
       } catch (error) {
         return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
       }
@@ -8492,6 +8590,15 @@ var QuotationEngine = (function (exports) {
 
     return null;
   }
+
+  const REFERENCE_TABLES = [
+    'CLIENTES',
+    'CATEGORIAS',
+    'ITEM_CATALOGO',
+    'PERFILES_PRECIO',
+    'PERFILES_INICIALIZACION',
+    'REGLAS_NEGOCIO',
+  ];
 
   class LocalPersistenceAdapter extends PersistencePort {
     constructor({ models } = {}) {
@@ -8600,6 +8707,26 @@ var QuotationEngine = (function (exports) {
         return persistenceError(
           PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
           error?.message || 'Unable to load quotation'
+        );
+      }
+    }
+
+    async loadReferenceData() {
+      try {
+        const seedEntries = REFERENCE_TABLES.map((table) => {
+          const model = this.models?.[table];
+          const records = model && typeof model.all === 'function' ? model.all() : [];
+          return { table, records };
+        });
+
+        return persistenceOk({
+          seedEntries,
+          tableCount: seedEntries.length,
+        });
+      } catch (error) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+          error?.message || 'Unable to load reference data'
         );
       }
     }
@@ -13555,6 +13682,14 @@ var QuotationEngine = (function (exports) {
     return !!globalThis?.google?.script?.run;
   }
 
+  function hasReferenceSeed(seedEntries = []) {
+    return (seedEntries || []).some((entry) => {
+      if (!entry || !entry.table) return false;
+      if (!Array.isArray(entry.records)) return false;
+      return entry.records.length > 0;
+    });
+  }
+
   function createPersistencePort({
     persistencePort,
     persistenceMode,
@@ -13576,25 +13711,60 @@ var QuotationEngine = (function (exports) {
       ? normalizeSeedEntries(options.seedEntries)
       : seedEntriesFromTables(options.seedTables || LOCAL_INIT_TABLES);
 
-    const db = options.db || seedToResolverDb(sourceSeedEntries);
-    const clients = options.clients || extractClients(sourceSeedEntries);
+    let runtimeSeedEntries = sourceSeedEntries;
+    let runtimeDb = options.db || seedToResolverDb(runtimeSeedEntries);
+    let runtimeClients = options.clients || extractClients(runtimeSeedEntries);
+
     const persistencePort = createPersistencePort({
       persistencePort: options.persistencePort,
       persistenceMode: options.persistenceMode,
       seedEntries: sourceSeedEntries,
     });
 
-    return createPersistedQuotationRuntime({
+    const runtime = createPersistedQuotationRuntime({
       createRuntime(initialSettings = options.initialSettings || {}) {
         return createQuotationInternalRuntime({
-          db,
-          clients,
+          db: runtimeDb,
+          clients: runtimeClients,
           initialSettings,
         });
       },
       persistencePort,
       idPolicy: options.idPolicy || null,
     });
+
+    runtime.bootstrapReferenceData = async function bootstrapReferenceData() {
+      if (options.disableRemoteReferenceData) {
+        return { ok: false, skipped: true, reason: 'disabled' };
+      }
+      if (typeof persistencePort?.loadReferenceData !== 'function') {
+        return { ok: false, skipped: true, reason: 'adapter-missing-method' };
+      }
+
+      const result = await persistencePort.loadReferenceData();
+      if (!result?.ok) {
+        return result || { ok: false, skipped: true, reason: 'adapter-error' };
+      }
+
+      const nextSeedEntries = normalizeSeedEntries(result?.data?.seedEntries || []);
+      if (!hasReferenceSeed(nextSeedEntries)) {
+        return { ok: false, skipped: true, reason: 'empty-reference-seed' };
+      }
+
+      runtimeSeedEntries = nextSeedEntries;
+      runtimeDb = options.db || seedToResolverDb(runtimeSeedEntries);
+      runtimeClients = options.clients || extractClients(runtimeSeedEntries);
+      runtime.reinitialize(runtime.getSnapshot()?.settings || options.initialSettings || {});
+
+      return {
+        ok: true,
+        data: {
+          tables: runtimeSeedEntries.map((entry) => entry.table),
+        },
+      };
+    };
+
+    return runtime;
   }
 
   function toNumberValue(value, fallback = 0) {
@@ -13659,7 +13829,7 @@ var QuotationEngine = (function (exports) {
       loadQuotationId: '',
       draggingCatalogItemId: null,
 
-      init() {
+      async init() {
         const sync = (snapshot) => {
           this.stage = snapshot.stage;
           this.clientModalOpen = snapshot.clientModalOpen;
@@ -13692,6 +13862,14 @@ var QuotationEngine = (function (exports) {
 
         sync(runtime.getSnapshot());
         runtime.subscribe(sync);
+
+        if (typeof runtime.bootstrapReferenceData === 'function') {
+          try {
+            await runtime.bootstrapReferenceData();
+          } catch (error) {
+            console.warn('bootstrapReferenceData failed, using bundled seed', error);
+          }
+        }
       },
 
       startQuotation() {

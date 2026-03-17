@@ -246,6 +246,16 @@ export function createPersistedQuotationRuntime({
       setPersistence({ error: null });
     },
 
+    reinitialize(initialSettings = null) {
+      const fallbackSettings = getSnapshot().settings || {};
+      const nextRuntime = createRuntime(initialSettings || fallbackSettings);
+      clearStageOverride();
+      setPersistence({ ...EMPTY_PERSISTENCE }, false);
+      replaceRuntime(nextRuntime);
+      notify();
+      return { ok: true };
+    },
+
     async confirmSave() {
       if (!persistencePort || typeof persistencePort.save !== 'function') {
         setPersistence({ error: 'Persistence adapter is not configured' });
