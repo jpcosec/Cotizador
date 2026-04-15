@@ -95,11 +95,17 @@ Before starting any work:
 1. ATOMIZE   → Break into smallest possible child tasks
 2. DEDUPE    → Merge overlapping items
 3. CLEAN     → Delete legacy content
-4. RESOLVE   → Resolve contradictory end states
-5. BIND      → Link context pills to tasks
-6. INDEX     → Regenerate work/tasks/Board.md
-7. EXECUTE   → Begin work with explicit boundaries
+4. AUDIT     → Verify existing work before claiming completion:
+               - Check git history for phase commit messages
+               - Verify artifacts exist as specified
+               - Run tests to confirm state
+5. RESOLVE   → Resolve contradictory end states
+6. BIND      → Link context pills to tasks
+7. INDEX     → Regenerate work/tasks/Board.md
+8. EXECUTE   → Begin work with explicit boundaries
 ```
+
+> **Critical:** Do not mark a task "completed" without auditing git history. Trust the code, not the task file.
 
 ### 2. Execution Ritual
 
@@ -183,7 +189,26 @@ Commits are made **only** when the Execution Ritual completes.
 | Chores (deps, config) | ✅ Yes | `chore(<scope>): <description>` |
 | Phase not done | ❌ No | Work-in-progress is not a commit |
 
-**Separate commits:** Phase completion and `implementation-status.json` update are separate commits.
+---
+
+## Pre-Completion Audit
+
+Before marking a task as **completed**, verify:
+
+```
+1. GIT HISTORY  → Do commits match the phase commit messages?
+2. ARTIFACTS   → Do all specified outputs exist at the specified locations?
+3. TESTS       → Do all tests pass?
+4. CLEAN TREE  → Are all untracked files either gitignored or tracked?
+```
+
+If any check fails:
+- **Git history mismatch** → Either rebase to match or update task to reflect reality
+- **Artifacts missing** → Implement them
+- **Tests failing** → Fix tests first
+- **Dirty tree** → Clean up before declaring done
+
+> **Rule:** Trust the code, not the task file. The task file describes intent; git history is truth.
 
 ---
 
@@ -222,7 +247,8 @@ E2E tests run automatically on PRs and pushes to `master`.
 - [ ] Create implementation artifacts instead of referencing existing pills
 - [ ] Let pills drift from code/docs (redundant or stale)
 - [ ] Keep pills after plan completion (knowledge should flow to code/docs)
-- [ ] Commit with a dirty tree
+- [ ] Mark task complete without auditing git history
+- [ ] Commit with untracked files (gitignore or track first)
 - [ ] Skip tests to "get it done"
 - [ ] Force-push to hide failures
 - [ ] Keep drawers/ items >6 months without review
