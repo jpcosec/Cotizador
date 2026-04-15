@@ -19,11 +19,15 @@ function processIncludes(html) {
 
 function buildPage() {
   const indexPath = path.join(gasDir, 'Index.html');
+  const shimPath = path.join(gasDir, 'Local_GAS_Shim.html');
   if (!fs.existsSync(indexPath)) {
     throw new Error(`Missing GAS Index.html. Run: npm run build`);
   }
   const index = fs.readFileSync(indexPath, 'utf8');
-  return processIncludes(index);
+  const page = processIncludes(index);
+  const shim = fs.existsSync(shimPath) ? fs.readFileSync(shimPath, 'utf8') : '';
+  return shim ? page.replace('</body>', `${shim}
+</body>`) : page;
 }
 
 const page = buildPage();

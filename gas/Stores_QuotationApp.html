@@ -14,7 +14,14 @@
       console.error('QuotationEngine bundle not loaded. Run npm run build first.');
       return fallbackComponent('Runtime bundle missing');
     }
-    return engine.createQuotationFlowComponent();
+    return engine.createQuotationFlowComponent({
+      runtimeMode: 'gas',
+      capabilities: {
+        databaseEditor: false,
+        quotationSearch: true,
+        manualLoadById: true,
+      },
+    });
   };
 })();
 </script>

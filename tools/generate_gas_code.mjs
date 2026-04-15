@@ -147,6 +147,29 @@ function cargarCotizacionV2(idCotizacion) {
   }
 }
 
+function buscarCotizaciones(query) {
+  return buscarCotizacionesV2(query);
+}
+
+function buscarCotizacionesV2(query) {
+  try {
+    return {
+      ok: true,
+      data: _listQuotations(query),
+      success: true,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'STORAGE_ERROR',
+        message: String(error && error.message ? error.message : error),
+      },
+      success: false,
+    };
+  }
+}
+
 function getReferenceData() {
   return getReferenceDataV2();
 }
@@ -292,6 +315,53 @@ function _loadPayload(quotationId) {
     cotizacion: cotizacion,
     lineas: lineas,
     lineCount: lineas.length,
+  };
+}
+
+function _listQuotations(query) {
+  var normalizedQuery = query || {};
+  var term = String(normalizedQuery.term || '').trim().toLowerCase();
+  var limit = Math.max(1, Math.floor(Number(normalizedQuery.limit || 25) || 25));
+  var spreadsheet = _openPersistenceSpreadsheet();
+  var cotizacionesSheet = _getOrCreateSheet(spreadsheet, PERSISTENCE_TABLES.COTIZACIONES, COTIZACIONES_COLUMNS);
+  var clientesSheet = spreadsheet.getSheetByName('CLIENTES');
+  var cotizaciones = _readAllRecords(cotizacionesSheet, COTIZACIONES_COLUMNS);
+  var clientes = clientesSheet ? _readAllRecords(clientesSheet, _readSheetColumns(clientesSheet)) : [];
+  var clientById = {};
+
+  clientes.forEach(function(cliente) {
+    clientById[String(cliente.ID_Cliente || '')] = cliente;
+  });
+
+  var items = cotizaciones.map(function(cotizacion) {
+    var client = clientById[String(cotizacion.ID_Cliente || '')] || null;
+    return {
+      quotationId: String(cotizacion.ID_Cotizacion || ''),
+      clientId: String(cotizacion.ID_Cliente || ''),
+      clientName: String(client && client.Nombre_Empresa ? client.Nombre_Empresa : cotizacion.ID_Cliente || 'Cliente sin nombre'),
+      pax: Number(cotizacion.Pax_Global || 0),
+      quotationDate: String(cotizacion.Fecha_Evento || ''),
+      updatedAt: String(cotizacion.Updated_At || ''),
+    };
+  });
+
+  var filtered = items
+    .sort(function(left, right) {
+      var byUpdated = String(right.updatedAt || '').localeCompare(String(left.updatedAt || ''));
+      if (byUpdated !== 0) return byUpdated;
+      return String(right.quotationId || '').localeCompare(String(left.quotationId || ''));
+    })
+    .filter(function(item) {
+      if (!term) return true;
+      return [item.quotationId, item.clientName, item.quotationDate, item.pax].some(function(value) {
+        return String(value || '').toLowerCase().indexOf(term) !== -1;
+      });
+    })
+    .slice(0, limit);
+
+  return {
+    items: filtered,
+    count: filtered.length,
   };
 }
 

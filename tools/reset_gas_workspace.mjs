@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '..');
 const gasDir = path.join(root, 'gas');
 const gasSourceDir = path.join(root, 'apps', 'gas');
 const gasManifest = path.join(gasSourceDir, 'appsscript.json');
-const quotationTemplatePath = path.join(root, 'apps', 'quotation', 'playground', 'QuotationFlowInternal.html');
+const quotationTemplatePath = path.join(gasSourceDir, 'Quotation_App_Source.html');
 
 function ensureFile(filePath, label) {
   if (!fs.existsSync(filePath)) {
@@ -25,6 +25,7 @@ function copyStaticTemplates() {
   const entries = fs.readdirSync(gasSourceDir, { withFileTypes: true });
   const htmlFiles = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.html'))
+    .filter((entry) => entry.name !== 'Quotation_App_Source.html')
     .map((entry) => entry.name)
     .sort();
 

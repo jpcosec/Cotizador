@@ -2,3 +2,4 @@ node_modules/
 *.log
 .serena/
 test-results/
+data/db.json

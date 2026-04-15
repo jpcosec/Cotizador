@@ -11,6 +11,10 @@ function toId(value) {
   return String(value);
 }
 
+function toLower(value) {
+  return String(value || '').toLowerCase();
+}
+
 function sortLineas(lineas = []) {
   return [...lineas].sort((left, right) => {
     const leftDay = Number(left?.Dia_Numero || 0);
@@ -28,6 +32,40 @@ function toResultData(quotationId, cotizacion, lineas) {
     lineas: normalizedLineas,
     lineCount: normalizedLineas.length,
   };
+}
+
+function normalizeQuotationQuery(query = {}) {
+  return {
+    term: String(query?.term || '').trim().toLowerCase(),
+    limit: Math.max(1, Math.floor(Number(query?.limit || 25) || 25)),
+  };
+}
+
+function toQuotationListItem(cotizacion, client) {
+  return {
+    quotationId: String(cotizacion?.ID_Cotizacion || ''),
+    clientId: toId(cotizacion?.ID_Cliente),
+    clientName: String(client?.Nombre_Empresa || cotizacion?.ID_Cliente || 'Cliente sin nombre'),
+    pax: Number(cotizacion?.Pax_Global || 0),
+    quotationDate: String(cotizacion?.Fecha_Evento || ''),
+    updatedAt: String(cotizacion?.Updated_At || ''),
+  };
+}
+
+function matchesQuotationTerm(item, term) {
+  if (!term) return true;
+  return [item.quotationId, item.clientName, item.quotationDate, item.pax]
+    .some((value) => toLower(value).includes(term));
+}
+
+function sortQuotationItems(items = []) {
+  return [...items].sort((left, right) => {
+    const rightUpdated = String(right.updatedAt || right.quotationDate || '');
+    const leftUpdated = String(left.updatedAt || left.quotationDate || '');
+    const byUpdated = rightUpdated.localeCompare(leftUpdated);
+    if (byUpdated !== 0) return byUpdated;
+    return String(right.quotationId || '').localeCompare(String(left.quotationId || ''));
+  });
 }
 
 function ensureSavePayload(payload) {
@@ -167,6 +205,32 @@ export class LocalPersistenceAdapter extends PersistencePort {
       return persistenceError(
         PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
         error?.message || 'Unable to load quotation'
+      );
+    }
+  }
+
+  async listQuotations(query = {}) {
+    try {
+      const normalizedQuery = normalizeQuotationQuery(query);
+      const cotizaciones = this.models.COTIZACIONES.all();
+      const clientModel = this.models.CLIENTES || null;
+      const items = cotizaciones.map((cotizacion) => {
+        const client = clientModel?.findById?.(cotizacion.ID_Cliente) || null;
+        return toQuotationListItem(cotizacion, client);
+      });
+
+      const filtered = sortQuotationItems(items)
+        .filter((item) => matchesQuotationTerm(item, normalizedQuery.term))
+        .slice(0, normalizedQuery.limit);
+
+      return persistenceOk({
+        items: filtered,
+        count: filtered.length,
+      });
+    } catch (error) {
+      return persistenceError(
+        PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+        error?.message || 'Unable to list quotations'
       );
     }
   }

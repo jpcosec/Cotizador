@@ -20,17 +20,76 @@ function parseOverrideValue(value) {
   return Number.isFinite(parsed) ? parsed : value;
 }
 
+function isLocalDevHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+function dedupeByKey(items = [], keySelector) {
+  const seen = new Set();
+
+  return (items || []).filter((item) => {
+    const key = String(keySelector(item) || '').trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeClients(clients = []) {
+  return dedupeByKey(clients, (client) => client?.id);
+}
+
+function normalizeQuotationResults(items = []) {
+  return dedupeByKey(items, (item) => item?.quotationId);
+}
+
+function resolveRuntimeMode(options = {}) {
+  const explicit = String(options.runtimeMode || '').trim().toLowerCase();
+  if (explicit === 'sandbox' || explicit === 'gas') return explicit;
+
+  if (typeof window !== 'undefined') {
+    if (isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
+      return 'sandbox';
+    }
+  }
+
+  return 'gas';
+}
+
+function resolveCapabilities(options = {}) {
+  const runtimeMode = resolveRuntimeMode(options);
+  const defaults = {
+    sandbox: {
+      databaseEditor: true,
+      quotationSearch: true,
+      manualLoadById: true,
+    },
+    gas: {
+      databaseEditor: false,
+      quotationSearch: true,
+      manualLoadById: true,
+    },
+  };
+
+  return {
+    runtimeMode,
+    ...defaults[runtimeMode],
+    ...(options.capabilities || {}),
+  };
+}
+
 export function createQuotationFlowComponent(options = {}) {
   const runtime = options.runtime || createQuotationRuntime(options);
+  const capabilities = resolveCapabilities(options);
 
   function resolveDatabaseEditorUrl() {
     if (typeof options.databaseEditorUrl === 'string' && options.databaseEditorUrl.trim()) {
       return options.databaseEditorUrl.trim();
     }
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8082') {
-      return 'http://localhost:8090/step-I1-database';
+    if (!capabilities.databaseEditor) {
+      return null;
     }
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8090') {
+    if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
       return '/step-I1-database';
     }
     return null;
@@ -53,6 +112,14 @@ export function createQuotationFlowComponent(options = {}) {
     },
     clients: [],
     clientSearchTerm: '',
+    quotationSearchModalOpen: false,
+    quotationSearchTerm: '',
+    quotationSearchResults: [],
+    quotationSearchLoading: false,
+    quotationSearchError: null,
+    runtimeMode: capabilities.runtimeMode,
+    capabilities,
+    databaseEditorEnabled: !!resolveDatabaseEditorUrl(),
     catalog: { searchTerm: '', categories: [], summary: {} },
     basket: {
       dayOptions: [],
@@ -85,7 +152,7 @@ export function createQuotationFlowComponent(options = {}) {
         this.globalContext = {
           hora: this.settings.horaInicio,
         };
-        this.clients = snapshot.clients || [];
+        this.clients = normalizeClients(snapshot.clients || []);
         this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
         this.basket = snapshot.basket || {
           dayOptions: [],
@@ -177,6 +244,48 @@ export function createQuotationFlowComponent(options = {}) {
 
     clearPersistenceError() {
       runtime.clearPersistenceError();
+    },
+
+    async openQuotationSearchModal() {
+      this.quotationSearchModalOpen = true;
+      this.quotationSearchError = null;
+      this.quotationSearchLoading = true;
+      try {
+        const result = await runtime.listQuotations({ limit: 50 });
+        if (!result?.ok) {
+          this.quotationSearchResults = [];
+          this.quotationSearchError = result?.error?.message || result?.error || 'Unable to load quotations';
+          return;
+        }
+         this.quotationSearchResults = normalizeQuotationResults(result.data?.items || []);
+      } finally {
+        this.quotationSearchLoading = false;
+      }
+    },
+
+    closeQuotationSearchModal() {
+      this.quotationSearchModalOpen = false;
+      this.quotationSearchError = null;
+    },
+
+    setQuotationSearch(term) {
+      this.quotationSearchTerm = String(term || '');
+    },
+
+    filteredQuotations() {
+      const term = this.quotationSearchTerm.trim().toLowerCase();
+      if (!term) return this.quotationSearchResults;
+      return this.quotationSearchResults.filter((quotation) => {
+        return [quotation.clientName, quotation.quotationId, quotation.quotationDate, quotation.pax].some((field) =>
+          String(field || '').toLowerCase().includes(term)
+        );
+      });
+    },
+
+    async selectQuotationResult(quotationId) {
+      this.closeQuotationSearchModal();
+      this.loadQuotationId = String(quotationId || '');
+      await runtime.loadQuotation(quotationId);
     },
 
     openClientModal() {

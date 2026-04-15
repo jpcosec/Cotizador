@@ -5,6 +5,7 @@
       <p class="muted">Internal flow ready: select client, configure quotation, build basket by days.</p>
       <div class="home-actions">
         <button class="btn btn-small btn-secondary"
+                x-show="databaseEditorEnabled"
                 @click="openDatabaseEditor()"
                 :disabled="!databaseEditorUrl"
                 :title="databaseEditorUrl ? 'Open database editor' : 'Database editor is unavailable in this runtime'">
@@ -12,6 +13,7 @@
         </button>
         <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
         <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
+        <button class="btn btn-small btn-secondary" @click="openQuotationSearchModal()">Buscar cotizacion</button>
       </div>
       <div class="load-actions">
         <input
@@ -262,6 +264,38 @@
             <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')"></small>
           </button>
         </template>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" x-show="quotationSearchModalOpen" style="display:none;">
+    <div class="modal panel" @click.away="closeQuotationSearchModal()">
+      <div class="modal-head">
+        <h3>Buscar cotizacion</h3>
+        <button class="btn btn-small btn-secondary" @click="closeQuotationSearchModal()">Close</button>
+      </div>
+      <input
+        type="text"
+        placeholder="Buscar por cliente, fecha o ID"
+        :value="quotationSearchTerm"
+        @input="setQuotationSearch($event.target.value)"
+      />
+      <p class="muted" x-show="quotationSearchLoading">Cargando cotizaciones...</p>
+      <p class="error-text" x-show="quotationSearchError" x-text="quotationSearchError"></p>
+      <div class="client-list quotation-list" x-show="!quotationSearchLoading">
+        <template x-for="quotation in filteredQuotations()" :key="quotation.quotationId">
+          <button class="client-item quotation-item" @click="selectQuotationResult(quotation.quotationId)">
+            <strong x-text="quotation.clientName"></strong>
+            <small>
+              <span x-text="'Pax ' + (quotation.pax || 0)"></span>
+              <span x-text="' · ' + (quotation.quotationDate || '-')"></span>
+              <span x-text="' · ' + (quotation.quotationId || '-')"></span>
+            </small>
+          </button>
+        </template>
+        <p class="muted" x-show="filteredQuotations().length === 0 && !quotationSearchError">
+          No hay cotizaciones para mostrar.
+        </p>
       </div>
     </div>
   </div>

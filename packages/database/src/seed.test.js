@@ -43,6 +43,17 @@ describe('CSV → schema conformance', () => {
     }
   });
 
+  it('CLIENTES seed has no duplicate business identities by rut+email', () => {
+    const db = buildDb();
+    const seen = new Set();
+
+    for (const row of db.models.CLIENTES.all()) {
+      const businessKey = `${String(row.RUT || '').trim()}::${String(row.Email || '').trim().toLowerCase()}`;
+      expect(seen.has(businessKey), `Duplicate client business identity: ${businessKey}`).toBe(false);
+      seen.add(businessKey);
+    }
+  });
+
   it('every PERFILES_PRECIO row has the required PK and numeric fields', () => {
     const db = buildDb();
     for (const row of db.models.PERFILES_PRECIO.all()) {

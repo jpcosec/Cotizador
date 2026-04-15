@@ -50,6 +50,17 @@ function makeBlankRow(tableName) {
   return row;
 }
 
+function mergedEditRow(context, models) {
+  const model = models[context.activeTable];
+  const currentRow = model?.findById(context.editTarget.rowId);
+  if (!currentRow) return null;
+
+  return {
+    ...currentRow,
+    [context.editTarget.field]: context.editTarget.buffer,
+  };
+}
+
 // ── Factory ──────────────────────────────────────────────────────────────────
 
 /**
@@ -170,12 +181,11 @@ export function createDatabaseActor(seed = []) {
           //             second clause handles invalid edits (always matches → show error, stay)
           COMMIT_EDIT: [
             {
-              guard: ({ context }) => !validateField(
-                context.activeTable,
-                context.editTarget.field,
-                context.editTarget.buffer,
-                ctx()
-              ),
+              guard: ({ context }) => {
+                const candidateRow = mergedEditRow(context, db.models);
+                if (!candidateRow) return false;
+                return isRowValid(validateRow(context.activeTable, candidateRow, ctx()));
+              },
               target: 'browsing',
               actions: assign(({ context }) => {
                 updateRow(
@@ -192,12 +202,11 @@ export function createDatabaseActor(seed = []) {
             {
               // guard implicitly fails — show validation error, stay in editing
               actions: assign(({ context }) => {
-                const error = validateField(
-                  context.activeTable,
-                  context.editTarget.field,
-                  context.editTarget.buffer,
-                  ctx()
-                );
+                const candidateRow = mergedEditRow(context, db.models);
+                const errors = candidateRow
+                  ? validateRow(context.activeTable, candidateRow, ctx())
+                  : { [context.editTarget.field]: 'Row not found' };
+                const error = errors[context.editTarget.field] || Object.values(errors)[0] || 'Invalid value';
                 return { editTarget: { ...context.editTarget, error } };
               })
             }

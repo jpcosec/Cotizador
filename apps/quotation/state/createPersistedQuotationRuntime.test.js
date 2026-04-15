@@ -38,6 +38,16 @@ function buildRuntime({ persistencePort }) {
   };
 }
 
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('createPersistedQuotationRuntime', () => {
   it('saves from validation and transitions to completed on success', async () => {
     const saveCalls = [];
@@ -98,6 +108,45 @@ describe('createPersistedQuotationRuntime', () => {
     expect(result.ok).toBe(false);
     expect(runtime.getSnapshot().stage).toBe('validation');
     expect(runtime.getSnapshot().persistence.error).toBe('Save failed on adapter');
+
+    runtime.stop();
+  });
+
+  it('enters saving while persistence is pending', async () => {
+    const saveDeferred = createDeferred();
+    const { clients, runtime } = buildRuntime({
+      persistencePort: {
+        save() {
+          return saveDeferred.promise;
+        },
+        async load() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+      },
+    });
+
+    runtime.selectClient(clients[0].id);
+    runtime.startQuotation();
+    runtime.shipItemToSelectedDay('ITEM-001');
+    runtime.advanceToValidation();
+
+    const pendingSave = runtime.confirmSave();
+    expect(runtime.getSnapshot().stage).toBe('saving');
+    expect(runtime.getSnapshot().persistence.isSaving).toBe(true);
+
+    saveDeferred.resolve({
+      ok: true,
+      data: {
+        quotationId: 'COT-TEST-001',
+        cotizacion: { ID_Cotizacion: 'COT-TEST-001' },
+        lineas: [],
+        lineCount: 0,
+      },
+    });
+
+    const result = await pendingSave;
+    expect(result.ok).toBe(true);
+    expect(runtime.getSnapshot().stage).toBe('completed');
 
     runtime.stop();
   });
@@ -165,6 +214,36 @@ describe('createPersistedQuotationRuntime', () => {
     runtime.stop();
   });
 
+  it('enters loadingQuotation while load is pending', async () => {
+    const loadDeferred = createDeferred();
+    const { runtime } = buildRuntime({
+      persistencePort: {
+        async save() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+        load() {
+          return loadDeferred.promise;
+        },
+      },
+    });
+
+    const pendingLoad = runtime.loadQuotation('COT-LOADED-01');
+    expect(runtime.getSnapshot().stage).toBe('loadingQuotation');
+    expect(runtime.getSnapshot().persistence.isLoading).toBe(true);
+
+    loadDeferred.resolve({
+      ok: false,
+      error: { message: 'Not found yet' },
+    });
+
+    const result = await pendingLoad;
+    expect(result.ok).toBe(false);
+    expect(runtime.getSnapshot().stage).toBe('browse');
+    expect(runtime.getSnapshot().persistence.error).toBe('Not found yet');
+
+    runtime.stop();
+  });
+
   it('reinitializes runtime with current settings and clears persistence state', async () => {
     const { clients, runtime } = buildRuntime({
       persistencePort: {
@@ -204,6 +283,40 @@ describe('createPersistedQuotationRuntime', () => {
     expect(after.settings.paxGlobal).toBe(77);
     expect(after.persistence.quotationId).toBe(null);
     expect(after.persistence.error).toBe(null);
+
+    runtime.stop();
+  });
+
+  it('lists quotations through the persistence port', async () => {
+    const { runtime } = buildRuntime({
+      persistencePort: {
+        async save() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+        async load() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+        async listQuotations() {
+          return {
+            ok: true,
+            data: {
+              items: [
+                {
+                  quotationId: 'COT-10',
+                  clientName: 'Empresa Uno',
+                  pax: 20,
+                  quotationDate: '2026-04-15',
+                },
+              ],
+            },
+          };
+        },
+      },
+    });
+
+    const result = await runtime.listQuotations({ limit: 50 });
+    expect(result.ok).toBe(true);
+    expect(result.data.items[0].quotationId).toBe('COT-10');
 
     runtime.stop();
   });

@@ -4,115 +4,23 @@
   if (!isLocalhost) return;
   if (window.google && window.google.script && window.google.script.run) return;
 
-  const db = {
-    cotizaciones: new Map(),
-    lineasByQuotationId: new Map(),
-  };
+  const endpoint = String(window.__LOCAL_GAS_ENDPOINT__ || '/api/google-script-run');
 
-  const referenceTables = [
-    'CLIENTES',
-    'CATEGORIAS',
-    'ITEM_CATALOGO',
-    'PERFILES_PRECIO',
-    'PERFILES_INICIALIZACION',
-    'REGLAS_NEGOCIO',
-  ];
+  async function invokeLocalServer(method, args) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ method, args }),
+    });
 
-  function toId(value) {
-    const normalized = String(value || '').trim();
-    return normalized || null;
-  }
-
-  function createId(prefix) {
-    return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-
-  function normalizeSavePayload(payload) {
-    if (!payload || typeof payload !== 'object' || !payload.cotizacion) {
-      throw new Error('payload.cotizacion is required');
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error?.message || `Local GAS request failed: ${response.status}`);
     }
 
-    const quotationId = toId(payload.cotizacion.ID_Cotizacion) || createId('COT');
-    const cotizacion = {
-      ...payload.cotizacion,
-      ID_Cotizacion: quotationId,
-      Updated_At: payload.cotizacion.Updated_At || new Date().toISOString(),
-    };
-
-    const lineas = (payload.lineas || []).map((linea, index) => ({
-      ...linea,
-      ID_Linea: toId(linea.ID_Linea) || createId(`LIN-${index + 1}`),
-      ID_Cotizacion: quotationId,
-      Estado_Linea: linea.Estado_Linea || 'ACTIVA',
-      Dia_Numero: Number(linea.Dia_Numero || 1),
-      Hora_Inicio: String(linea.Hora_Inicio || '09:00'),
-      Updated_At: linea.Updated_At || cotizacion.Updated_At,
-    }));
-
-    return { quotationId, cotizacion, lineas };
-  }
-
-  function saveQuotation(payload) {
-    const normalized = normalizeSavePayload(payload);
-    db.cotizaciones.set(normalized.quotationId, normalized.cotizacion);
-    db.lineasByQuotationId.set(normalized.quotationId, normalized.lineas);
-
-    return {
-      ok: true,
-      data: {
-        quotationId: normalized.quotationId,
-        cotizacion: normalized.cotizacion,
-        lineas: normalized.lineas,
-        lineCount: normalized.lineas.length,
-      },
-      success: true,
-      id: normalized.quotationId,
-      mensaje: 'Cotizacion guardada correctamente.',
-    };
-  }
-
-  function loadQuotation(quotationId) {
-    const id = toId(quotationId);
-    if (!id) {
-      return {
-        ok: false,
-        error: { code: 'INVALID_ARGUMENT', message: 'quotation id is required' },
-        success: false,
-      };
-    }
-
-    const cotizacion = db.cotizaciones.get(id);
-    if (!cotizacion) {
-      return {
-        ok: false,
-        error: { code: 'NOT_FOUND', message: `Quotation not found: ${id}` },
-        success: false,
-      };
-    }
-
-    const lineas = db.lineasByQuotationId.get(id) || [];
-    return {
-      ok: true,
-      data: {
-        quotationId: id,
-        cotizacion,
-        lineas,
-        lineCount: lineas.length,
-      },
-      success: true,
-      cotizacion,
-      lineas,
-    };
-  }
-
-  function loadReferenceData() {
-    return {
-      ok: true,
-      data: {
-        seedEntries: referenceTables.map((table) => ({ table, records: [] })),
-        tableCount: referenceTables.length,
-      },
-    };
+    return result;
   }
 
   function makeCaller() {
@@ -130,22 +38,6 @@
       }
     }
 
-    function resolveMethod(prop, args) {
-      if (prop === 'healthcheck') {
-        return { ok: true, runtime: 'local-shim' };
-      }
-      if (prop === 'guardarCotizacion' || prop === 'guardarCotizacionV2') {
-        return saveQuotation(args[0]);
-      }
-      if (prop === 'cargarCotizacion' || prop === 'cargarCotizacionV2') {
-        return loadQuotation(args[0]);
-      }
-      if (prop === 'getReferenceData' || prop === 'getReferenceDataV2') {
-        return loadReferenceData();
-      }
-      throw new Error(`Method not implemented in local shim: ${String(prop)}`);
-    }
-
     const caller = {
       withSuccessHandler(handler) {
         successHandler = handler;
@@ -156,9 +48,7 @@
         return proxy;
       },
       healthcheck() {
-        setTimeout(() => {
-          succeed({ ok: true, runtime: 'local-shim' });
-        }, 0);
+        invokeLocalServer('healthcheck', []).then(succeed).catch(fail);
         return proxy;
       },
     };
@@ -167,14 +57,7 @@
       get(target, prop) {
         if (prop in target) return target[prop];
         return function(...args) {
-          setTimeout(() => {
-            try {
-              const result = resolveMethod(prop, args);
-              succeed(result);
-            } catch (error) {
-              fail(error);
-            }
-          }, 0);
+          invokeLocalServer(String(prop), args).then(succeed).catch(fail);
           return proxy;
         };
       },

@@ -142,4 +142,36 @@ describe('GasSheetAdapter', () => {
     expect(result.data.tableCount).toBe(2);
     expect(calls).toEqual(['getReferenceDataV2', 'getReferenceData']);
   });
+
+  it('lists quotations and normalizes response shape', async () => {
+    const calls = [];
+    const adapter = new GasSheetAdapter({
+      invoke: async (method) => {
+        calls.push(method);
+        return {
+          ok: true,
+          data: {
+            items: [
+              {
+                quotationId: 'COT-42',
+                clientName: 'Empresa Uno',
+                pax: 50,
+                quotationDate: '2026-04-01',
+              },
+            ],
+          },
+        };
+      },
+    });
+
+    const result = await adapter.listQuotations({ term: 'uno', limit: 10 });
+    expect(result.ok).toBe(true);
+    expect(result.data.items[0]).toMatchObject({
+      quotationId: 'COT-42',
+      clientName: 'Empresa Uno',
+      pax: 50,
+      quotationDate: '2026-04-01',
+    });
+    expect(calls).toEqual(['buscarCotizacionesV2']);
+  });
 });

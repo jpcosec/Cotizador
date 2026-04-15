@@ -25,6 +25,13 @@ export class PersistencePort {
     throw new Error('PersistencePort.load not implemented');
   }
 
+  async listQuotations(_query) {
+    return persistenceError(
+      PERSISTENCE_ERROR_CODES.NOT_FOUND,
+      'PersistencePort.listQuotations not implemented'
+    );
+  }
+
   async loadReferenceData() {
     return persistenceError(
       PERSISTENCE_ERROR_CODES.NOT_FOUND,

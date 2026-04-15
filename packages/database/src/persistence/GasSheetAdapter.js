@@ -103,6 +103,35 @@ function normalizeReferenceResponse(raw) {
   );
 }
 
+function normalizeQuotationListResponse(raw) {
+  const normalizedError = normalizeErrorObject(raw, PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
+  if (normalizedError) return normalizedError;
+
+  const data = raw?.data || raw || {};
+  const items = Array.isArray(data.items)
+    ? data.items.map((item) => ({
+        quotationId: item.quotationId || item.id || '',
+        clientId: item.clientId || item.ID_Cliente || null,
+        clientName: item.clientName || item.cliente || '',
+        pax: Number(item.pax || item.Pax_Global || 0),
+        quotationDate: item.quotationDate || item.fecha || item.Fecha_Evento || '',
+        updatedAt: item.updatedAt || item.Updated_At || '',
+      }))
+    : [];
+
+  if (raw?.ok === true || raw?.success === true || Array.isArray(data.items)) {
+    return persistenceOk({
+      items,
+      count: Number(data.count || items.length),
+    });
+  }
+
+  return persistenceError(
+    PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+    'Unexpected quotation-list response from GAS'
+  );
+}
+
 function createGoogleScriptInvoker() {
   return function invoke(method, ...args) {
     return new Promise((resolve, reject) => {
@@ -135,12 +164,14 @@ export class GasSheetAdapter extends PersistencePort {
     invoke = null,
     saveMethods = ['guardarCotizacionV2', 'guardarCotizacion'],
     loadMethods = ['cargarCotizacionV2', 'cargarCotizacion'],
+    listMethods = ['buscarCotizacionesV2', 'buscarCotizaciones'],
     referenceMethods = ['getReferenceDataV2', 'getReferenceData'],
   } = {}) {
     super();
     this.invoke = invoke || createGoogleScriptInvoker();
     this.saveMethods = Array.isArray(saveMethods) ? saveMethods : ['guardarCotizacion'];
     this.loadMethods = Array.isArray(loadMethods) ? loadMethods : ['cargarCotizacion'];
+    this.listMethods = Array.isArray(listMethods) ? listMethods : ['buscarCotizacionesV2', 'buscarCotizaciones'];
     this.referenceMethods = Array.isArray(referenceMethods)
       ? referenceMethods
       : ['getReferenceDataV2', 'getReferenceData'];
@@ -188,6 +219,15 @@ export class GasSheetAdapter extends PersistencePort {
     try {
       const raw = await this.#invokeWithFallback(this.loadMethods, quotationId);
       return normalizeLoadResponse(raw, quotationId);
+    } catch (error) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+    }
+  }
+
+  async listQuotations(query = {}) {
+    try {
+      const raw = await this.#invokeWithFallback(this.listMethods, query || {});
+      return normalizeQuotationListResponse(raw);
     } catch (error) {
       return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
     }

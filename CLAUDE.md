@@ -15,7 +15,6 @@ and conventions.
 
 Key files:
 - `work/tasks/Board.md` — Active task board
-- `work/PLAN_DESIGN.md` — How to create new tasks
 - `work/pills/README.md` — Context pill format
 - `work/drawers/Board.md` — Deferred work
 

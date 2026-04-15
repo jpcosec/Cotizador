@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+### 2026-03-21 (local disk persistence for full GAS app development)
+- Added a disk-backed local GAS development mode via `tools/serve-local.mjs`.
+- Added `tools/localPersistenceStore.js` to initialize `data/db.json` from CSV seed data, persist save operations, and serve `google.script.run` methods from a local JSON database.
+- Updated `apps/gas/Local_GAS_Shim.html` to proxy `google.script.run` calls to the local server with `fetch`, preserving the GAS call shape while using local disk persistence.
+- Updated `package.json` so `npm run dev:gas` now serves the integrated GAS app through the local disk-backed server.
+- Marked U-1 save as completed in `plan/implementation-status.json`.
+- Removed duplicate client seed rows from `data/init/CLIENTES.csv` and added a seed test to guard against repeated business identities.
+
+### 2026-03-21 (home quotation search by client, pax and date)
+- Added quotation search support across the persistence boundary:
+  - `PersistencePort.listQuotations()`
+  - local implementation in `packages/database/src/persistence/LocalPersistenceAdapter.js`
+  - GAS normalization in `packages/database/src/persistence/GasSheetAdapter.js`
+- Extended the quotation runtime API in `apps/quotation/state/createPersistedQuotationRuntime.js` with `listQuotations()` so UI search stays adapter-agnostic.
+- Updated Home/Browse quotation UI to include a functional `Buscar cotizacion` flow modeled after the existing client selector:
+  - modal search from `apps/quotation/playground/QuotationFlowInternal.html`
+  - wired in both `bundling/createQuotationFlowComponent.js` and `apps/quotation/playground/mountQuotationFlow.js`
+  - each result shows client name, pax, quotation date, and ID
+  - selecting a result loads the quotation directly.
+- Added search support to the local GAS shim and generated GAS backend contract:
+  - `apps/gas/Local_GAS_Shim.html`
+  - `tools/generate_gas_code.mjs`
+- Added/updated tests for local adapter search, GAS adapter normalization, runtime passthrough, UI component behavior, and local GAS shim listing.
+- Hid sandbox-only database editing controls from GAS preview/product runtime while keeping them available in the local sandbox route.
+- Split runtime ownership more explicitly:
+  - `apps/gas/Quotation_App_Source.html` is now the GAS app shell source,
+  - `tools/reset_gas_workspace.mjs` builds GAS from that source instead of reusing the sandbox quotation template,
+  - `apps/gas/Stores_QuotationApp.html` now passes explicit GAS capabilities into the bundled app component.
+- Removed `Local_GAS_Shim` from the real GAS app template; it is now injected only by `tools/serve-gas.mjs` for local preview.
+- Added `docs/ARCHITECTURE/runtime-environments.md` to define sandbox vs GAS responsibilities and boundary rules.
+
+### 2026-03-21 (phase 03 consolidation: save/load as real quotation runtime states)
+- Refactored `apps/quotation/state/createPersistedQuotationRuntime.js` so the quotation flow is now governed by an internal XState machine instead of `stageOverride` patching.
+- Added explicit async runtime stages for persistence orchestration:
+  - `validation -> saving -> completed` for successful save,
+  - `* -> loadingQuotation -> basket` for successful load,
+  - save/load errors return to the appropriate editable stage while preserving visible error state.
+- Kept layer boundaries intact:
+  - Alpine/UI still calls runtime methods only,
+  - `serializeQuotation()` remains inside runtime orchestration,
+  - adapters stay behind `PersistencePort`.
+- Expanded runtime coverage in `apps/quotation/state/createPersistedQuotationRuntime.test.js` to assert the intermediate `saving` and `loadingQuotation` states.
+- Updated active U-1 save plan docs to reflect the implemented runtime ownership and remaining real-GAS validation work:
+  - `plan/U-1-save/phases/03_runtime_wiring.md`
+  - `plan/U-1-save/phases/README.md`
+  - `plan/U-1-save/objectives.md`
+  - `plan/implementation-status.json`
+
 ### 2026-03-17 (entry-page database access + hover layering + save flow hardening)
 - Added explicit database editing entrypoint on quotation home screen (`Edit Database`) in `apps/quotation/playground/QuotationFlowInternal.html`, wired through:
   - `bundling/createQuotationFlowComponent.js`
@@ -11,6 +59,7 @@
   - unsupported runtimes now show a clear inline error instead of opening a dead route.
 - Added direct basket-stage save action (`Save Quotation`) and kept validation review path intact.
 - Hardened `saveQuotation()` in both runtime wrappers to wait until stage becomes `validation` before calling `confirmSave()`, preventing stage-transition race failures in preview/runtime wiring.
+- Enforced runtime boundary: no cross-routing between GAS preview and sandbox routes; `Edit Database` remains sandbox-only and unavailable in GAS preview/production runtimes.
 - Fixed hover layering/popover visibility issues in quotation UI by:
   - enabling visible overflow on basket accordion container,
   - adding explicit `glosa-popover` overlay styling and z-index behavior,

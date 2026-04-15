@@ -33,20 +33,30 @@ function parseOverrideValue(value) {
 
 function extractClients(seed = []) {
   const clientRows = seed.find((entry) => entry.table === 'CLIENTES')?.records || [];
-  return clientRows.map((row) => ({
-    id: row.ID_Cliente,
-    nombre: row.Nombre_Empresa,
-    rut: row.RUT,
-    email: row.Email,
-    telefono: row.Telefono,
-  }));
+  const seen = new Set();
+
+  return clientRows
+    .map((row) => ({
+      id: row.ID_Cliente,
+      nombre: row.Nombre_Empresa,
+      rut: row.RUT,
+      email: row.Email,
+      telefono: row.Telefono,
+    }))
+    .filter((client) => {
+      const id = String(client.id || '').trim();
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+}
+
+function isLocalDevHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1';
 }
 
 function resolveDatabaseEditorUrl() {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8082') {
-    return 'http://localhost:8090/step-I1-database';
-  }
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8090') {
+  if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
     return '/step-I1-database';
   }
   return null;
@@ -90,6 +100,12 @@ export async function mountQuotationPlayground(root) {
       },
       clients: [],
       clientSearchTerm: '',
+      quotationSearchModalOpen: false,
+      quotationSearchTerm: '',
+      quotationSearchResults: [],
+      quotationSearchLoading: false,
+      quotationSearchError: null,
+      databaseEditorEnabled: !!resolveDatabaseEditorUrl(),
       catalog: { searchTerm: '', categories: [], summary: {} },
       basket: {
         dayOptions: [],
@@ -202,6 +218,48 @@ export async function mountQuotationPlayground(root) {
 
       clearPersistenceError() {
         runtime.clearPersistenceError();
+      },
+
+      async openQuotationSearchModal() {
+        this.quotationSearchModalOpen = true;
+        this.quotationSearchError = null;
+        this.quotationSearchLoading = true;
+        try {
+          const result = await runtime.listQuotations({ limit: 50 });
+          if (!result?.ok) {
+            this.quotationSearchResults = [];
+            this.quotationSearchError = result?.error?.message || result?.error || 'Unable to load quotations';
+            return;
+          }
+          this.quotationSearchResults = result.data?.items || [];
+        } finally {
+          this.quotationSearchLoading = false;
+        }
+      },
+
+      closeQuotationSearchModal() {
+        this.quotationSearchModalOpen = false;
+        this.quotationSearchError = null;
+      },
+
+      setQuotationSearch(term) {
+        this.quotationSearchTerm = String(term || '');
+      },
+
+      filteredQuotations() {
+        const term = this.quotationSearchTerm.trim().toLowerCase();
+        if (!term) return this.quotationSearchResults;
+        return this.quotationSearchResults.filter((quotation) => {
+          return [quotation.clientName, quotation.quotationId, quotation.quotationDate, quotation.pax].some((field) =>
+            String(field || '').toLowerCase().includes(term)
+          );
+        });
+      },
+
+      async selectQuotationResult(quotationId) {
+        this.closeQuotationSearchModal();
+        this.loadQuotationId = String(quotationId || '');
+        await runtime.loadQuotation(quotationId);
       },
 
       openClientModal() {

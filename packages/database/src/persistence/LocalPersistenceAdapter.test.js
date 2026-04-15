@@ -179,4 +179,60 @@ describe('LocalPersistenceAdapter', () => {
     expect(result.data.seedEntries.some((entry) => entry.table === 'ITEM_CATALOGO')).toBe(true);
     expect(result.data.seedEntries.some((entry) => entry.table === 'CATEGORIAS')).toBe(true);
   });
+
+  it('lists quotations with client name, pax and quotation date', async () => {
+    const adapter = buildAdapter();
+    adapter.models.CLIENTES.create({
+      ID_Cliente: 'CLI-001',
+      Nombre_Empresa: 'Empresa Uno',
+      RUT: '76.111.111-1',
+      Email: 'uno@test.cl',
+      Telefono: '+56 9 1111 1111',
+    });
+    await adapter.save(buildPayload());
+
+    const result = await adapter.listQuotations();
+    expect(result.ok).toBe(true);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0]).toMatchObject({
+      quotationId: 'COT-1000',
+      clientName: 'Empresa Uno',
+      pax: 40,
+      quotationDate: '2026-04-10',
+    });
+  });
+
+  it('filters listed quotations by term', async () => {
+    const adapter = buildAdapter();
+    adapter.models.CLIENTES.create({
+      ID_Cliente: 'CLI-001',
+      Nombre_Empresa: 'Empresa Uno',
+      RUT: '76.111.111-1',
+      Email: 'uno@test.cl',
+      Telefono: '+56 9 1111 1111',
+    });
+    adapter.models.CLIENTES.create({
+      ID_Cliente: 'CLI-002',
+      Nombre_Empresa: 'Empresa Dos',
+      RUT: '76.222.222-2',
+      Email: 'dos@test.cl',
+      Telefono: '+56 9 2222 2222',
+    });
+    await adapter.save(buildPayload());
+    await adapter.save(buildPayload({
+      cotizacion: {
+        ...buildPayload().cotizacion,
+        ID_Cotizacion: 'COT-2000',
+        ID_Cliente: 'CLI-002',
+        Fecha_Evento: '2026-05-12',
+        Pax_Global: 25,
+      },
+      lineas: [],
+    }));
+
+    const result = await adapter.listQuotations({ term: 'dos' });
+    expect(result.ok).toBe(true);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.items[0].quotationId).toBe('COT-2000');
+  });
 });

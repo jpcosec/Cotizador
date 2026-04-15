@@ -6,13 +6,16 @@
     "build": "npm run build:bundle && npm run build:gas",
     "build:bundle": "node tools/generate_local_init_tables.mjs && rollup -c rollup.config.mjs",
     "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
-    "serve:gas": "node tools/serve-gas.mjs",
-    "dev:gas": "npm run build && npm run serve:gas",
+    "serve:gas": "node tools/serve-local.mjs",
+    "serve:local": "node tools/serve-local.mjs",
+    "dev:gas": "npm run build && npm run serve:local",
     "serve:sandbox": "node tools/serve-sandbox.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:gas": "playwright test --config playwright.gas.config.mjs",
+    "test:e2e:gas:headed": "playwright test --config playwright.gas.config.mjs --headed"
   },
   "dependencies": {
     "json-logic-js": "^2.0.5",

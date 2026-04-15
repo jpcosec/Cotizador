@@ -21,13 +21,22 @@ function seedEntriesFromTables(seedTables = {}) {
 
 function extractClients(seedEntries = []) {
   const rows = seedEntries.find((entry) => entry.table === 'CLIENTES')?.records || [];
-  return rows.map((row) => ({
-    id: row.ID_Cliente,
-    nombre: row.Nombre_Empresa,
-    rut: row.RUT,
-    email: row.Email,
-    telefono: row.Telefono,
-  }));
+  const seen = new Set();
+
+  return rows
+    .map((row) => ({
+      id: row.ID_Cliente,
+      nombre: row.Nombre_Empresa,
+      rut: row.RUT,
+      email: row.Email,
+      telefono: row.Telefono,
+    }))
+    .filter((client) => {
+      const id = String(client.id || '').trim();
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
 }
 
 function hasGoogleScriptRun() {

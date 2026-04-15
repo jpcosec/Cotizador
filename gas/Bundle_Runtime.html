@@ -7506,6 +7506,8 @@ var QuotationEngine = (function (exports) {
     lastLoadedId: null,
   };
 
+  const MANAGED_STAGES = ['browse', 'client', 'basket', 'validation'];
+
   function toMessage(errorLike, fallback = 'Persistence operation failed') {
     if (!errorLike) return fallback;
     if (typeof errorLike === 'string') return errorLike;
@@ -7553,7 +7555,9 @@ var QuotationEngine = (function (exports) {
     const firstHour = sortedLineas.find((linea) => toId$1(linea?.Hora_Inicio))?.Hora_Inicio;
 
     return {
-      fechaInicio: String(cotizacion?.Fecha_Evento || fallbackSettings.fechaInicio || new Date().toISOString().slice(0, 10)),
+      fechaInicio: String(
+        cotizacion?.Fecha_Evento || fallbackSettings.fechaInicio || new Date().toISOString().slice(0, 10)
+      ),
       duracionDias: duration,
       paxGlobal: toPositiveInteger(cotizacion?.Pax_Global, toPositiveInteger(fallbackSettings.paxGlobal, 1)),
       dia: 1,
@@ -7597,6 +7601,224 @@ var QuotationEngine = (function (exports) {
     subscription.unsubscribe?.();
   }
 
+  function normalizeStage(stage) {
+    return MANAGED_STAGES.includes(stage) ? stage : 'browse';
+  }
+
+  function isManagedStage(stage) {
+    return MANAGED_STAGES.includes(stage);
+  }
+
+  function createStageTransitions() {
+    return [
+      { guard: ({ event }) => event.stage === 'browse', target: '.browse' },
+      { guard: ({ event }) => event.stage === 'client', target: '.client' },
+      { guard: ({ event }) => event.stage === 'basket', target: '.basket' },
+      { guard: ({ event }) => event.stage === 'validation', target: '.validation' },
+    ];
+  }
+
+  function assignPersistence(mutator) {
+    return assign(({ context, event }) => ({
+      persistence: mutator(context.persistence, event),
+    }));
+  }
+
+  function createFlowMachine({ initialStage = 'browse', persistence = EMPTY_PERSISTENCE } = {}) {
+    return createMachine({
+      id: 'quotationFlow',
+      initial: normalizeStage(initialStage),
+      context: {
+        persistence: { ...EMPTY_PERSISTENCE, ...(persistence || {}) },
+        loadReturnStage: normalizeStage(initialStage),
+      },
+      on: {
+        CLEAR_PERSISTENCE_ERROR: {
+          actions: assignPersistence((current) => ({ ...current, error: null })),
+        },
+        SET_PERSISTENCE_ERROR: {
+          actions: assignPersistence((current, event) => ({
+            ...current,
+            isSaving: false,
+            isLoading: false,
+            error: event.message || 'Persistence operation failed',
+          })),
+        },
+        RUNTIME_SET_STAGE: createStageTransitions(),
+        FORCE_STAGE: createStageTransitions(),
+      },
+      states: {
+        browse: {
+          on: {
+            LOAD_QUOTATION_REQUEST: {
+              target: 'loadingQuotation',
+              actions: [
+                assign({ loadReturnStage: 'browse' }),
+                assignPersistence((current) => ({
+                  ...current,
+                  isLoading: true,
+                  error: null,
+                })),
+              ],
+            },
+          },
+        },
+        client: {
+          on: {
+            LOAD_QUOTATION_REQUEST: {
+              target: 'loadingQuotation',
+              actions: [
+                assign({ loadReturnStage: 'client' }),
+                assignPersistence((current) => ({
+                  ...current,
+                  isLoading: true,
+                  error: null,
+                })),
+              ],
+            },
+          },
+        },
+        basket: {
+          on: {
+            LOAD_QUOTATION_REQUEST: {
+              target: 'loadingQuotation',
+              actions: [
+                assign({ loadReturnStage: 'basket' }),
+                assignPersistence((current) => ({
+                  ...current,
+                  isLoading: true,
+                  error: null,
+                })),
+              ],
+            },
+          },
+        },
+        validation: {
+          on: {
+            CONFIRM_SAVE: {
+              target: 'saving',
+              actions: assignPersistence((current) => ({
+                ...current,
+                isSaving: true,
+                error: null,
+              })),
+            },
+            LOAD_QUOTATION_REQUEST: {
+              target: 'loadingQuotation',
+              actions: [
+                assign({ loadReturnStage: 'validation' }),
+                assignPersistence((current) => ({
+                  ...current,
+                  isLoading: true,
+                  error: null,
+                })),
+              ],
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_DONE: {
+              target: 'completed',
+              actions: assignPersistence((current, event) => ({
+                ...current,
+                isSaving: false,
+                error: null,
+                quotationId: event.quotationId || current.quotationId,
+              })),
+            },
+            SAVE_ERROR: {
+              target: 'validation',
+              actions: assignPersistence((current, event) => ({
+                ...current,
+                isSaving: false,
+                error: event.message || 'Unable to save quotation',
+              })),
+            },
+          },
+        },
+        loadingQuotation: {
+          on: {
+            LOAD_DONE: {
+              target: 'basket',
+              actions: assign(({ context, event }) => ({
+                loadReturnStage: 'basket',
+                persistence: {
+                  ...context.persistence,
+                  isLoading: false,
+                  error: null,
+                  quotationId: event.quotationId || context.persistence.quotationId,
+                  lastLoadedId: event.requestedId || context.persistence.lastLoadedId,
+                },
+              })),
+            },
+            LOAD_ERROR: [
+              {
+                guard: ({ context }) => context.loadReturnStage === 'client',
+                target: 'client',
+                actions: assignPersistence((current, event) => ({
+                  ...current,
+                  isLoading: false,
+                  error: event.message || 'Unable to load quotation',
+                })),
+              },
+              {
+                guard: ({ context }) => context.loadReturnStage === 'basket',
+                target: 'basket',
+                actions: assignPersistence((current, event) => ({
+                  ...current,
+                  isLoading: false,
+                  error: event.message || 'Unable to load quotation',
+                })),
+              },
+              {
+                guard: ({ context }) => context.loadReturnStage === 'validation',
+                target: 'validation',
+                actions: assignPersistence((current, event) => ({
+                  ...current,
+                  isLoading: false,
+                  error: event.message || 'Unable to load quotation',
+                })),
+              },
+              {
+                guard: ({ context }) => context.loadReturnStage === 'completed',
+                target: 'completed',
+                actions: assignPersistence((current, event) => ({
+                  ...current,
+                  isLoading: false,
+                  error: event.message || 'Unable to load quotation',
+                })),
+              },
+              {
+                target: 'browse',
+                actions: assignPersistence((current, event) => ({
+                  ...current,
+                  isLoading: false,
+                  error: event.message || 'Unable to load quotation',
+                })),
+              },
+            ],
+          },
+        },
+        completed: {
+          on: {
+            LOAD_QUOTATION_REQUEST: {
+              target: 'loadingQuotation',
+              actions: [
+                assign({ loadReturnStage: 'completed' }),
+                assignPersistence((current) => ({
+                  ...current,
+                  isLoading: true,
+                  error: null,
+                })),
+              ],
+            },
+          },
+        },
+      },
+    });
+  }
+
   function createPersistedQuotationRuntime({
     createRuntime,
     persistencePort,
@@ -7608,26 +7830,27 @@ var QuotationEngine = (function (exports) {
 
     let runtime = createRuntime();
     let runtimeSubscription = null;
-    let listeners = new Set();
-    let stageOverride = null;
-    let persistence = { ...EMPTY_PERSISTENCE };
+    let flowActor = null;
+    let flowSubscription = null;
+    const listeners = new Set();
 
-    function setPersistence(patch = {}, shouldNotify = true) {
-      persistence = { ...persistence, ...patch };
-      if (shouldNotify) notify();
+    function currentFlowStage() {
+      return String(flowActor?.getSnapshot()?.value || 'browse');
     }
 
-    function clearStageOverride() {
-      if (!stageOverride) return;
-      stageOverride = null;
+    function flowContext() {
+      return flowActor?.getSnapshot()?.context || {
+        persistence: { ...EMPTY_PERSISTENCE },
+        loadReturnStage: 'browse',
+      };
     }
 
     function getSnapshot() {
       const base = runtime.getSnapshot();
       return {
         ...base,
-        stage: stageOverride || base.stage,
-        persistence: { ...persistence },
+        stage: currentFlowStage(),
+        persistence: { ...flowContext().persistence },
       };
     }
 
@@ -7638,9 +7861,43 @@ var QuotationEngine = (function (exports) {
       }
     }
 
+    function attachFlowActor(initialStage, persistence = EMPTY_PERSISTENCE) {
+      flowActor = createActor(
+        createFlowMachine({
+          initialStage,
+          persistence,
+        })
+      );
+      flowSubscription = flowActor.subscribe(() => notify());
+      flowActor.start();
+    }
+
+    function detachFlowActor() {
+      cleanupSubscription(flowSubscription);
+      flowSubscription = null;
+      flowActor?.stop?.();
+      flowActor = null;
+    }
+
+    function replaceFlowActor(initialStage, persistence = EMPTY_PERSISTENCE) {
+      detachFlowActor();
+      attachFlowActor(initialStage, persistence);
+    }
+
+    function syncStageFromRuntime(force = false) {
+      const stage = runtime.getSnapshot()?.stage;
+      if (!isManagedStage(stage)) return;
+      flowActor.send({ type: force ? 'FORCE_STAGE' : 'RUNTIME_SET_STAGE', stage });
+    }
+
     function attachRuntime(nextRuntime) {
       runtime = nextRuntime;
-      runtimeSubscription = runtime.subscribe(() => notify());
+      runtimeSubscription = runtime.subscribe((snapshot) => {
+        if (isManagedStage(currentFlowStage()) && isManagedStage(snapshot.stage)) {
+          flowActor.send({ type: 'RUNTIME_SET_STAGE', stage: snapshot.stage });
+        }
+        notify();
+      });
     }
 
     function detachRuntime() {
@@ -7656,7 +7913,9 @@ var QuotationEngine = (function (exports) {
 
     function applyLoadedLine(runtimeInstance, linea, duration) {
       const itemId = toId$1(linea?.ID_Item);
-      if (!itemId) return;
+      if (!itemId) {
+        throw new Error(`Invalid loaded line item id: ${linea?.ID_Linea || 'unknown-line'}`);
+      }
 
       const dayIndex = Math.min(duration, toPositiveInteger(linea?.Dia_Numero, 1));
       runtimeInstance.selectDay(dayIndex);
@@ -7668,7 +7927,9 @@ var QuotationEngine = (function (exports) {
 
       const afterEntries = findDayEntries(runtimeInstance.getSnapshot(), dayIndex);
       const createdEntry = afterEntries.find((entry) => !beforeIds.has(entry.entryId));
-      if (!createdEntry) return;
+      if (!createdEntry) {
+        throw new Error(`Unable to hydrate loaded line: ${linea?.ID_Linea || itemId}`);
+      }
 
       const overridePatch = overridePatchFromLinea(linea);
       for (const [key, value] of Object.entries(overridePatch)) {
@@ -7708,6 +7969,7 @@ var QuotationEngine = (function (exports) {
     }
 
     attachRuntime(runtime);
+    attachFlowActor(runtime.getSnapshot()?.stage || 'browse');
 
     const passthrough = [
       'openClientModal',
@@ -7741,22 +8003,24 @@ var QuotationEngine = (function (exports) {
       getSnapshot,
 
       clearPersistenceError() {
-        setPersistence({ error: null });
+        flowActor.send({ type: 'CLEAR_PERSISTENCE_ERROR' });
       },
 
       reinitialize(initialSettings = null) {
-        const fallbackSettings = getSnapshot().settings || {};
+        const fallbackSettings = runtime.getSnapshot().settings || {};
         const nextRuntime = createRuntime(initialSettings || fallbackSettings);
-        clearStageOverride();
-        setPersistence({ ...EMPTY_PERSISTENCE }, false);
         replaceRuntime(nextRuntime);
+        replaceFlowActor(nextRuntime.getSnapshot()?.stage || 'browse', EMPTY_PERSISTENCE);
         notify();
         return { ok: true };
       },
 
       async confirmSave() {
         if (!persistencePort || typeof persistencePort.save !== 'function') {
-          setPersistence({ error: 'Persistence adapter is not configured' });
+          flowActor.send({
+            type: 'SET_PERSISTENCE_ERROR',
+            message: 'Persistence adapter is not configured',
+          });
           return { ok: false };
         }
 
@@ -7765,23 +8029,21 @@ var QuotationEngine = (function (exports) {
           return { ok: false };
         }
 
-        setPersistence({ isSaving: true, error: null });
+        flowActor.send({ type: 'CONFIRM_SAVE' });
 
         try {
           const payload = serializeQuotation({
             selectedClient: snapshot.selectedClient,
             settings: snapshot.settings,
             basketState: snapshot.basket,
-            quotationId: persistence.quotationId,
+            quotationId: flowContext().persistence.quotationId,
             idPolicy,
           });
 
           const result = await persistencePort.save(payload);
           if (!result?.ok) {
-            setPersistence({
-              isSaving: false,
-              error: toMessage(result?.error, 'Unable to save quotation'),
-            });
+            const message = toMessage(result?.error, 'Unable to save quotation');
+            flowActor.send({ type: 'SAVE_ERROR', message });
             return result || { ok: false };
           }
 
@@ -7790,76 +8052,95 @@ var QuotationEngine = (function (exports) {
             toId$1(result.data?.id) ||
             toId$1(payload.cotizacion.ID_Cotizacion);
 
-          stageOverride = 'completed';
-          setPersistence({
-            isSaving: false,
-            error: null,
-            quotationId,
-          });
-
+          flowActor.send({ type: 'SAVE_DONE', quotationId });
           return { ok: true, data: result.data, id: quotationId };
         } catch (error) {
-          setPersistence({
-            isSaving: false,
-            error: toMessage(error, 'Unable to save quotation'),
-          });
-          return { ok: false, error: toMessage(error) };
+          const message = toMessage(error, 'Unable to save quotation');
+          flowActor.send({ type: 'SAVE_ERROR', message });
+          return { ok: false, error: message };
         }
       },
 
       async loadQuotation(id) {
         if (!persistencePort || typeof persistencePort.load !== 'function') {
-          setPersistence({ error: 'Persistence adapter is not configured' });
+          flowActor.send({
+            type: 'SET_PERSISTENCE_ERROR',
+            message: 'Persistence adapter is not configured',
+          });
           return { ok: false };
         }
 
         const quotationId = toId$1(id);
         if (!quotationId) {
-          setPersistence({ error: 'Quotation ID is required' });
+          flowActor.send({
+            type: 'SET_PERSISTENCE_ERROR',
+            message: 'Quotation ID is required',
+          });
           return { ok: false };
         }
 
-        setPersistence({ isLoading: true, error: null });
+        const stage = currentFlowStage();
+        if (stage === 'saving' || stage === 'loadingQuotation') {
+          return { ok: false };
+        }
+
+        flowActor.send({ type: 'LOAD_QUOTATION_REQUEST' });
 
         try {
           const result = await persistencePort.load(quotationId);
           if (!result?.ok) {
-            setPersistence({
-              isLoading: false,
-              error: toMessage(result?.error, 'Unable to load quotation'),
-            });
+            const message = toMessage(result?.error, 'Unable to load quotation');
+            flowActor.send({ type: 'LOAD_ERROR', message });
             return result || { ok: false };
           }
 
           hydrateFromLoadData(result.data);
-          clearStageOverride();
-          setPersistence({
-            isLoading: false,
-            error: null,
+          flowActor.send({
+            type: 'LOAD_DONE',
             quotationId: toId$1(result.data?.quotationId) || quotationId,
-            lastLoadedId: quotationId,
+            requestedId: quotationId,
           });
-
+          syncStageFromRuntime(true);
           return { ok: true, data: result.data };
         } catch (error) {
-          setPersistence({
-            isLoading: false,
-            error: toMessage(error, 'Unable to load quotation'),
-          });
-          return { ok: false, error: toMessage(error) };
+          const message = toMessage(error, 'Unable to load quotation');
+          flowActor.send({ type: 'LOAD_ERROR', message });
+          return { ok: false, error: message };
+        }
+      },
+
+      async listQuotations(query = {}) {
+        if (!persistencePort || typeof persistencePort.listQuotations !== 'function') {
+          return { ok: false, error: 'Persistence adapter does not support quotation search' };
+        }
+
+        try {
+          const result = await persistencePort.listQuotations(query);
+          if (!result?.ok) {
+            return result || { ok: false };
+          }
+          return result;
+        } catch (error) {
+          return { ok: false, error: toMessage(error, 'Unable to list quotations') };
         }
       },
 
       stop() {
         detachRuntime();
+        detachFlowActor();
         listeners.clear();
       },
     };
 
     for (const methodName of passthrough) {
       api[methodName] = (...args) => {
-        clearStageOverride();
+        const stage = currentFlowStage();
+        if (stage === 'saving' || stage === 'loadingQuotation') {
+          return undefined;
+        }
+
         const result = runtime[methodName](...args);
+        syncStageFromRuntime(stage === 'completed');
         return result;
       };
     }
@@ -8340,6 +8621,13 @@ var QuotationEngine = (function (exports) {
       throw new Error('PersistencePort.load not implemented');
     }
 
+    async listQuotations(_query) {
+      return persistenceError(
+        PERSISTENCE_ERROR_CODES.NOT_FOUND,
+        'PersistencePort.listQuotations not implemented'
+      );
+    }
+
     async loadReferenceData() {
       return persistenceError(
         PERSISTENCE_ERROR_CODES.NOT_FOUND,
@@ -8446,6 +8734,35 @@ var QuotationEngine = (function (exports) {
     );
   }
 
+  function normalizeQuotationListResponse(raw) {
+    const normalizedError = normalizeErrorObject(raw, PERSISTENCE_ERROR_CODES.STORAGE_ERROR);
+    if (normalizedError) return normalizedError;
+
+    const data = raw?.data || raw || {};
+    const items = Array.isArray(data.items)
+      ? data.items.map((item) => ({
+          quotationId: item.quotationId || item.id || '',
+          clientId: item.clientId || item.ID_Cliente || null,
+          clientName: item.clientName || item.cliente || '',
+          pax: Number(item.pax || item.Pax_Global || 0),
+          quotationDate: item.quotationDate || item.fecha || item.Fecha_Evento || '',
+          updatedAt: item.updatedAt || item.Updated_At || '',
+        }))
+      : [];
+
+    if (raw?.ok === true || raw?.success === true || Array.isArray(data.items)) {
+      return persistenceOk({
+        items,
+        count: Number(data.count || items.length),
+      });
+    }
+
+    return persistenceError(
+      PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+      'Unexpected quotation-list response from GAS'
+    );
+  }
+
   function createGoogleScriptInvoker() {
     return function invoke(method, ...args) {
       return new Promise((resolve, reject) => {
@@ -8478,12 +8795,14 @@ var QuotationEngine = (function (exports) {
       invoke = null,
       saveMethods = ['guardarCotizacionV2', 'guardarCotizacion'],
       loadMethods = ['cargarCotizacionV2', 'cargarCotizacion'],
+      listMethods = ['buscarCotizacionesV2', 'buscarCotizaciones'],
       referenceMethods = ['getReferenceDataV2', 'getReferenceData'],
     } = {}) {
       super();
       this.invoke = invoke || createGoogleScriptInvoker();
       this.saveMethods = Array.isArray(saveMethods) ? saveMethods : ['guardarCotizacion'];
       this.loadMethods = Array.isArray(loadMethods) ? loadMethods : ['cargarCotizacion'];
+      this.listMethods = Array.isArray(listMethods) ? listMethods : ['buscarCotizacionesV2', 'buscarCotizaciones'];
       this.referenceMethods = Array.isArray(referenceMethods)
         ? referenceMethods
         : ['getReferenceDataV2', 'getReferenceData'];
@@ -8536,6 +8855,15 @@ var QuotationEngine = (function (exports) {
       }
     }
 
+    async listQuotations(query = {}) {
+      try {
+        const raw = await this.#invokeWithFallback(this.listMethods, query || {});
+        return normalizeQuotationListResponse(raw);
+      } catch (error) {
+        return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, toErrorMessage(error));
+      }
+    }
+
     async loadReferenceData() {
       try {
         const raw = await this.#invokeWithFallback(this.referenceMethods);
@@ -8549,6 +8877,10 @@ var QuotationEngine = (function (exports) {
   function toId(value) {
     if (value === undefined || value === null || value === '') return null;
     return String(value);
+  }
+
+  function toLower(value) {
+    return String(value || '').toLowerCase();
   }
 
   function sortLineas(lineas = []) {
@@ -8568,6 +8900,40 @@ var QuotationEngine = (function (exports) {
       lineas: normalizedLineas,
       lineCount: normalizedLineas.length,
     };
+  }
+
+  function normalizeQuotationQuery(query = {}) {
+    return {
+      term: String(query?.term || '').trim().toLowerCase(),
+      limit: Math.max(1, Math.floor(Number(query?.limit || 25) || 25)),
+    };
+  }
+
+  function toQuotationListItem(cotizacion, client) {
+    return {
+      quotationId: String(cotizacion?.ID_Cotizacion || ''),
+      clientId: toId(cotizacion?.ID_Cliente),
+      clientName: String(client?.Nombre_Empresa || cotizacion?.ID_Cliente || 'Cliente sin nombre'),
+      pax: Number(cotizacion?.Pax_Global || 0),
+      quotationDate: String(cotizacion?.Fecha_Evento || ''),
+      updatedAt: String(cotizacion?.Updated_At || ''),
+    };
+  }
+
+  function matchesQuotationTerm(item, term) {
+    if (!term) return true;
+    return [item.quotationId, item.clientName, item.quotationDate, item.pax]
+      .some((value) => toLower(value).includes(term));
+  }
+
+  function sortQuotationItems(items = []) {
+    return [...items].sort((left, right) => {
+      const rightUpdated = String(right.updatedAt || right.quotationDate || '');
+      const leftUpdated = String(left.updatedAt || left.quotationDate || '');
+      const byUpdated = rightUpdated.localeCompare(leftUpdated);
+      if (byUpdated !== 0) return byUpdated;
+      return String(right.quotationId || '').localeCompare(String(left.quotationId || ''));
+    });
   }
 
   function ensureSavePayload(payload) {
@@ -8707,6 +9073,32 @@ var QuotationEngine = (function (exports) {
         return persistenceError(
           PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
           error?.message || 'Unable to load quotation'
+        );
+      }
+    }
+
+    async listQuotations(query = {}) {
+      try {
+        const normalizedQuery = normalizeQuotationQuery(query);
+        const cotizaciones = this.models.COTIZACIONES.all();
+        const clientModel = this.models.CLIENTES || null;
+        const items = cotizaciones.map((cotizacion) => {
+          const client = clientModel?.findById?.(cotizacion.ID_Cliente) || null;
+          return toQuotationListItem(cotizacion, client);
+        });
+
+        const filtered = sortQuotationItems(items)
+          .filter((item) => matchesQuotationTerm(item, normalizedQuery.term))
+          .slice(0, normalizedQuery.limit);
+
+        return persistenceOk({
+          items: filtered,
+          count: filtered.length,
+        });
+      } catch (error) {
+        return persistenceError(
+          PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
+          error?.message || 'Unable to list quotations'
         );
       }
     }
@@ -13669,13 +14061,22 @@ var QuotationEngine = (function (exports) {
 
   function extractClients(seedEntries = []) {
     const rows = seedEntries.find((entry) => entry.table === 'CLIENTES')?.records || [];
-    return rows.map((row) => ({
-      id: row.ID_Cliente,
-      nombre: row.Nombre_Empresa,
-      rut: row.RUT,
-      email: row.Email,
-      telefono: row.Telefono,
-    }));
+    const seen = new Set();
+
+    return rows
+      .map((row) => ({
+        id: row.ID_Cliente,
+        nombre: row.Nombre_Empresa,
+        rut: row.RUT,
+        email: row.Email,
+        telefono: row.Telefono,
+      }))
+      .filter((client) => {
+        const id = String(client.id || '').trim();
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
   }
 
   function hasGoogleScriptRun() {
@@ -13787,17 +14188,76 @@ var QuotationEngine = (function (exports) {
     return Number.isFinite(parsed) ? parsed : value;
   }
 
+  function isLocalDevHost(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  }
+
+  function dedupeByKey(items = [], keySelector) {
+    const seen = new Set();
+
+    return (items || []).filter((item) => {
+      const key = String(keySelector(item) || '').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function normalizeClients(clients = []) {
+    return dedupeByKey(clients, (client) => client?.id);
+  }
+
+  function normalizeQuotationResults(items = []) {
+    return dedupeByKey(items, (item) => item?.quotationId);
+  }
+
+  function resolveRuntimeMode(options = {}) {
+    const explicit = String(options.runtimeMode || '').trim().toLowerCase();
+    if (explicit === 'sandbox' || explicit === 'gas') return explicit;
+
+    if (typeof window !== 'undefined') {
+      if (isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
+        return 'sandbox';
+      }
+    }
+
+    return 'gas';
+  }
+
+  function resolveCapabilities(options = {}) {
+    const runtimeMode = resolveRuntimeMode(options);
+    const defaults = {
+      sandbox: {
+        databaseEditor: true,
+        quotationSearch: true,
+        manualLoadById: true,
+      },
+      gas: {
+        databaseEditor: false,
+        quotationSearch: true,
+        manualLoadById: true,
+      },
+    };
+
+    return {
+      runtimeMode,
+      ...defaults[runtimeMode],
+      ...(options.capabilities || {}),
+    };
+  }
+
   function createQuotationFlowComponent(options = {}) {
     const runtime = options.runtime || createQuotationRuntime(options);
+    const capabilities = resolveCapabilities(options);
 
     function resolveDatabaseEditorUrl() {
       if (typeof options.databaseEditorUrl === 'string' && options.databaseEditorUrl.trim()) {
         return options.databaseEditorUrl.trim();
       }
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8082') {
-        return 'http://localhost:8090/step-I1-database';
+      if (!capabilities.databaseEditor) {
+        return null;
       }
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '8090') {
+      if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
         return '/step-I1-database';
       }
       return null;
@@ -13820,6 +14280,14 @@ var QuotationEngine = (function (exports) {
       },
       clients: [],
       clientSearchTerm: '',
+      quotationSearchModalOpen: false,
+      quotationSearchTerm: '',
+      quotationSearchResults: [],
+      quotationSearchLoading: false,
+      quotationSearchError: null,
+      runtimeMode: capabilities.runtimeMode,
+      capabilities,
+      databaseEditorEnabled: !!resolveDatabaseEditorUrl(),
       catalog: { searchTerm: '', categories: [], summary: {} },
       basket: {
         dayOptions: [],
@@ -13852,7 +14320,7 @@ var QuotationEngine = (function (exports) {
           this.globalContext = {
             hora: this.settings.horaInicio,
           };
-          this.clients = snapshot.clients || [];
+          this.clients = normalizeClients(snapshot.clients || []);
           this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
           this.basket = snapshot.basket || {
             dayOptions: [],
@@ -13944,6 +14412,48 @@ var QuotationEngine = (function (exports) {
 
       clearPersistenceError() {
         runtime.clearPersistenceError();
+      },
+
+      async openQuotationSearchModal() {
+        this.quotationSearchModalOpen = true;
+        this.quotationSearchError = null;
+        this.quotationSearchLoading = true;
+        try {
+          const result = await runtime.listQuotations({ limit: 50 });
+          if (!result?.ok) {
+            this.quotationSearchResults = [];
+            this.quotationSearchError = result?.error?.message || result?.error || 'Unable to load quotations';
+            return;
+          }
+           this.quotationSearchResults = normalizeQuotationResults(result.data?.items || []);
+        } finally {
+          this.quotationSearchLoading = false;
+        }
+      },
+
+      closeQuotationSearchModal() {
+        this.quotationSearchModalOpen = false;
+        this.quotationSearchError = null;
+      },
+
+      setQuotationSearch(term) {
+        this.quotationSearchTerm = String(term || '');
+      },
+
+      filteredQuotations() {
+        const term = this.quotationSearchTerm.trim().toLowerCase();
+        if (!term) return this.quotationSearchResults;
+        return this.quotationSearchResults.filter((quotation) => {
+          return [quotation.clientName, quotation.quotationId, quotation.quotationDate, quotation.pax].some((field) =>
+            String(field || '').toLowerCase().includes(term)
+          );
+        });
+      },
+
+      async selectQuotationResult(quotationId) {
+        this.closeQuotationSearchModal();
+        this.loadQuotationId = String(quotationId || '');
+        await runtime.loadQuotation(quotationId);
       },
 
       openClientModal() {
