@@ -2,6 +2,13 @@
 
 > **No task is complete without testing.**
 
+## Quick Links
+
+- [Task Management](./work/tasks/Board.md) — Active tasks
+- [Plan Design](./work/PLAN_DESIGN.md) — How to create new tasks
+- [Pills Reference](./work/pills/README.md) — Context pill format
+- [Deferred Work](./work/drawers/Board.md) — Waiting items
+
 ---
 
 ## The 4-Zone Model
