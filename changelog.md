@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-04-15 (quality: e2e testbed hardening and docs review)
+- Deferred U-3 GAS persistence task to `work/drawers/` due to account setup prerequisites.
+- Added U-5 Source Code Quality Check task to audit the codebase for functionality and documentation issues.
+- Ran `npm test` (all 592 unit tests passed) and `npm run test:e2e`.
+- Diagnosed and fixed Playwright E2E test failures:
+  - Ran `npx playwright install` to download required browser binaries.
+  - Isolated `gas-preview.smoke.spec.js` from the default `playwright.config.mjs` to prevent server conflicts between sandbox and GAS environments.
+  - Confirmed both `npm run test:e2e` (3 tests) and `npm run test:e2e:gas` (6 tests) now pass cleanly.
+- Reviewed documentation and confirmed `pi`'s extension mechanism is the correct way to integrate tools like an MCP, but no such extension is currently installed.
+- Marked U-5 as complete.
+
 ### 2026-03-21 (local disk persistence for full GAS app development)
 - Added a disk-backed local GAS development mode via `tools/serve-local.mjs`.
 - Added `tools/localPersistenceStore.js` to initialize `data/db.json` from CSV seed data, persist save operations, and serve `google.script.run` methods from a local JSON database.

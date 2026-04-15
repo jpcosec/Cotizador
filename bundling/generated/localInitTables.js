@@ -180,14 +180,6 @@ export const LOCAL_INIT_TABLES = {
       "Updated_At": "2026-02-19T16:42:08.795Z"
     },
     {
-      "ID_Cliente": "CLI-0003",
-      "Nombre_Empresa": "pedro palotes",
-      "RUT": "12345678-9",
-      "Email": "wea@a.cl",
-      "Telefono": "569123123",
-      "Updated_At": "2026-02-19T16:42:08.795Z"
-    },
-    {
       "ID_Cliente": "CLI-0004",
       "Nombre_Empresa": "Aventuta*/r",
       "RUT": "76666800-3",
@@ -197,14 +189,6 @@ export const LOCAL_INIT_TABLES = {
     },
     {
       "ID_Cliente": "CLI-0005",
-      "Nombre_Empresa": "Ruth Stollsteimer",
-      "RUT": "11111111-1",
-      "Email": "ruth.stollsteimer@gmail.com",
-      "Telefono": "56996475523",
-      "Updated_At": "2026-02-19T16:42:08.795Z"
-    },
-    {
-      "ID_Cliente": "CLI-0006",
       "Nombre_Empresa": "Ruth Stollsteimer",
       "RUT": "11111111-1",
       "Email": "ruth.stollsteimer@gmail.com",

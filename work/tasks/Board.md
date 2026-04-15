@@ -6,11 +6,13 @@
 
 | ID | Domain | Task | Priority | Depends On | Pills |
 |----|--------|------|----------|------------|-------|
+| U-2 | editor | Editor Basic | p1 | [] | pill-editor-gesture-matrix,pill-legacy-editor-semantics |
 
 ## Completed
 
 | ID | Domain | Task | Completed |
 |----|--------|------|----------|
+| U-5 | quality | Source Code Quality Check | 2026-04-15 |
 | U-1 | persistence | Save Vertical Slice | 2026-04-15 |
 
 ## Blocked (status=blocked)
@@ -25,19 +27,15 @@ No items pending promotion.
 
 ## Current Priority
 
-1. **U-2-editor** — parallel with U-3 (U-1 must be committed first)
-2. **U-3-gas** — depends on U-1 commit
+1. **U-2-editor** — (U-1 must be committed first)
 
 ## Dependency Graph
 
 ```
-U-1 (save contract + local adapter) → U-3 (GAS save/load) → U-4 (PDF)
-                 |
-                 +---- parallel ----> U-2 (editor UX)
+U-1 (save contract + local adapter) → U-2 (editor UX)
 ```
 
 ## Execution Order
 
-1. Commit U-1 remaining changes
-2. Start U-2 and U-3 simultaneously
-3. Start U-4 after U-3 phase 03 complete
+1. Complete Ritual and reorganize tasks
+2. Start U-2 (Editor UI)
