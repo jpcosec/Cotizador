@@ -3,3 +3,5 @@ node_modules/
 .serena/
 test-results/
 data/db.json
+.clasp.json
+workflow/
