@@ -8,6 +8,20 @@ From-scratch rebuild of the SF Lodge Cotizador components — a quotation system
 
 This is the active implementation worktree under `/home/jp/CotizadorLodge/`. The parent repo CLAUDE.md documents the full multi-worktree ecosystem.
 
+## Task Management
+
+Tasks are tracked in `work/tasks/Board.md`. Follow `WORKFLOW.md` for rituals
+and conventions.
+
+Key task files:
+- `work/tasks/Board.md` — Active task board
+- `work/tasks/U-1-save.md` — U-1 Save Vertical Slice
+- `work/tasks/U-2-editor.md` — U-2 Editor Basic
+- `work/tasks/U-3-gas.md` — U-3 GAS Persistence
+- `work/tasks/U-4-pdf.md` — U-4 PDF Export
+- `work/drawers/Board.md` — Deferred work
+- `work/pills/README.md` — Context pill format
+
 ## Commands
 
 ```bash
@@ -64,12 +78,18 @@ apps/
   sandbox/            <- Dev/debug HTML playgrounds
   demo/               <- Demo app
   quotation/          <- Quotation flow app
+  gas/                <- GAS local shims and adapters
 docs/
   ARCHITECTURE/       <- Component architecture, item-component, rules-engine docs
   GUIDES/             <- creating-a-component, testing-components, writing-rules
   PACKAGES/           <- Per-package reference
-plan/                 <- Step-by-step implementation plans (I-1, I-2, I-3, III-1...)
-tools/                <- serve-sandbox.mjs
+work/
+  tasks/              <- Active tasks (U-1 through U-4)
+  drawers/            <- Deferred work and legacy archived plans
+  pills/              <- Context pills for task rationale
+plan/                 <- Implementation plans (U-series index)
+gas/                  <- GAS source files (Code.gs, etc.)
+tools/                <- serve-sandbox.mjs, generate_gas_code.mjs
 ```
 
 ### Component Structure
@@ -129,10 +149,11 @@ Rules are evaluated per component instance. `packages/components/item/domain/rul
 
 | Question | Where to look |
 |----------|--------------|
+| Workflow & rituals | `WORKFLOW.md` |
+| Task board | `work/tasks/Board.md` |
 | Component pattern | `docs/ARCHITECTURE/component-architecture.md` |
 | Item specifics | `docs/ARCHITECTURE/item-component.md` |
 | Item I/O contract | `packages/components/item/STATE_CONTRACT.md` |
 | Rules engine | `docs/ARCHITECTURE/rules-engine-integration.md` |
 | Creating a component | `docs/GUIDES/creating-a-component.md` |
-| Current step plan | `plan/` (e.g. `plan/I-3-category/`) |
 | Version history | `changelog.md` |
