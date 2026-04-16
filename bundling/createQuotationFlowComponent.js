@@ -383,6 +383,18 @@ export function createQuotationFlowComponent(options = {}) {
       runtime.setEntryOverride(entryId, key, parseOverrideValue(value));
     },
 
+    setItemComment(entryId, text) {
+      runtime.setItemComment(entryId, text);
+    },
+
+    setItemTime(entryId, startTime) {
+      runtime.setItemTime(entryId, startTime);
+    },
+
+    setItemDuration(entryId, minutes) {
+      runtime.setItemDuration(entryId, minutes);
+    },
+
     clearBasketOverride(entryId, key) {
       runtime.clearEntryOverride(entryId, key);
     },

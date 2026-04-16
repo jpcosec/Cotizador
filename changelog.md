@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-04-16 (feature: item comments, time adjustment, and duration resize)
+- **V-01: Item Comments**: Added `setItemComment(entryId, text)` to the quotation runtime and flow component. Updated the basket card UI to bind the comment textarea to this new action, using the `comentarios` override key.
+- **V-02: Time Adjustment (Move)**: Added `setItemTime(entryId, startTime)` to the quotation runtime and flow component. Updated the basket card time input to bind to this action, using the `hora` override key.
+- **V-03: Time Adjustment (Resize)**: Added `setItemDuration(entryId, minutes)` to the quotation runtime and flow component. Updated the basket card duration input to bind to this action, using the `duracionMin` override key.
+- **Validation**: Added `add_item_comment`, `adjust_item_time`, and `resize_item_duration` steps to `user_flow.json`. Verified the full flow with `tools/userFlowRunner.mjs`.
+
 ### 2026-04-15 (feature: U-2 editor baseline with timeline interactions)
 - **Phase 01: Gesture Matrix**: Created `plan/U-2-editor/gesture_event_matrix.md` to define all editor interactions (drag, drop, move, resize), tagging them as `existing`, `to-add`, or `deferred`.
 - **Phase 02: Timeline Grid**: Integrated a timeline UI layer into the quotation view (`apps/quotation/playground/QuotationFlowInternal.html`). Dragging an item from the catalog and dropping it on the timeline now adds it to the basket with the correct start time (`hora`).

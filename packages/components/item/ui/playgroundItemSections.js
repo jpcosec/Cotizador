@@ -67,7 +67,7 @@ export const basketRuntimeHtml = `
                     type="time"
                     :value="entry.state.overrides?.hora || entry.state.schedule?.hora || globalContext.hora || '09:00'"
                     @click.stop
-                    @change="setBasketOverride(entry.id, 'hora', $event.target.value)"
+                    @change="setItemTime(entry.id, $event.target.value)"
                     class="time-input-small"
                   >
                 </div>
@@ -115,7 +115,7 @@ export const basketRuntimeHtml = `
                     </div>
                     <div class="control-group" x-show="entry.state.showTimeControl" :class="entry.state.isUserSetDuracion ? 'field-user-set' : ''">
                       <label>Duracion (min) <span class="manual-badge" x-show="entry.state.isUserSetDuracion">manual</span></label>
-                      <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setBasketOverride(entry.id, 'duracionMin', $event.target.value)" min="0" step="15">
+                      <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setItemDuration(entry.id, $event.target.value)" min="0" step="15">
                     </div>
 
                     <div class="line-price-box">
@@ -140,7 +140,7 @@ export const basketRuntimeHtml = `
                       <textarea
                         rows="5"
                         :value="('comentarios' in (entry.state.overrides || {})) ? entry.state.overrides.comentarios : (entry.state.definition?.description || '')"
-                        @change="setBasketOverride(entry.id, 'comentarios', $event.target.value)"
+                        @change="setItemComment(entry.id, $event.target.value)"
                         placeholder="Comentario de la linea..."
                       ></textarea>
                     </div>

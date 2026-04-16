@@ -435,6 +435,18 @@ export function createQuotationInternalRuntime({
       notify();
     },
 
+    setItemComment(entryId, text) {
+      this.setEntryOverride(entryId, 'comentarios', text);
+    },
+
+    setItemTime(entryId, startTime) {
+      this.setEntryOverride(entryId, 'hora', startTime);
+    },
+
+    setItemDuration(entryId, minutes) {
+      this.setEntryOverride(entryId, 'duracionMin', minutes);
+    },
+
     clearEntryOverride(entryId, key) {
       basketActor.send({
         type: 'CLEAR_ENTRY_OVERRIDE',
