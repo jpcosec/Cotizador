@@ -322,8 +322,8 @@ export function createQuotationFlowComponent(options = {}) {
       runtime.toggleCategory(categoryId);
     },
 
-    shipCatalogEntry(itemId) {
-      runtime.shipItemToSelectedDay(itemId);
+    shipCatalogEntry(itemId, overrides = {}) {
+      runtime.shipItemToSelectedDay(itemId, overrides);
     },
 
     startCatalogDrag(itemId, event) {
@@ -354,7 +354,7 @@ export function createQuotationFlowComponent(options = {}) {
       const itemId = this.draggedItemId(event);
       this.endCatalogDrag();
       if (!itemId) return;
-      runtime.shipItemToSelectedDay(itemId);
+      runtime.shipItemToSelectedDay(itemId, {});
     },
 
     dropOnDay(dayIndex, event) {
@@ -362,7 +362,7 @@ export function createQuotationFlowComponent(options = {}) {
       this.endCatalogDrag();
       if (!itemId) return;
       runtime.selectDay(Number(dayIndex));
-      runtime.shipItemToSelectedDay(itemId);
+      runtime.shipItemToSelectedDay(itemId, {});
     },
 
     selectDay(dayIndex) {

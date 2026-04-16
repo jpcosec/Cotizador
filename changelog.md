@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### 2026-04-15 (feature: U-2 editor baseline with timeline interactions)
+- **Phase 01: Gesture Matrix**: Created `plan/U-2-editor/gesture_event_matrix.md` to define all editor interactions (drag, drop, move, resize), tagging them as `existing`, `to-add`, or `deferred`.
+- **Phase 02: Timeline Grid**: Integrated a timeline UI layer into the quotation view (`apps/quotation/playground/QuotationFlowInternal.html`). Dragging an item from the catalog and dropping it on the timeline now adds it to the basket with the correct start time (`hora`).
+- **Phase 03: Move and Resize**: Implemented move and resize interactions for items on the timeline. Users can now drag existing items to change their start time and use a resize handle to adjust their duration (`duracionMin`). All interactions are wired to the application runtime.
+
 ### 2026-04-15 (quality: e2e testbed hardening and docs review)
 - Deferred U-3 GAS persistence task to `work/drawers/` due to account setup prerequisites.
 - Added U-5 Source Code Quality Check task to audit the codebase for functionality and documentation issues.
