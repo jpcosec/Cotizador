@@ -3,14 +3,7 @@ import { createItemState } from './logic/ItemState.js';
 import { createItemProjections } from './logic/ItemProjections.js';
 import { mapDefinition } from './logic/ItemMapper.js';
 import { resolveSchedule } from './domain/schedule.js';
-import {
-  resolvePricingParams,
-  resolveEffectiveValues,
-  resolveQuantityAndTotal,
-  resolveQuantitiesObject,
-  evaluateItemRules,
-  formatDisplayStrings
-} from './logic/ItemCalculator.js';
+import { resolvePricingParams, resolveEffectiveValues, resolveQuantityAndTotal, resolveQuantitiesObject, evaluateItemRules, formatDisplayStrings } from './logic/ItemCalculator.js';
 
 export class Item {
   mode; definition; externalContext; overrides; userSetFields;
