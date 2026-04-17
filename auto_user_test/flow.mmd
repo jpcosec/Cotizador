@@ -1,0 +1,40 @@
+graph TD
+  Start((Start)) --> open_app
+  open_app["Open the GAS application (goto)"]
+  open_app --> select_client_open
+  select_client_open["Open client selection modal (click)"]
+  select_client_open --> select_client_pick
+  select_client_pick["Pick 'test1' client (click)"]
+  select_client_pick --> wait_modal_close
+  wait_modal_close["Wait for modal overlay to be hidden (wait_hidden)"]
+  wait_modal_close --> wait_workspace
+  wait_workspace["Wait for workspace to be visible (wait)"]
+  wait_workspace --> wait_render
+  wait_render["Wait for workspace rendering (wait_fixed)"]
+  wait_render --> wait_catalog
+  wait_catalog["Wait for catalog categories to render (wait)"]
+  wait_catalog --> expand_category
+  expand_category["Expand first catalog category (click)"]
+  expand_category --> wait_items_load
+  wait_items_load["Wait for items to load in category (wait)"]
+  wait_items_load --> add_item
+  add_item["Add first item to basket (click)"]
+  add_item --> wait_basket_item
+  wait_basket_item["Wait for item in basket (wait)"]
+  wait_basket_item --> set_override_pax
+  set_override_pax["Override pax for the item (fill)"]
+  set_override_pax --> duplicate_item
+  duplicate_item["Duplicate the basket item (click)"]
+  duplicate_item --> wait_duplication
+  wait_duplication["Wait for duplication to reflect (wait_fixed)"]
+  wait_duplication --> save_quotation
+  save_quotation["Trigger save flow (click)"]
+  save_quotation --> verify_saved
+  verify_saved["Wait for save confirmation (wait)"]
+  verify_saved --> go_home
+  go_home["Return to home screen (click)"]
+  go_home --> open_search
+  open_search["Open search modal (click)"]
+  open_search --> verify_in_list
+  verify_in_list["Verify saved quotation appears in search list (wait)"]
+  verify_in_list --> End((End))
