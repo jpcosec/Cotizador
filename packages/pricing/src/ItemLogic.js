@@ -1,3 +1,4 @@
+import { formatCatalogTerms, policyHint, legendForBasket, resolveSchedule, evaluateRules } from './Formulas.js';
 import { resolveContextQuantity, resolveBasketQuantity, applyExclusiveDefaultMode } from './QuantityResolution.js';
 
 
@@ -179,23 +180,7 @@ export class ItemLogic {
     };
   }
 
-  /**
-   * Build a human-readable pricing formula string for catalog display.
-   * Example: "$400 fijo + 3 und/pax x $1"
-   * @param {number} base - Fixed base cost.
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {number} rate - Per-unit rate.
-   * @param {Object} defaults - Default quantities for label formatting.
-   * @returns {string}
-   */
-  formatCatalogTerms(base, kind, mode, rate, defaults) {
-    const parts = [];
-    if (base > 0) parts.push(`${money(base)} fijo`);
-
-    if (kind === PricingKind.NONE) {
-      return parts.join(' + ') || '$0';
-    }
+  
 
     if (kind === PricingKind.PAX) {
       if (mode === InitializationMode.FIXED_AMOUNT) {
@@ -233,181 +218,9 @@ export class ItemLogic {
     return parts.join(' + ') || '$0';
   }
 
-  /**
-   * Generate a short policy hint describing the initialization rule.
-   * Example: "3 und/persona" or "10 min/persona".
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {Object} [defaults={}]
-   * @returns {string} Empty string if no hint applies.
-   */
-  policyHint(kind, mode, defaults = {}) {
-    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_PAX) {
-      return `${toNumber(defaults.unidadesPorUsuario, 0)} und/persona`;
-    }
-    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_TIME) {
-      return `${toNumber(defaults.unidadesPorHora, 0)} und/hora`;
-    }
-    if (kind === PricingKind.TIME && mode === InitializationMode.CONTEXT_PAX) {
-      return `${toNumber(defaults.minutosPorUsuario, 0)} min/persona`;
-    }
-    return '';
-  }
+  
 
-  /**
-   * Build a human-readable breakdown legend for basket display.
-   * Example: "$400 + (60 und x $1) = $460"
-   * @param {number} base - Fixed base cost.
-   * @param {PricingKind} kind
-   * @param {number} quantity
-   * @param {number} rate
-   * @param {number} total
-   * @returns {string}
-   */
-  legendForBasket(base, kind, quantity, rate, total) {
-    if (kind === PricingKind.NONE) return `${money(base)} fijo`;
-
-    const qtyLabel = kind === PricingKind.PAX
-      ? `${quantity} pax`
-      : kind === PricingKind.UNITS
-        ? `${quantity} und`
-        : `${quantity} min`;
-
-    return `${money(base)} + (${qtyLabel} x ${money(rate)}) = ${money(total)}`;
-  }
-
-  /**
-   * Resolve the schedule (day and hour) from overrides or external context.
-   * Overrides take precedence over external context.
-   * @param {Object} [externalContext={}]
-   * @param {Object} [overrides={}]
-   * @returns {{ dia: number, hora: string }}
-   */
-  resolveSchedule(externalContext = {}, overrides = {}) {
-    return {
-      dia: overrides.dia ?? externalContext.dia ?? 1,
-      hora: overrides.hora ?? externalContext.hora ?? '09:00'
-    };
-  }
-
-  /**
-   * Evaluate business rules against a state snapshot.
-   * Supports MAX_PAX, MIN_PAX, and ONLY_HOUR_RANGE rule types.
-   * Blocking rules set `available` to false.
-   * @param {Array<{ id: string, type: string, active: boolean, blocking: boolean }>} [rules=[]]
-   * @param {{ quantities: Object, schedule: Object }} snapshot
-   * @returns {{ appliedRules: string[], available: boolean }}
-   */
-  evaluateRules(rules = [], snapshot) {
-    const appliedRules = [];
-    let available = true;
-
-    for (const rule of rules) {
-      if (!rule || !rule.active) continue;
-
-      if (rule.type === 'MAX_PAX' && snapshot.quantities.pax > toNumber(rule.value, Infinity)) {
-        appliedRules.push(rule.label || 'MAX_PAX violated');
-        if (rule.blocking) available = false;
-        continue;
-      }
-
-      if (rule.type === 'MIN_PAX' && snapshot.quantities.pax < toNumber(rule.value, -Infinity)) {
-        appliedRules.push(rule.label || 'MIN_PAX violated');
-        if (rule.blocking) available = false;
-        continue;
-      }
-
-      if (rule.type === 'ONLY_HOUR_RANGE') {
-        const min = String(rule.min || '00:00');
-        const max = String(rule.max || '23:59');
-        const hour = String(snapshot.schedule.hora || '00:00');
-        if (hour < min || hour > max) {
-          appliedRules.push(rule.label || 'hour out of range');
-          if (rule.blocking) available = false;
-        }
-      }
-    }
-
-    return { appliedRules, available };
-  }
-
-  /**
-   * Recompute full derived state after any mutation.
-   * @returns {ItemLogic}
-   */
-  recalculate() {
-    const defaults = this.definition.defaultQuantities || {};
-    const profile = this.normalizeProfile(this.definition.pricingProfile || {});
-    const kind = this.detectPricingKind(profile);
-    const initMode = this.detectInitializationMode(kind, defaults);
-    const rate = this.rateForKind(profile, kind);
-    const base = toNumber(profile.baseFijo, 0);
-
-    const basketResolution = resolveBasketQuantity(
-      kind,
-      initMode,
-      defaults,
-      this.externalContext,
-      this.overrides
-    );
-
-    const quantity = basketResolution.quantity;
-    const total = toInteger(base + quantity * rate, 0);
-
-    const quantities = {
-      pax: kind === PricingKind.PAX ? quantity : 0,
-      cantidad: kind === PricingKind.UNITS ? quantity : 0,
-      duracionMin: kind === PricingKind.TIME ? quantity : 0
-    };
-
-    const schedule = this.resolveSchedule(this.externalContext, this.overrides);
-    const ruleResult = this.evaluateRules(this.definition.rules || [], {
-      mode: this.mode,
-      quantities,
-      schedule
-    });
-
-    const profileHuman = [];
-    if (base > 0) profileHuman.push(`${money(base)} fijo`);
-    if (kind === PricingKind.PAX && rate > 0) profileHuman.push(`${money(rate)} por pax`);
-    if (kind === PricingKind.UNITS && rate > 0) profileHuman.push(`${money(rate)} por unidad`);
-    if (kind === PricingKind.TIME && rate > 0) profileHuman.push(`${money(rate)} por minuto`);
-
-    const lineRateLabel = kind === PricingKind.PAX
-      ? 'Pax'
-      : kind === PricingKind.UNITS
-        ? 'Unidades'
-        : kind === PricingKind.TIME
-          ? 'Duracion'
-          : 'Cantidad';
-
-    this.profile = profile;
-    this.pricingKind = kind;
-    this.initializationMode = initMode;
-    this.rate = rate;
-    this.base = base;
-    this.basketQuantity = quantity;
-    this.total = total;
-    this.unitDisplay = quantity > 0 ? toInteger(total / quantity, 0) : toInteger(total, 0);
-    this.isOverridden = basketResolution.isOverridden;
-    this.overrideField = basketResolution.overrideField;
-    this.catalogDisaggregated = this.formatCatalogTerms(base, kind, initMode, rate, defaults);
-    this.policyHintText = this.policyHint(kind, initMode, defaults);
-    this.basketLegendText = this.legendForBasket(base, kind, quantity, rate, total);
-    this.pricingHumanText = profileHuman.join(' + ') || '$0';
-    this.quantities = quantities;
-    this.schedule = schedule;
-    this.available = ruleResult.available;
-    this.appliedRules = ruleResult.appliedRules;
-    this.lineRateLabel = lineRateLabel;
-    this.lineRateSubtotal = quantity * rate;
-    this.comentarios = this.overrides.comentarios ?? '';
-    this.showPaxControl = kind === PricingKind.PAX;
-    this.showUnitsControl = kind === PricingKind.UNITS;
-    this.showTimeControl = kind === PricingKind.TIME;
-
-    return this;
-  }
+  
 
   /**
    * Set mode and recalculate.
