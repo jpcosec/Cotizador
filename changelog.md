@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-04-17 (feature: database editors and rules management)
+- **V-08: Pack Editor**: Created a specialized UI in `apps/sandbox/routes/pack-editor.html` to manage kit compositions. Integrated with `PersistencePort` to support saving kit components to local and remote storage.
+- **V-09: Rules Visualization**: Enhanced the business rules popover in the basket UI. Users can now see the rule name, UI message, and the technical condition (JavaScript) directly in the popover.
+- **V-10: Rules Creator**: Implemented a comprehensive rules editor in `apps/sandbox/routes/rules-editor.html`. Extended `PersistencePort`, `LocalPersistenceAdapter`, and `RemotePersistenceAdapter` with `saveRules` to support persistence.
+
+### 2026-04-17 (feature: export tools and UI enhancements)
+- **U-4: PDF Export**: Implemented browser-based PDF generation using `window.print()`. Created `apps/quotation/components/QuotationPrintStyles.html` with specialized `@media print` rules to hide UI elements and format the validation table for A4 paper.
+- **V-06: Excel Export**: Added CSV export functionality via `apps/quotation/services/excelService.js`. Integrated "Export to Excel" buttons in the validation and completed stages to download quotation details and totals.
+- **V-07: Detail Hover**: Enhanced the catalog hover experience in `playgroundItemSections.js`. The hover popover now includes both the item description and a human-readable "Política de Inicio" (initialization policy).
+
+### 2026-04-17 (feature: kit and group logic)
+- **V-04: Groups / Packs Logic**: Implemented full support for kit expansion and group management.
+  - **Database & Resolution**: Updated `resolveItemDefinition.js` to fetch recursive children from `COMPOSICION_KIT`. Modified `Item.js` to handle child definitions and `ABSORBIDO` pricing logic.
+  - **Basket State**: Updated `basketDayMachine.js` to support recursive kit expansion into the basket with `groupId` and `parentId` linking. Implemented atomic removal (removing parent removes children).
+  - **Runtime & Cloning**: Updated `createQuotationInternalRuntime.js` to propagate overrides (like time and day) from parents to children and support group-aware cloning between days.
+  - **Pricing & Quantity**: Implemented kit multiplier propagation in `quantity.js` and `ABSORBIDO` pricing ($0 total for child items) in `Item.js`.
+  - **UI Implementation**: Updated basket rendering in `playgroundItemSections.js` to visually group children under parents with indentation and "Included" badges for absorbed items.
+  - **Validation**: Added a "Full Day Pack" test kit to `localInitTables.js` and verified behavior with a new test suite in `packages/components/basket-day/tests/kitExpansion.test.js`.
+
 ### 2026-04-16 (feature: item comments, time adjustment, and duration resize)
 - **V-01: Item Comments**: Added `setItemComment(entryId, text)` to the quotation runtime and flow component. Updated the basket card UI to bind the comment textarea to this new action, using the `comentarios` override key.
 - **V-02: Time Adjustment (Move)**: Added `setItemTime(entryId, startTime)` to the quotation runtime and flow component. Updated the basket card time input to bind to this action, using the `hora` override key.

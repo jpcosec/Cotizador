@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pack Editor - Sandbox</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    :root {
+      --primary: #2d5a27;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --text: #1e293b;
+    }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+    .item-list { height: 600px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .item-row { padding: 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .item-row:hover { background: #f1f5f9; }
+    .item-row.active { border-left: 4px solid var(--primary); background: #f0fdf4; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-weight: 600; }
+    .btn-primary { background: var(--primary); color: white; border: none; }
+    .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+    input, select { padding: 6px; border: 1px solid var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container" x-data="packEditor()">
+    <div class="header">
+      <h1><i class="fa-solid fa-boxes-packing"></i> Pack Editor</h1>
+      <button class="btn btn-primary" @click="saveChanges()">Save All Changes</button>
+    </div>
+
+    <div class="grid">
+      <aside class="card">
+        <h3>Catalog Items</h3>
+        <input type="text" placeholder="Search..." x-model="search" style="width: 100%; margin-bottom: 10px;">
+        <div class="item-list">
+          <template x-for="item in filteredItems" :key="item.ID_Item">
+            <div class="item-row" :class="selectedId === item.ID_Item ? 'active' : ''" @click="selectItem(item)">
+              <div x-text="item.Nombre" style="font-weight: 600; font-size: 0.9rem;"></div>
+              <div style="font-size: 0.75rem; color: #64748b;" x-text="item.ID_Item"></div>
+              <span class="badge" x-show="isKit(item.ID_Item)">KIT</span>
+            </div>
+          </template>
+        </div>
+      </aside>
+
+      <main>
+        <template x-if="!selectedItem">
+          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
+            <i class="fa-solid fa-arrow-left fa-3x" style="margin-bottom: 20px; opacity: 0.5;"></i>
+            <p>Select an item from the list to edit its pack composition.</p>
+          </div>
+        </template>
+
+        <template x-if="selectedItem">
+          <div class="card">
+            <h2 x-text="selectedItem.Nombre"></h2>
+            <p style="color: #64748b; font-family: monospace;" x-text="selectedId"></p>
+            
+            <div style="margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Composition</h3>
+                <button class="btn" @click="addChild()">+ Add Component</button>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Child Item</th>
+                    <th>Qty</th>
+                    <th>Pricing</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(comp, index) in composition" :key="index">
+                    <tr>
+                      <td>
+                        <select x-model="comp.ID_Item_Hijo" style="width: 200px;">
+                          <option value="">- Select Item -</option>
+                          <template x-for="item in items" :key="item.ID_Item">
+                            <option :value="item.ID_Item" x-text="item.Nombre"></option>
+                          </template>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" x-model.number="comp.Cantidad" style="width: 60px;" min="1">
+                      </td>
+                      <td>
+                        <select x-model="comp.Tipo_Precio">
+                          <option value="ABSORBIDO">ABSORBIDO</option>
+                          <option value="SUMAR">SUMAR</option>
+                        </select>
+                      </td>
+                      <td>
+                        <button class="btn" style="color: #b91c1c;" @click="composition.splice(index, 1)">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <template x-if="composition.length === 0">
+                <p style="text-align: center; padding: 20px; color: #94a3b8; font-style: italic;">This item has no children (not a kit).</p>
+              </template>
+            </div>
+          </div>
+        </template>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.browser.js';
+    import { createDatabase } from '../../../packages/database/src/createDatabase.js';
+    import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
+    import { RemotePersistenceAdapter } from '../../../packages/database/src/persistence/RemotePersistenceAdapter.js';
+
+    function isLocalDevHost(hostname) {
+      return hostname === 'localhost' || hostname === '127.0.0.1';
+    }
+
+    function resolvePersistencePort(dbModels) {
+      if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
+        return new RemotePersistenceAdapter({ endpoint: 'http://localhost:8082/api/google-script-run' });
+      }
+      return new LocalPersistenceAdapter({ models: dbModels });
+    }
+    
+    window.packEditor = function() {
+      return {
+        items: [],
+        allComposition: [],
+        search: '',
+        selectedId: null,
+        selectedItem: null,
+        composition: [],
+        persistence: null,
+
+        async init() {
+          const seed = await loadSeedFromCsvUrl('/data/init');
+          
+          const db = createDatabase({ seed });
+          this.persistence = resolvePersistencePort(db.models);
+
+          const refData = await this.persistence.loadReferenceData();
+          if (refData.ok) {
+            const seedEntries = refData.data.seedEntries || [];
+            this.items = seedEntries.find(t => t.table === 'ITEM_CATALOGO')?.records || [];
+            this.allComposition = seedEntries.find(t => t.table === 'COMPOSICION_KIT')?.records || [];
+          } else {
+            console.error('Failed to load ref data', refData.error);
+            this.items = seed.find(t => t.table === 'ITEM_CATALOGO')?.records || [];
+            this.allComposition = seed.find(t => t.table === 'COMPOSICION_KIT')?.records || [];
+          }
+        },
+
+        get filteredItems() {
+          const s = this.search.toLowerCase();
+          return this.items.filter(i => i.Nombre.toLowerCase().includes(s) || i.ID_Item.toLowerCase().includes(s));
+        },
+
+        isKit(itemId) {
+          return this.allComposition.some(c => c.ID_Item_Padre === itemId);
+        },
+
+        selectItem(item) {
+          this.selectedId = item.ID_Item;
+          this.selectedItem = item;
+          this.composition = this.allComposition
+            .filter(c => c.ID_Item_Padre === item.ID_Item)
+            .map(c => ({ ...c }));
+        },
+
+        addChild() {
+          this.composition.push({
+            ID_Item_Padre: this.selectedId,
+            ID_Item_Hijo: '',
+            Cantidad: 1,
+            Tipo_Precio: 'ABSORBIDO'
+          });
+        },
+
+        async saveChanges() {
+          if (!this.selectedId) return;
+          
+          const result = await this.persistence.saveKit(this.selectedId, this.composition);
+          if (result.ok) {
+            alert('Kit composition saved successfully!');
+            // Update local state
+            this.allComposition = this.allComposition.filter(c => c.ID_Item_Padre !== this.selectedId);
+            this.allComposition.push(...this.composition);
+          } else {
+            alert('Error saving kit: ' + result.error.message);
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

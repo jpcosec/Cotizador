@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rules Editor - Sandbox</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    :root {
+      --primary: #2d5a27;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --bg-card: #ffffff;
+      --text: #1e293b;
+      --error: #b91c1c;
+      --warn: #854d0e;
+    }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+    .item-list { height: 700px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+    .item-row { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .item-row:hover { background: #f1f5f9; }
+    .item-row.active { border-left: 4px solid var(--primary); background: #f0fdf4; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+    .btn-primary { background: var(--primary); color: white; border: none; }
+    .btn-danger { background: var(--error); color: white; border: none; }
+    .rule-item { border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #fff; position: relative; }
+    .rule-item.is-error { border-left: 4px solid var(--error); }
+    .rule-item.is-warn { border-left: 4px solid var(--warn); }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.9rem; box-sizing: border-box; }
+    code { font-family: monospace; background: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-size: 0.85rem; }
+    .help-text { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container" x-data="rulesEditor()">
+    <div class="header">
+      <h1><i class="fa-solid fa-vial-circle-check"></i> Rules Editor</h1>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" @click="saveChanges()">Save All Rules</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <aside class="card">
+        <h3>Catalog Items</h3>
+        <input type="text" placeholder="Search items..." x-model="search" style="width: 100%; margin-bottom: 10px;">
+        <div class="item-list">
+          <template x-for="item in filteredItems" :key="item.ID_Item">
+            <div class="item-row" :class="selectedId === item.ID_Item ? 'active' : ''" @click="selectItem(item)">
+              <div x-text="item.Nombre" style="font-weight: 600; font-size: 0.9rem;"></div>
+              <div style="font-size: 0.75rem; color: #64748b;" x-text="item.ID_Item"></div>
+              <div style="margin-top: 4px;">
+                <span class="badge" style="font-size: 0.65rem; background: #e2e8f0; padding: 2px 5px; border-radius: 4px;" 
+                      x-text="(rulesByItem[item.ID_Item] || []).length + ' rules'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </aside>
+
+      <main>
+        <template x-if="!selectedItem">
+          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
+            <i class="fa-solid fa-list-check fa-3x" style="margin-bottom: 20px; opacity: 0.5;"></i>
+            <p>Select an item to manage its business rules.</p>
+          </div>
+        </template>
+
+        <template x-if="selectedItem">
+          <div>
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h2 x-text="selectedItem.Nombre" style="margin:0;"></h2>
+                  <p style="color: #64748b; font-family: monospace; margin: 4px 0 0;" x-text="selectedId"></p>
+                </div>
+                <button class="btn btn-primary" @click="addRule()">+ Add Rule</button>
+              </div>
+            </div>
+
+            <template x-for="(rule, index) in currentRules" :key="index">
+              <div class="rule-item" :class="rule.Tipo_Accion === 'ERROR' ? 'is-error' : 'is-warn'">
+                <button class="btn btn-danger" style="position: absolute; top: 15px; right: 15px; padding: 4px 8px;" @click="removeRule(index)">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+
+                <div style="display: grid; grid-template-columns: 1fr 150px; gap: 15px;">
+                  <div class="form-group">
+                    <label>Rule Name</label>
+                    <input type="text" x-model="rule.Nombre" placeholder="e.g. Minimo de personas">
+                  </div>
+                  <div class="form-group">
+                    <label>Action Type</label>
+                    <select x-model="rule.Tipo_Accion">
+                      <option value="ERROR">ERROR (Blocks save)</option>
+                      <option value="ADVERTENCIA">WARNING</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>UI Message</label>
+                  <input type="text" x-model="rule.Mensaje_UI" placeholder="Message shown to the user">
+                </div>
+
+                <div class="form-group">
+                  <label>Condition (JavaScript)</label>
+                  <textarea x-model="rule.Condicion" rows="2" placeholder="e.g. item.quantities.pax < 10"></textarea>
+                  <div class="help-text">
+                    Available variables: <code>item</code> (state), <code>global</code> (settings). 
+                    Example: <code>item.quantities.pax < 20</code>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="currentRules.length === 0">
+              <div class="card" style="text-align: center; padding: 30px; border-style: dashed; background: transparent;">
+                <p style="color: #94a3b8; font-style: italic;">No rules defined for this item.</p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.browser.js';
+    import { createDatabase } from '../../../packages/database/src/createDatabase.js';
+    import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
+    import { RemotePersistenceAdapter } from '../../../packages/database/src/persistence/RemotePersistenceAdapter.js';
+
+    function isLocalDevHost(hostname) {
+      return hostname === 'localhost' || hostname === '127.0.0.1';
+    }
+
+    function resolvePersistencePort(dbModels) {
+      if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
+        return new RemotePersistenceAdapter({ endpoint: 'http://localhost:8082/api/google-script-run' });
+      }
+      return new LocalPersistenceAdapter({ models: dbModels });
+    }
+
+    window.rulesEditor = function() {
+      return {
+        items: [],
+        rulesByItem: {},
+        search: '',
+        selectedId: null,
+        selectedItem: null,
+        currentRules: [],
+        persistence: null,
+
+        async init() {
+          const seed = await loadSeedFromCsvUrl('/data/init');
+          const db = createDatabase({ seed });
+          this.persistence = resolvePersistencePort(db.models);
+
+          const refData = await this.persistence.loadReferenceData();
+          if (refData.ok) {
+            const seedEntries = refData.data.seedEntries || [];
+            this.items = seedEntries.find(t => t.table === 'ITEM_CATALOGO')?.records || [];
+            const allRules = seedEntries.find(t => t.table === 'REGLAS_NEGOCIO')?.records || [];
+            
+            // Group rules by item
+            this.rulesByItem = {};
+            allRules.forEach(r => {
+              if (!this.rulesByItem[r.ID_Item]) this.rulesByItem[r.ID_Item] = [];
+              this.rulesByItem[r.ID_Item].push(r);
+            });
+          }
+        },
+
+        get filteredItems() {
+          const s = this.search.toLowerCase();
+          return this.items.filter(i => i.Nombre.toLowerCase().includes(s) || i.ID_Item.toLowerCase().includes(s));
+        },
+
+        selectItem(item) {
+          this.selectedId = item.ID_Item;
+          this.selectedItem = item;
+          this.currentRules = (this.rulesByItem[item.ID_Item] || []).map(r => ({ ...r }));
+        },
+
+        addRule() {
+          this.currentRules.push({
+            ID_Regla: `RULE_${Date.now()}`,
+            ID_Item: this.selectedId,
+            Nombre: 'Nueva Regla',
+            Condicion: 'item.quantities.pax === 0',
+            Tipo_Accion: 'ADVERTENCIA',
+            Mensaje_UI: 'Alerta de regla',
+            Activo: true
+          });
+        },
+
+        removeRule(index) {
+          this.currentRules.splice(index, 1);
+        },
+
+        async saveChanges() {
+          if (!this.selectedId) return;
+          
+          const result = await this.persistence.saveRules(this.selectedId, this.currentRules);
+          if (result.ok) {
+            alert('Rules saved successfully!');
+            this.rulesByItem[this.selectedId] = [...this.currentRules];
+          } else {
+            alert('Error saving rules: ' + result.error.message);
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

@@ -38,4 +38,12 @@ export class PersistencePort {
       'PersistencePort.loadReferenceData not implemented'
     );
   }
+
+  async saveKit(_kitId, _composition) {
+    throw new Error('PersistencePort.saveKit not implemented');
+  }
+
+  async saveRules(_itemId, _rules) {
+    throw new Error('PersistencePort.saveRules not implemented');
+  }
 }

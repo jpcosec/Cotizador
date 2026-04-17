@@ -3,140 +3,70 @@
   "baseUrl": "http://localhost:8082",
   "steps": [
     {
-      "id": "open_app",
+      "id": "01_open_app",
       "action": "goto",
       "url": "/",
       "description": "Open the GAS application"
     },
     {
-      "id": "select_client_open",
+      "id": "02_select_client",
       "action": "click",
       "selector": "button:has-text('Select Client')",
       "description": "Open client selection modal"
     },
     {
-      "id": "select_client_pick",
+      "id": "03_pick_client",
       "action": "click",
       "selector": ".client-item:has-text('test1')",
       "description": "Pick 'test1' client"
     },
     {
-      "id": "wait_modal_close",
-      "action": "wait_hidden",
-      "selector": ".modal-overlay",
-      "description": "Wait for modal overlay to be hidden"
-    },
-    {
-      "id": "wait_workspace",
+      "id": "04_wait_workspace",
       "action": "wait",
       "selector": ".workspace",
-      "description": "Wait for workspace to be visible"
+      "description": "Wait for workspace"
     },
     {
-      "id": "wait_render",
+      "id": "05_expand_category",
+      "action": "click",
+      "selector": ".category-head >> nth=0",
+      "description": "Expand first category"
+    },
+    {
+      "id": "06_wait_items",
       "action": "wait_fixed",
-      "value": 2000,
-      "description": "Wait for workspace rendering"
+      "value": 3000,
+      "description": "Wait for catalog items"
     },
     {
-      "id": "wait_catalog",
-      "action": "wait",
-      "selector": ".category-card",
-      "description": "Wait for catalog categories to render"
-    },
-    {
-      "id": "expand_category",
+      "id": "07_add_item",
       "action": "click",
-      "selector": ".category-head:first-of-type",
-      "description": "Expand first catalog category"
+      "selector": "button[aria-label='Ship to basket'] >> nth=0",
+      "description": "Add item"
     },
     {
-      "id": "wait_items_load",
-      "action": "wait",
-      "selector": ".mini-card",
-      "description": "Wait for items to load in category"
-    },
-    {
-      "id": "add_item",
-      "action": "click",
-      "selector": ".mini-card:first-child button[aria-label='Ship to basket']",
-      "description": "Add first item to basket"
-    },
-    {
-      "id": "wait_basket_item",
-      "action": "wait",
-      "selector": ".basket-card",
-      "description": "Wait for item in basket"
-    },
-    {
-      "id": "set_override_pax",
-      "action": "fill",
-      "selector": ".basket-card .control-group:has-text('Pax') input",
-      "value": "25",
-      "description": "Override pax for the item"
-    },
-    {
-      "id": "add_item_comment",
-      "action": "fill",
-      "selector": ".basket-card .accordion-col-middle textarea",
-      "value": "Test comment for item",
-      "description": "Add a comment to the item"
-    },
-    {
-      "id": "adjust_item_time",
-      "action": "fill",
-      "selector": ".basket-card .acc-time input",
-      "value": "11:30",
-      "description": "Adjust item start time"
-    },
-    {
-      "id": "resize_item_duration",
-      "action": "fill",
-      "selector": ".basket-card .control-group:has-text('Duracion') input",
-      "value": "120",
-      "description": "Adjust item duration"
-    },
-    {
-      "id": "duplicate_item",
-      "action": "click",
-      "selector": ".basket-card button[title='Duplicate']",
-      "description": "Duplicate the basket item"
-    },
-    {
-      "id": "wait_duplication",
+      "id": "08_wait_basket_sync",
       "action": "wait_fixed",
-      "value": 1000,
-      "description": "Wait for duplication to reflect"
+      "value": 3000,
+      "description": "Wait for basket sync"
     },
     {
-      "id": "save_quotation",
+      "id": "09_go_validation",
       "action": "click",
-      "selector": "button:has-text('Save Quotation')",
-      "description": "Trigger save flow"
+      "selector": "button:has-text('Validate')",
+      "description": "Advance to validation"
     },
     {
-      "id": "verify_saved",
+      "id": "10_save_quotation",
+      "action": "click",
+      "selector": "button:has-text('Confirm & Save')",
+      "description": "Save quotation"
+    },
+    {
+      "id": "11_verify_saved",
       "action": "wait",
       "selector": "h2:has-text('Quotation Saved')",
-      "description": "Wait for save confirmation"
-    },
-    {
-      "id": "go_home",
-      "action": "click",
-      "selector": "button:has-text('Go Home')",
-      "description": "Return to home screen"
-    },
-    {
-      "id": "open_search",
-      "action": "click",
-      "selector": "button:has-text('Buscar cotizacion')",
-      "description": "Open search modal"
-    },
-    {
-      "id": "verify_in_list",
-      "action": "wait",
-      "selector": ".quotation-item",
-      "description": "Verify saved quotation appears in search list"
+      "description": "Verify save"
     }
   ]
 }

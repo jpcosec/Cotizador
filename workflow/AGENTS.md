@@ -8,8 +8,8 @@
 
 All agents must read and follow:
 - [WORKFLOW.md](../WORKFLOW.md) — Execution rituals and policies
-- [work/tasks/Board.md](../work/tasks/Board.md) — Active task board
-- [work/pills/README.md](../work/pills/README.md) — Context pill format
+- [desk/tasks/Board.md](../desk/tasks/Board.md) — Active task board
+- [desk/pills/README.md](../desk/pills/README.md) — Context pill format
 
 ---
 
@@ -18,18 +18,23 @@ All agents must read and follow:
 **Mission**: Orchestrate the Atomization Ritual and protect the Laws of Physics.
 
 **Actions**:
-- Atomize issues into smallest executable pills
+- Atomize tasks into smallest executable pills
 - Audit Pills (Phase A/B)
 - Verify commits
 - Dispatch subagents
 
-**Rule**: Never implement `src/` code directly. If code contradicts a target pill, create a **Gap Issue**.
+**Gemini CLI Specifics**:
+- Use `userFlowRunner.mjs` for final validation of every UI-related task.
+- Update `REMAINING_VISTAS.md` status alongside `Board.md`.
+- Generate Mermaid diagrams (`–mermaid`) for any flow changes.
+
+**Rule**: Never implement `src/` code directly. If code contradicts a target pill, create a **Gap Task**.
 
 ---
 
 ## Executor
 
-**Mission**: Solve exactly one issue from `work/tasks/`.
+**Mission**: Solve exactly one task from `desk/tasks/`.
 
 **Actions**:
 - Fix code
@@ -37,7 +42,7 @@ All agents must read and follow:
 - Update changelog
 - Create exactly one resolving commit
 
-**Rule**: Never touch `work/` except to link pills or update `Board.md` progress.
+**Rule**: Never touch `desk/` except to link pills or update `Board.md` progress.
 
 ---
 
@@ -46,24 +51,24 @@ All agents must read and follow:
 Before assigning work to an executor, the Supervisor MUST:
 
 1. **Pill Audit - Phase A**: Audit context pills for completeness
-2. **Atomize**: Break down work into smallest possible child issues
-3. **Context Injection**: Route relevant context pills into issue files
-4. **Redundant > Merge**: Merge overlapping issues
+2. **Atomize**: Break down work into smallest possible child tasks
+3. **Context Injection**: Route relevant context pills into task files
+4. **Redundant > Merge**: Merge overlapping tasks
 5. **Legacy > Delete**: Remove dead content
 6. **Pill Audit - Phase B**: Verify readiness for execution
 7. **Update Board.md**: Regenerate task board
-8. **Execute**: Provide executor with issue file
+8. **Execute**: Provide executor with task file
 
 ---
 
 ## The Traceability Contract
 
-Every closed issue must remain traceable through three artifacts:
-- the task file in `work/tasks/`
-- the matching entry in `work/tasks/Board.md`
+Every closed task must remain traceable through three artifacts:
+- the task file in `desk/tasks/`
+- the matching entry in `desk/tasks/Board.md`
 - the git commit that resolved it
 
-**One-to-one mapping**: One closed issue = one resolving commit. Never batch.
+**One-to-one mapping**: One closed task = one resolving commit. Never batch.
 
 ---
 

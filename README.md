@@ -2,6 +2,14 @@
 
 From-scratch reconstruction of SF Lodge Cotizador components using XState + Alpine + pure JS modules.
 
+## Agent Workflow
+
+This project follows a Supervisor/Executor workflow.
+- **Supervisor**: Orchestrates tasks, updates `desk/tasks/Board.md` and `REMAINING_VISTAS.md`.
+- **Executor**: Solves specific tasks from `desk/tasks/`.
+
+See [WORKFLOW.md](WORKFLOW.md) for details.
+
 ## Status
 
 - Rebuild in progress.

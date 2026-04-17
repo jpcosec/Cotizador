@@ -192,19 +192,43 @@ export function createQuotationInternalRuntime({
   }
 
   function setEntryOverride(dayIndex, entryId, key, value) {
-    basketActor.send({
-      type: 'SET_ENTRY_OVERRIDE',
-      dayIndex,
-      entryId,
-      key,
-      value,
-    });
+    const located = resolveEntry(entryId, dayIndex);
+    if (!located) return;
+
+    const { entry } = located;
+    const groupId = entry.groupId;
+    const isParent = groupId && !entry.parentId;
+
+    if (isParent && ['hora', 'dia'].includes(key)) {
+      // Propagate time/day to all children in group
+      const entries = getDayEntries(dayIndex);
+      for (const groupEntry of entries) {
+        if (groupEntry.groupId === groupId) {
+          basketActor.send({
+            type: 'SET_ENTRY_OVERRIDE',
+            dayIndex,
+            entryId: groupEntry.entryId,
+            key,
+            value,
+          });
+        }
+      }
+    } else {
+      basketActor.send({
+        type: 'SET_ENTRY_OVERRIDE',
+        dayIndex,
+        entryId,
+        key,
+        value,
+      });
+    }
   }
 
   function cloneEntryToDay(sourceEntry, targetDayIndex) {
     if (!sourceEntry?.itemId) return;
 
     const beforeIds = new Set(getDayEntries(targetDayIndex).map((entry) => entry.entryId));
+    const isGroupParent = sourceEntry.groupId && !sourceEntry.parentId;
 
     basketActor.send({
       type: 'SHIP_ITEM_TO_DAY',
@@ -213,13 +237,33 @@ export function createQuotationInternalRuntime({
     });
 
     const targetEntries = getDayEntries(targetDayIndex);
-    const newEntry = targetEntries.find((entry) => !beforeIds.has(entry.entryId));
-    if (!newEntry) return;
+    const newEntries = targetEntries.filter((entry) => !beforeIds.has(entry.entryId));
+    if (newEntries.length === 0) return;
 
-    const overrides = sourceEntry.state?.overrides || {};
-    for (const [key, value] of Object.entries(overrides)) {
-      if (value === undefined || value === null || value === '') continue;
-      setEntryOverride(targetDayIndex, newEntry.entryId, key, value);
+    if (isGroupParent) {
+      // Find all source entries in this group
+      const sourceDayEntries = getDayEntries(sourceEntry.dia || settings.dia);
+      const sourceGroupEntries = sourceDayEntries.filter((e) => e.groupId === sourceEntry.groupId);
+
+      // Map by itemId (assuming one entry per item in kit for now)
+      for (const sourceItem of sourceGroupEntries) {
+        const targetItem = newEntries.find((e) => e.itemId === sourceItem.itemId);
+        if (targetItem) {
+          const overrides = sourceItem.state?.overrides || {};
+          for (const [key, value] of Object.entries(overrides)) {
+            if (value === undefined || value === null || value === '') continue;
+            setEntryOverride(targetDayIndex, targetItem.entryId, key, value);
+          }
+        }
+      }
+    } else {
+      // Individual item clone
+      const newEntry = newEntries[0];
+      const overrides = sourceEntry.state?.overrides || {};
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined || value === null || value === '') continue;
+        setEntryOverride(targetDayIndex, newEntry.entryId, key, value);
+      }
     }
   }
 
@@ -260,7 +304,8 @@ export function createQuotationInternalRuntime({
     const selectedDayState = basketState.selectedDayState || null;
     const basketEntries = (selectedDayState?.entries || []).map((entry) => ({
       ...entry,
-      id: entry.entryId,
+      hora: entry.hora || entry.state?.overrides?.hora || entry.state?.schedule?.hora || '09:00',
+      duracionMin: entry.duracionMin || entry.state?.overrides?.duracionMin || entry.state?.quantities?.duracionMin || 60,
     }));
 
     return {
@@ -409,17 +454,38 @@ export function createQuotationInternalRuntime({
       notify();
     },
 
-    shipItemToSelectedDay(itemId) {
+    shipItemToSelectedDay(itemId, overrides = {}) {
       if (!requireClient()) {
         stage = 'client';
         notify();
         return;
       }
+      const dayIndex = selectedDayIndex();
+      console.log(`[RUNTIME] shipItemToSelectedDay: itemId=${itemId}, day=${dayIndex}, overrides=`, overrides);
+      
       basketActor.send({
         type: 'SHIP_ITEM_TO_DAY',
-        dayIndex: selectedDayIndex(),
+        dayIndex,
         itemId,
       });
+
+      // If overrides (like hora) are provided, apply them immediately
+      if (Object.keys(overrides).length > 0) {
+        setTimeout(() => {
+          const snapshot = basketActor.getSnapshot().context;
+          const day = (snapshot.state?.days || []).find(d => d.dayIndex === dayIndex);
+          const newEntry = day?.entries[day.entries.length - 1];
+          if (newEntry && String(newEntry.itemId) === String(itemId)) {
+            console.log(`[RUNTIME] applying overrides to new entry:`, newEntry.entryId, overrides);
+            for (const [key, value] of Object.entries(overrides)) {
+              this.setEntryOverride(newEntry.entryId, key, value);
+            }
+          } else {
+            console.warn(`[RUNTIME] could not find new entry to apply overrides.`, { dayIndex, itemId });
+          }
+        }, 100); // Increased timeout slightly
+      }
+
       stage = 'basket';
       notify();
     },

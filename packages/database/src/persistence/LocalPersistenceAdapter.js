@@ -243,6 +243,14 @@ export class LocalPersistenceAdapter extends PersistencePort {
         return { table, records };
       });
 
+      // Include COMPOSICION_KIT if available
+      if (this.models?.COMPOSICION_KIT) {
+        seedEntries.push({
+          table: 'COMPOSICION_KIT',
+          records: this.models.COMPOSICION_KIT.all()
+        });
+      }
+
       return persistenceOk({
         seedEntries,
         tableCount: seedEntries.length,
@@ -252,6 +260,64 @@ export class LocalPersistenceAdapter extends PersistencePort {
         PERSISTENCE_ERROR_CODES.STORAGE_ERROR,
         error?.message || 'Unable to load reference data'
       );
+    }
+  }
+
+  async saveKit(kitId, composition) {
+    if (!this.models?.COMPOSICION_KIT) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'COMPOSICION_KIT model not available');
+    }
+
+    try {
+      // 1. Remove existing components for this kit
+      const existing = this.models.COMPOSICION_KIT.where(c => String(c.ID_Item_Padre) === String(kitId));
+      const pk = this.models.COMPOSICION_KIT.primaryKey || 'ID_Composicion';
+      for (const comp of existing) {
+        this.models.COMPOSICION_KIT.deleteById(comp[pk]);
+      }
+
+      // 2. Create new components
+      for (const comp of composition) {
+        this.models.COMPOSICION_KIT.create({
+          ...comp,
+          ID_Composicion: comp.ID_Composicion || `COMP_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          ID_Item_Padre: kitId,
+          Updated_At: new Date().toISOString()
+        });
+      }
+
+      return persistenceOk({ kitId, count: composition.length });
+    } catch (error) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, error?.message || 'Unable to save kit');
+    }
+  }
+
+  async saveRules(itemId, rules) {
+    if (!this.models?.REGLAS_NEGOCIO) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, 'REGLAS_NEGOCIO model not available');
+    }
+
+    try {
+      // 1. Remove existing rules for this item
+      const existing = this.models.REGLAS_NEGOCIO.where(r => String(r.ID_Item) === String(itemId));
+      const pk = this.models.REGLAS_NEGOCIO.primaryKey || 'ID_Regla';
+      for (const rule of existing) {
+        this.models.REGLAS_NEGOCIO.deleteById(rule[pk]);
+      }
+
+      // 2. Create new rules
+      for (const rule of rules) {
+        this.models.REGLAS_NEGOCIO.create({
+          ...rule,
+          ID_Regla: rule.ID_Regla || `RULE_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          ID_Item: itemId,
+          Updated_At: new Date().toISOString()
+        });
+      }
+
+      return persistenceOk({ itemId, count: rules.length });
+    } catch (error) {
+      return persistenceError(PERSISTENCE_ERROR_CODES.STORAGE_ERROR, error?.message || 'Unable to save rules');
     }
   }
 }

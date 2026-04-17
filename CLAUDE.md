@@ -10,19 +10,19 @@ This is the active implementation worktree under `/home/jp/CotizadorLodge/`. The
 
 ## Task Management
 
-Tasks are tracked in `work/tasks/Board.md`. Follow `WORKFLOW.md` for rituals
+Tasks are tracked in `desk/tasks/Board.md`. Follow `WORKFLOW.md` for rituals
 and conventions.
 
 Key files:
-- `work/tasks/Board.md` — Active task board
-- `work/pills/README.md` — Context pill format
-- `work/drawers/Board.md` — Deferred work
+- `desk/tasks/Board.md` — Active task board
+- `desk/pills/README.md` — Context pill format
+- `desk/drawers/Board.md` — Deferred work
 
 Current tasks:
-- `work/tasks/U-1-save.md` — U-1 Save Vertical Slice
-- `work/tasks/U-2-editor.md` — U-2 Editor Basic
-- `work/tasks/U-3-gas.md` — U-3 GAS Persistence
-- `work/tasks/U-4-pdf.md` — U-4 PDF Export
+- `desk/tasks/U-1-save.md` — U-1 Save Vertical Slice
+- `desk/tasks/U-2-editor.md` — U-2 Editor Basic
+- `desk/tasks/U-3-gas.md` — U-3 GAS Persistence
+- `desk/tasks/U-4-pdf.md` — U-4 PDF Export
 
 ## Commands
 
@@ -85,7 +85,7 @@ docs/
   ARCHITECTURE/       <- Component architecture, item-component, rules-engine docs
   GUIDES/             <- creating-a-component, testing-components, writing-rules
   PACKAGES/           <- Per-package reference
-work/
+desk/
   tasks/              <- Active tasks (U-1 through U-4)
   drawers/            <- Deferred work and legacy archived plans
   pills/              <- Context pills for task rationale
@@ -152,7 +152,7 @@ Rules are evaluated per component instance. `packages/components/item/domain/rul
 | Question | Where to look |
 |----------|--------------|
 | Workflow & rituals | `WORKFLOW.md` |
-| Task board | `work/tasks/Board.md` |
+| Task board | `desk/tasks/Board.md` |
 | Component pattern | `docs/ARCHITECTURE/component-architecture.md` |
 | Item specifics | `docs/ARCHITECTURE/item-component.md` |
 | Item I/O contract | `packages/components/item/STATE_CONTRACT.md` |

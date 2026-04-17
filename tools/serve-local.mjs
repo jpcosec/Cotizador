@@ -54,16 +54,32 @@ function readJsonBody(req) {
 }
 
 function writeJson(res, statusCode, payload) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  });
   res.end(JSON.stringify(payload));
 }
 
-const page = buildPage();
 readLocalDbState({ dbFilePath: DEFAULT_LOCAL_DB_PATH });
 
 http
   .createServer(async (req, res) => {
+    const page = buildPage(); // Rebuild on every request
     const requestPath = String(req.url || '/').split('?')[0];
+
+    // CORS preflight
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+      res.end();
+      return;
+    }
 
     if (requestPath === '/health') {
       writeJson(res, 200, { ok: true, mode: 'local-gas', dbFilePath: DEFAULT_LOCAL_DB_PATH });

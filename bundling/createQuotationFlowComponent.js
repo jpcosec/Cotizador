@@ -1,4 +1,5 @@
 import { createQuotationRuntime } from './createQuotationRuntime.js';
+import { exportQuotationToCsv } from '../apps/quotation/services/excelService.js';
 
 function toNumberValue(value, fallback = 0) {
   const parsed = Number(value);
@@ -142,6 +143,7 @@ export function createQuotationFlowComponent(options = {}) {
     loadQuotationId: '',
     draggingCatalogItemId: null,
     databaseEditorUrl: resolveDatabaseEditorUrl(),
+    mainTab: 'timeline',
 
     async init() {
       const sync = (snapshot) => {
@@ -200,6 +202,16 @@ export function createQuotationFlowComponent(options = {}) {
 
     backToBasket() {
       runtime.backToBasket();
+    },
+
+    exportToPdf() {
+      if (typeof window !== 'undefined') {
+        window.print();
+      }
+    },
+
+    exportToExcel() {
+      exportQuotationToCsv(this.validation.rows, this.validation.totals);
     },
 
     openDatabaseEditor() {

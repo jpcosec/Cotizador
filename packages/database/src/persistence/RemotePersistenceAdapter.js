@@ -59,4 +59,12 @@ export class RemotePersistenceAdapter extends PersistencePort {
   async loadReferenceData() {
     return this.#invoke('getReferenceData', []);
   }
+
+  async saveKit(kitId, composition) {
+    return this.#invoke('saveKit', [kitId, composition]);
+  }
+
+  async saveRules(itemId, rules) {
+    return this.#invoke('saveRules', [itemId, rules]);
+  }
 }

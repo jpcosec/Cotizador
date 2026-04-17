@@ -55,7 +55,12 @@ function nodeTargetsItemId(node, itemId) {
   return false;
 }
 
-export function resolveItemDefinition(itemId, db) {
+export function resolveItemDefinition(itemId, db, visited = new Set()) {
+  if (visited.has(itemId)) {
+    throw new Error(`resolveItemDefinition: circular dependency detected for item '${itemId}'`);
+  }
+  visited.add(itemId);
+
   // ── 1. Item row ────────────────────────────────────────────────────────────
   const item = db.items.find(r => r.ID_Item === itemId);
   if (!item) throw new Error(`resolveItemDefinition: item '${itemId}' not found`);
@@ -168,5 +173,25 @@ export function resolveItemDefinition(itemId, db) {
 
     // From REGLAS_NEGOCIO (filtered, sorted)
     reglas,
+
+    // ── 7. Composicion Kit (Children) ─────────────────────────────────────────
+    children: (db.composicionKit || [])
+      .filter(c => c.ID_Item_Padre === itemId)
+      .map(c => {
+        try {
+          const resolvedChild = resolveItemDefinition(c.ID_Item_Hijo, db, new Set(visited));
+          return {
+            ID_Composicion: c.ID_Composicion,
+            ID_Item_Hijo:   c.ID_Item_Hijo,
+            Cantidad:       c.Cantidad,
+            Tipo_Precio:    c.Tipo_Precio,
+            resolved:       resolvedChild
+          };
+        } catch (e) {
+          console.warn(`resolveItemDefinition: could not resolve child '${c.ID_Item_Hijo}' for parent '${itemId}': ${e.message}`);
+          return null;
+        }
+      })
+      .filter(child => child !== null),
   };
 }

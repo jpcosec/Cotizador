@@ -104,6 +104,7 @@ export class Item {
       perfilInit: resolvedDef.perfilInit ?? null,
       perfil:   resolvedDef.perfil    ?? null,
       categoria: resolvedDef.categoria ?? null,
+      children: resolvedDef.children ?? [],
     };
     return item.initialize({
       mode: 'catalog',
@@ -152,7 +153,8 @@ export class Item {
       ...(definition || {}),
       pricingProfile: { ...((definition || {}).pricingProfile || {}) },
       defaultQuantities: { ...((definition || {}).defaultQuantities || {}) },
-      rules: [...((definition || {}).rules || [])]
+      rules: [...((definition || {}).rules || [])],
+      children: [...((definition || {}).children || [])]
     };
     this.#externalContext = { ...(externalContext || {}) };
     this.#overrides = { ...(overrides || {}) };
@@ -188,6 +190,10 @@ export class Item {
     const rate = rateForKind(profile, kind);
     const base = toNumber(profile.baseFijo, 0);
 
+    const isAbsorbido = this.#externalContext.kitContext?.tipoPrecio === 'ABSORBIDO';
+    const effectiveRate = isAbsorbido ? 0 : rate;
+    const effectiveBase = isAbsorbido ? 0 : base;
+
     const basketResolution = resolveBasketQuantity(
       kind,
       initMode,
@@ -197,7 +203,7 @@ export class Item {
     );
 
     const quantity = basketResolution.quantity;
-    const total = toInteger(base + quantity * rate, 0);
+    const total = toInteger(effectiveBase + quantity * effectiveRate, 0);
 
     const quantities = {
       pax: kind === PricingKind.PAX ? quantity : 0,
@@ -248,6 +254,7 @@ export class Item {
       basketQuantity: quantity,
       total,
       unitDisplay: quantity > 0 ? toInteger(total / quantity, 0) : toInteger(total, 0),
+      isAbsorbido,
       isOverridden: basketResolution.isOverridden,
       overrideField: basketResolution.overrideField,
       catalogDisaggregated,
@@ -506,6 +513,14 @@ export class Item {
     return this.#definition.rules || [];
   }
 
+  /**
+   * Get the children array for this item (if it is a kit).
+   * @returns {Array}
+   */
+  get children() {
+    return this.#definition.children || [];
+  }
+
   // ---- Projections ----
 
   /**
@@ -558,10 +573,12 @@ export class Item {
       pricingKind: this.#derived.pricingKind,
       basketLegend: this.#derived.basketLegendText,
       isOverridden: this.#derived.isOverridden,
+      isAbsorbido: this.#derived.isAbsorbido,
       showPaxControl: this.#derived.showPaxControl,
       showUnitsControl: this.#derived.showUnitsControl,
       showTimeControl: this.#derived.showTimeControl,
-      total: this.#derived.total
+      total: this.#derived.total,
+      children: this.#definition.children || []
     };
   }
 
@@ -598,6 +615,7 @@ export class Item {
       initPolicyHuman: this.#derived.policyHintText,
       basketLegend: this.#derived.basketLegendText,
       isOverridden: this.#derived.isOverridden,
+      isAbsorbido: this.#derived.isAbsorbido,
       lineRateLabel: this.#derived.lineRateLabel,
       lineRateValue: this.#derived.pricingKind === PricingKind.NONE
         ? this.#derived.base
@@ -627,6 +645,7 @@ export class Item {
       perfil:     this.#definition.perfil     ?? null,
       perfilInit: this.#definition.perfilInit ?? null,
       categoria:  this.#definition.categoria  ?? null,
+      children:   this.#definition.children   ?? [],
     };
   }
 

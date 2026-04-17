@@ -1,5 +1,5 @@
 export { QuotationView, createQuotationView } from './QuotationView.js';
-export { Sidebar, createSidebar } from './Sidebar.js';
+export { SidebarController, createSidebar } from './Sidebar.js';
 export { Catalog, createCatalog } from './Catalog.js';
 export { CategoryGroup, createCategoryGroup } from './CategoryGroup.js';
 export { CatalogItemCard, createCatalogItemCard } from './CatalogItemCard.js';
@@ -11,3 +11,6 @@ export { ItemAccordion, createItemAccordion } from './ItemAccordion.js';
 export { QuotationTotals, createQuotationTotals } from './QuotationTotals.js';
 export { ValidationSummary, createValidationSummary } from './ValidationSummary.js';
 export { CompletionSuccess, createCompletionSuccess } from './CompletionSuccess.js';
+export { ItemListController, createItemList } from './ItemList.js';
+export { ModalsController, createModals } from './Modals.js';
+export { TimelineController, createTimeline } from './Timeline.js';

@@ -105,55 +105,66 @@
             <p class="empty">No catalog entities yet</p>
           </template>
           <template x-for="entry in catalogEntries" :key="entry.id">
-            <div class="entity-wrap">
-              <article class="mini-card runtime-card catalog-card"
-                       :class="(typeof isDraggingCatalogItem === 'function' && isDraggingCatalogItem(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)) ? 'is-dragging' : ''"
-                       :draggable="typeof startCatalogDrag === 'function'"
-                       @dragstart="typeof startCatalogDrag === 'function' && startCatalogDrag(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item, $event)"
-                       @dragend="typeof endCatalogDrag === 'function' && endCatalogDrag()"
-                       x-data="{ showGlosa: false, rulesHover: false }"
-                       @mouseenter="showGlosa = true"
-                       @mouseleave="showGlosa = false; rulesHover = false">
+            <article class="mini-card entity-wrap"
+                     :class="isDraggingCatalogItem(entry.id) ? 'is-dragging' : ''"
+                     draggable="true"
+                     @dragstart="startCatalogDrag(entry.id, $event)"
+                     @dragend="endCatalogDrag()"
+                     x-data="{ showGlosa: false, rulesHover: false }">
+              <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
                 <div class="mini-main">
                   <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
                   <h5 x-text="entry.state.definition?.name || 'Item'"></h5>
                   <p class="catalog-formula" x-text="entry.state.catalogFormulaHuman || '-' "></p>
                   <div class="glosa-popover"
-                       x-show="showGlosa && !rulesHover && (entry.state.definition?.description || '').trim().length > 0"
-                       style="display:none;"
-                       x-text="entry.state.definition?.description">
+                       x-show="showGlosa && !rulesHover"
+                       style="display:none;">
+                    <div class="glosa-content">
+                      <div class="glosa-desc" x-show="(entry.state.definition?.description || '').trim().length > 0">
+                        <strong style="display:block; margin-bottom:4px; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Descripción</strong>
+                        <span x-text="entry.state.definition?.description"></span>
+                      </div>
+                      <div class="glosa-policy" style="margin-top:8px; padding-top:8px; border-top: 1px solid #f1f5f9;">
+                        <strong style="display:block; margin-bottom:4px; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Política de Inicio</strong>
+                        <span x-text="entry.state.initPolicyHuman || 'No definida'"></span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="card-actions">
-                  <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true; rulesHover = true" @mouseleave="open = false; rulesHover = false">
-                    <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
-                      <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+              </div>
+
+              <div class="card-actions">
+                <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true; rulesHover = true" @mouseleave="open = false; rulesHover = false">
+                  <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
+                    <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+                  </div>
+                  <div class="rules-popover rules-popover-right" x-show="open" style="display:none;">
+                    <div class="popover-header">
+                      Business Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)
                     </div>
-                    <div class="rules-popover" x-show="open" style="display:none;">
-                      <div class="popover-header">Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)</div>
-                      <template x-if="(entry.state.definition?.rules || []).length === 0">
-                        <div class="popover-empty">No rules</div>
-                      </template>
-                      <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
-                        <div class="popover-rule-row"
-                             :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
-                          <i class="fa-solid fa-xs"
-                             :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
-                          <span x-text="rule.Nombre"></span>
+                    <template x-if="(entry.state.definition?.rules || []).length === 0">
+                      <div class="popover-empty">No rules defined for this item.</div>
+                    </template>
+                    <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
+                      <div class="popover-rule-row"
+                           :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                          <i class="fa-solid"
+                             :class="(entry.state.appliedRules || []).some(r => r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle-check'"
+                             style="margin-top: 2px;"></i>
+                          <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 0.8rem;" x-text="rule.Nombre"></div>
+                            <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 2px;" x-text="rule.Mensaje_UI"></div>
+                            <div style="font-size: 0.6rem; font-family: monospace; margin-top: 4px; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px;" x-text="rule.Condicion"></div>
+                          </div>
                         </div>
-                      </template>
-                    </div>
+                      </div>
+                    </template>
                   </div>
-                  <button class="icon-action"
-                          x-show="typeof shipCatalogEntry === 'function'"
-                          @click.stop="shipCatalogEntry(entry.state.definition?.id || entry.itemId || entry.state.definition?.ID_Item)"
-                          title="Ship to basket"
-                          aria-label="Ship to basket">
-                    <i class="fa-solid fa-plus"></i>
-                  </button>
                 </div>
-              </article>
-            </div>
+                <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.id)"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </article>
           </template>
 
                   </div>
@@ -164,7 +175,104 @@
         </section>
       </aside>
 
-      <main class="main panel">
+      <main class="main panel" x-data="{
+        HOUR_H: 64,
+        N_HOURS: 16,
+        START_H: 8,
+        hours: Array.from({ length: 16 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`),
+        dropIndicatorY: null,
+        dropIndicatorTime: '',
+        movingId: null,
+        dragOffsetMin: 0,
+        resizeId: null,
+        resizeStartY: 0,
+        resizeOrigDur: 0,
+        yToStartMin(relY, offsetMin = 0) {
+          const raw = (relY / this.HOUR_H) * 60 + (this.START_H * 60) - offsetMin;
+          const snapped = Math.round(raw / 15) * 15;
+          const minStart = this.START_H * 60;
+          const maxStart = (this.START_H + this.N_HOURS) * 60 - 15;
+          return Math.max(minStart, Math.min(maxStart, snapped));
+        },
+        minuteToY(m) {
+          const startH = this.START_H || 8;
+          return ((m - (startH * 60)) / 60) * this.HOUR_H;
+        },
+        fmtMin(totalMin) {
+          const h = Math.floor(totalMin / 60);
+          const m = totalMin % 60;
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        },
+        onGridDragOver(event) {
+          if (!draggingCatalogItemId) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const relY = event.clientY - rect.top;
+          const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+          this.dropIndicatorY = this.minuteToY(startMin);
+          this.dropIndicatorTime = this.fmtMin(startMin);
+        },
+        onGridDragLeave(event) {
+          if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+            this.dropIndicatorY = null;
+            this.dropIndicatorTime = '';
+          }
+        },
+        onGridDrop(event) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const relY = event.clientY - rect.top;
+          const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+          const time = this.fmtMin(startMin);
+
+          if (this.movingId) {
+            setBasketOverride(this.movingId, 'hora', time);
+          } else {
+            const itemId = draggedItemId(event);
+            if (itemId) shipCatalogEntry(itemId, { hora: time });
+          }
+
+          this.endDrag();
+          this.dropIndicatorY = null;
+          this.dropIndicatorTime = '';
+        },
+        blockStyle(entry) {
+          const startH = this.START_H || 8;
+          const hora = entry.hora || '09:00';
+          const [h, m] = hora.split(':').map(Number);
+          const startMin = h * 60 + m;
+          const top = this.minuteToY(startMin);
+          const dur = Number(entry.duracionMin || entry.state?.quantities?.duracionMin || 60);
+          const height = (dur / 60) * this.HOUR_H;
+          return `top:${top}px; height:${Math.max(48, height)}px; left: 70px; right: 8px;`;
+        },
+        startMovePlaced(entry, event) {
+          this.movingId = entry.entryId;
+          this.dragOffsetMin = (event.offsetY / this.HOUR_H) * 60;
+          startCatalogDrag(entry.itemId, event);
+        },
+        startResize(entry, event) {
+          this.resizeId = entry.entryId;
+          this.resizeStartY = event.clientY;
+          this.resizeOrigDur = entry.duracionMin;
+        },
+        doResize(event) {
+          if (!this.resizeId) return;
+          const deltaY = event.clientY - this.resizeStartY;
+          const deltaMins = (deltaY / this.HOUR_H) * 60;
+          const newDuration = Math.max(15, Math.round((this.resizeOrigDur + deltaMins) / 15) * 15);
+          setBasketOverride(this.resizeId, 'duracionMin', newDuration);
+        },
+        endResize() {
+          this.resizeId = null;
+        },
+        endDrag() {
+          endCatalogDrag();
+          this.movingId = null;
+          this.dragOffsetMin = 0;
+        }
+      }"
+      @mousemove.window="doResize($event)"
+      @mouseup.window="endResize()"
+      :class="{ 'is-resizing': !!resizeId }">
         <header class="timeline-header">
           <span class="timeline-title">
             <i class="fa-regular fa-calendar"></i>
@@ -211,29 +319,106 @@
           </div>
         </section>
 
-        <section class="basket-list"
-                 :class="draggingCatalogItemId ? 'drop-active' : ''"
-                 @dragover.prevent
-                 @drop.prevent="dropOnSelectedDay($event)"
-                 x-data="{ get basketEntries() { return basket.basketEntries || []; } }">
-          
+        <section class="timeline-tabs-container" x-data="{ mainTab: 'timeline' }">
+          <!-- Tab Switcher -->
+          <nav class="view-tabs" style="display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+            <button type="button" class="tab-btn" 
+                    :class="mainTab === 'timeline' ? 'tab-active' : ''" 
+                    @click="mainTab = 'timeline'"
+                    style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+              <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>Timeline
+            </button>
+            <button type="button" class="tab-btn" 
+                    :class="mainTab === 'list' ? 'tab-active' : ''" 
+                    @click="mainTab = 'list'"
+                    style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+              <i class="fa-solid fa-list-ul" style="margin-right: 6px;"></i>Item List & Overrides
+            </button>
+          </nav>
+
+          <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
+            <div class="tl-grid"
+                 :style="{ height: (N_HOURS * HOUR_H) + 'px' }"
+                 @dragover.prevent="onGridDragOver($event)"
+                 @dragleave="onGridDragLeave($event)"
+                 @drop.prevent="onGridDrop($event)">
+
+              <!-- Hour rows (decorative) -->
+              <template x-for="(h, i) in hours" :key="h">
+                <div class="tl-hour" :style="{ top: (i * HOUR_H) + 'px', height: HOUR_H + 'px' }">
+                  <span class="tl-hour-label" x-text="h"></span>
+                </div>
+              </template>
+
+              <!-- Drop indicator line -->
+              <template x-if="dropIndicatorY !== null">
+                <div class="tl-drop-line" :style="{ top: dropIndicatorY + 'px' }">
+                  <span class="tl-drop-label" x-text="dropIndicatorTime"></span>
+                </div>
+              </template>
+
+              <!-- Placed event blocks -->
+              <template x-for="entry in basket.basketEntries" :key="entry.entryId">
+                <div class="tl-block"
+                     :class="{ 'is-moving': movingId === entry.entryId }"
+                     :style="blockStyle(entry)"
+                     draggable="true"
+                     @dragstart="startMovePlaced(entry, $event)"
+                     @dragend="endDrag()">
+
+                  <button class="tl-block-close" @click.stop="destroyRuntimeEntry('basket', entry.entryId)">×</button>
+                  <div class="tl-block-title" x-text="entry.name"></div>
+                  <div class="tl-block-meta">
+                    <span x-text="entry.hora"></span>
+                    · <span x-text="entry.duracionMin + 'min'"></span>
+                    · <span x-text="'$' + formatMoney(entry.total)"></span>
+                    · <button @click.stop="mainTab = 'list'; $nextTick(() => { document.getElementById('entry-' + entry.entryId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })" 
+                              style="background: none; border: none; padding: 0; cursor: pointer; color: var(--primary); font-size: 0.7rem;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                  </div>
+                  <div class="tl-resize" @mousedown.prevent.stop="startResize(entry, $event)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <section class="basket-list" id="basket-details"
+                   x-show="mainTab === 'list'"
+                   x-data="{ get basketEntries() { return basket.basketEntries || []; } }"
+                   style="margin-top: 0; border-top: none; border-radius: 0 0 10px 10px;">
+            
           <template x-if="basketEntries.length === 0">
             <p class="empty">No basket entities yet</p>
           </template>
           <template x-for="entry in basketEntries" :key="entry.id">
-            <article class="accordion-item runtime-card basket-card" x-data="{ expanded: true }">
+            <article :id="'entry-' + entry.id" class="accordion-item runtime-card basket-card"
+                     :class="{
+                        'expanded': true,
+                        'group-child': !!entry.parentId,
+                        'group-parent': !!entry.groupId && !entry.parentId,
+                        'is-absorbido': !!entry.state.isAbsorbido
+                     }"
+                     :style="entry.parentId ? 'margin-left: 20px; border-left-style: dashed; opacity: 0.9;' : ''"
+                     x-data="{ expanded: true }">
               <div class="accordion-header" @click="expanded = !expanded">
-                <div class="acc-time" x-show="entry.state.showHora">
+                <div class="acc-time" x-show="entry.state.showHora && !entry.parentId">
                   <input
                     type="time"
                     :value="entry.state.overrides?.hora || entry.state.schedule?.hora || globalContext.hora || '09:00'"
                     @click.stop
-                    @change="setBasketOverride(entry.id, 'hora', $event.target.value)"
+                    @change="setItemTime(entry.id, $event.target.value)"
                     class="time-input-small"
                   >
                 </div>
+                <div class="acc-time-child-indent" x-show="entry.parentId" style="width: 32px; display: flex; align-items: center; justify-content: center; color: #94a3b8;">
+                  <i class="fa-solid fa-turn-up fa-rotate-90"></i>
+                </div>
                 <div class="acc-info">
-                  <div class="acc-title" x-text="entry.state.definition?.name || 'Item'"></div>
+                  <div class="acc-title">
+                    <span x-text="entry.state.definition?.name || 'Item'"></span>
+                    <span class="absorbido-badge" x-show="entry.state.isAbsorbido" style="font-size: 0.65rem; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-left: 8px; color: #475569; font-weight: bold;">INCLUIDO</span>
+                  </div>
                   <div class="acc-subtitle" x-text="entry.state.basketLegend || '-' "></div>
                 </div>
                 <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.stop>
@@ -255,8 +440,11 @@
                     </template>
                   </div>
                 </div>
-                <div class="acc-total-pill">
+                <div class="acc-total-pill" x-show="!entry.state.isAbsorbido">
                   $<span x-text="formatMoney(entry.state.total)"></span>
+                </div>
+                <div class="acc-total-pill-absorbido" x-show="entry.state.isAbsorbido" style="color: #64748b; font-size: 0.75rem; font-style: italic;">
+                  $0
                 </div>
                 <div class="acc-toggle">
                   <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
@@ -268,18 +456,18 @@
                   <div class="accordion-col-left">
                     <div class="control-group" x-show="entry.state.showPaxControl" :class="entry.state.isUserSetPax ? 'field-user-set' : ''">
                       <label>Pax <span class="manual-badge" x-show="entry.state.isUserSetPax">manual</span></label>
-                      <input type="number" :value="entry.state.quantities?.pax || 0" @change="setBasketOverride(entry.id, 'pax', $event.target.value)" min="0">
+                      <input type="number" :value="entry.state.quantities?.pax || 0" @change="setBasketOverride(entry.id, 'pax', $event.target.value)" min="0" :disabled="entry.parentId">
                     </div>
                     <div class="control-group" x-show="entry.state.showUnitsControl" :class="entry.state.isUserSetCantidad ? 'field-user-set' : ''">
                       <label>Unidades <span class="manual-badge" x-show="entry.state.isUserSetCantidad">manual</span></label>
-                      <input type="number" :value="entry.state.quantities?.cantidad || 0" @change="setBasketOverride(entry.id, 'cantidad', $event.target.value)" min="0">
+                      <input type="number" :value="entry.state.quantities?.cantidad || 0" @change="setBasketOverride(entry.id, 'cantidad', $event.target.value)" min="0" :disabled="entry.parentId">
                     </div>
                     <div class="control-group" x-show="entry.state.showTimeControl" :class="entry.state.isUserSetDuracion ? 'field-user-set' : ''">
                       <label>Duracion (min) <span class="manual-badge" x-show="entry.state.isUserSetDuracion">manual</span></label>
-                      <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setBasketOverride(entry.id, 'duracionMin', $event.target.value)" min="0" step="15">
+                      <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setItemDuration(entry.id, $event.target.value)" min="0" step="15" :disabled="entry.parentId">
                     </div>
 
-                    <div class="line-price-box">
+                    <div class="line-price-box" x-show="!entry.state.isAbsorbido">
                       <div class="line-price-row" x-show="Number(entry.state.lineRateValue || 0) > 0">
                         <span x-text="entry.state.lineRateLabel || 'Fijo'"></span>
                         <strong x-text="'$' + formatMoney(entry.state.lineRateValue)"></strong>
@@ -293,6 +481,9 @@
                         <strong x-text="'$' + formatMoney(entry.state.total)"></strong>
                       </div>
                     </div>
+                    <div class="line-price-box-absorbido" x-show="entry.state.isAbsorbido" style="font-size: 0.75rem; color: #64748b; font-style: italic; padding: 8px;">
+                      Precio absorbido por el pack padre.
+                    </div>
                   </div>
 
                   <div class="accordion-col-middle">
@@ -301,16 +492,16 @@
                       <textarea
                         rows="5"
                         :value="('comentarios' in (entry.state.overrides || {})) ? entry.state.overrides.comentarios : (entry.state.definition?.description || '')"
-                        @change="setBasketOverride(entry.id, 'comentarios', $event.target.value)"
+                        @change="setItemComment(entry.id, $event.target.value)"
                         placeholder="Comentario de la linea..."
                       ></textarea>
                     </div>
                   </div>
 
                   <div class="accordion-col-actions">
-                    <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)"><i class="fa-solid fa-rotate-left"></i></button>
-                    <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' && copyBasketEntry(entry.id)"><i class="fa-solid fa-forward-step"></i></button>
-                    <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' && duplicateBasketEntry(entry.id)"><i class="fa-solid fa-copy"></i></button>
+                    <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' && copyBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-forward-step"></i></button>
+                    <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' && duplicateBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-copy"></i></button>
                     <button class="icon-action danger" title="Remove" aria-label="Remove" @click="destroyRuntimeEntry('basket', entry.id)"><i class="fa-solid fa-trash"></i></button>
                   </div>
                 </div>
@@ -318,6 +509,7 @@
             </article>
           </template>
 
+          </section>
         </section>
 
         <footer class="summary-row">
@@ -377,6 +569,8 @@
 
       <div class="validation-actions">
         <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-primary" @click="exportToPdf()">Export to PDF</button>
+        <button class="btn btn-small btn-primary" @click="exportToExcel()">Export to Excel</button>
         <button class="btn btn-small btn-primary" @click="confirmAndSave()" :disabled="persistence.isSaving || validation.rows.length === 0">
           <span x-show="!persistence.isSaving">Confirm & Save</span>
           <span x-show="persistence.isSaving">Saving...</span>
@@ -396,12 +590,14 @@
       <div class="validation-actions">
         <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
         <button class="btn btn-small btn-secondary" @click="resetToBrowse()">Go Home</button>
+        <button class="btn btn-small btn-primary" @click="exportToPdf()">Export to PDF</button>
+        <button class="btn btn-small btn-primary" @click="exportToExcel()">Export to Excel</button>
       </div>
       <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
     </section>
   </template>
 
-  <div class="modal-overlay" x-show="clientModalOpen" style="display:none;">
+  <div class="modal-overlay" x-show="clientModalOpen" x-cloak>
     <div class="modal panel" @click.away="closeClientModal()">
       <div class="modal-head">
         <h3>Select Client</h3>
@@ -424,7 +620,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" x-show="quotationSearchModalOpen" style="display:none;">
+  <div class="modal-overlay" x-show="quotationSearchModalOpen" x-cloak>
     <div class="modal panel" @click.away="closeQuotationSearchModal()">
       <div class="modal-head">
         <h3>Buscar cotizacion</h3>
@@ -455,9 +651,12 @@
       </div>
     </div>
   </div>
+
+  <?!= include('QuotationPrintStyles'); ?>
 </section>
 
 <style>
+  [x-cloak] { display: none !important; }
   :root {
     --primary: #2d5a27;
     --primary-mid: #3d7a35;
@@ -578,14 +777,58 @@
   .category-head i.open { transform: rotate(180deg); }
   .category-body { padding: 8px; border-top: 1px solid var(--border); }
 
+  
   .main {
     display: grid;
     gap: 10px;
     align-content: start;
     max-height: calc(100vh - 120px);
+    overflow: hidden;
+  }
+  .timeline-scroll-container {
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    min-height: 200px;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    background: var(--bg);
   }
+  .tl-grid { position: relative; user-select: none; min-height: 100%; }
+  .tl-hour { position: absolute; width: 100%; border-bottom: 1px solid var(--border); pointer-events: none; display: flex; }
+  .tl-hour-label { width: 62px; flex-shrink: 0; padding: 5px 10px 0 0; text-align: right; font-family: var(--mono); font-size: 0.65rem; color: var(--text-faint); position: relative; }
+  .tl-hour-label::after { content: ''; position: absolute; right: -4px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--border-dark); }
+  .tl-drop-line { position: absolute; left: 62px; right: 0; height: 2px; background: var(--primary); border-radius: 1px; pointer-events: none; z-index: 10; }
+  .tl-drop-line::before { content: ''; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+  .tl-drop-label { position: absolute; right: 8px; top: -11px; font-family: var(--mono); font-size: 0.6rem; color: var(--primary); background: var(--primary-bg); border: 1px solid var(--primary-mid); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+  .tl-block { position: absolute; border-radius: 6px; background: var(--primary-bg); border: 1.5px solid #a3c89d; padding: 5px 26px 14px 8px; cursor: grab; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 3; transition: box-shadow 0.12s, border-color 0.12s; }
+  .tl-block:hover { box-shadow: 0 2px 8px rgba(45,90,39,0.2); border-color: var(--primary-mid); }
+  .tl-block.is-moving { opacity: 0.25; cursor: grabbing; }
+  .tl-block-title { font-family: var(--sans); font-size: 0.74rem; font-weight: 600; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl-block-meta { font-family: var(--mono); font-size: 0.58rem; color: var(--primary-mid); margin-top: 2px; white-space: nowrap; }
+  .tl-block-close { position: absolute; top: 3px; right: 5px; background: none; border: none; color: var(--primary); cursor: pointer; opacity: 0; font-size: 0.8rem; padding: 0 2px; line-height: 1; transition: opacity 0.1s; }
+  .tl-block:hover .tl-block-close { opacity: 0.45; }
+  .tl-block-close:hover { opacity: 1 !important; }
+  .tl-resize { position: absolute; bottom: 0; left: 0; right: 0; height: 12px; cursor: s-resize; background: linear-gradient(transparent, rgba(45,90,39,0.1)); border-radius: 0 0 6px 6px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; }
+  .tl-resize::after { content: ''; width: 30px; height: 2px; background: var(--primary-mid); border-radius: 1px; opacity: 0.35; }
+  .tl-resize:hover::after { opacity: 0.85; }
+
+  body.is-resizing,
+  body.is-resizing * { cursor: s-resize !important; user-select: none !important; }
+
+  .view-tabs .tab-active {
+    background: #fff !important;
+    border-bottom: 2px solid #fff !important;
+    color: var(--primary) !important;
+    z-index: 2;
+  }
+
+  /* Force display when in list mode */
+  .basket-list[x-show="mainTab === 'list'"] {
+    display: block !important;
+  }
+
   .timeline-header {
     display: flex;
     align-items: center;
@@ -682,10 +925,11 @@
   .basket-list {
     min-height: 0;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 0 0 10px 10px;
     padding: 8px;
     background: var(--bg);
     transition: border-color 0.15s, background 0.15s;
+    overflow-y: auto;
   }
   .basket-list.drop-active {
     border-color: var(--primary-mid);

@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_LOCAL_DB_PATH = path.resolve(__dirname, '../data/db.json');
 export const DEFAULT_LOCAL_SEED_DIR = path.resolve(__dirname, '../data/init');
 
-const SAVE_METHODS = new Set(['guardarCotizacion', 'guardarCotizacionV2']);
+const SAVE_METHODS = new Set(['guardarCotizacion', 'guardarCotizacionV2', 'saveKit', 'saveRules']);
 const LOAD_METHODS = new Set(['cargarCotizacion', 'cargarCotizacionV2']);
 const LIST_METHODS = new Set(['buscarCotizaciones', 'buscarCotizacionesV2']);
 const REFERENCE_METHODS = new Set(['getReferenceData', 'getReferenceDataV2']);
@@ -102,6 +102,22 @@ export async function executeLocalGasMethod(method, args = [], options = {}) {
   }
 
   let result;
+
+  if (method === 'saveKit') {
+    result = await adapter.saveKit(args[0], args[1]);
+    if (result?.ok) {
+      writeLocalDbState(serializeDatabase(db), { dbFilePath });
+    }
+    return result;
+  }
+
+  if (method === 'saveRules') {
+    result = await adapter.saveRules(args[0], args[1]);
+    if (result?.ok) {
+      writeLocalDbState(serializeDatabase(db), { dbFilePath });
+    }
+    return result;
+  }
 
   if (SAVE_METHODS.has(method)) {
     result = await adapter.save(args[0]);

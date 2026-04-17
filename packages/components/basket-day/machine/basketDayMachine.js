@@ -56,7 +56,12 @@ function toEntryState(entry) {
     id: entry.entryId,
     entryId: entry.entryId,
     itemId: entry.itemId,
+    groupId: entry.groupId || null,
+    parentId: entry.parentId || null,
+    kitContext: entry.kitContext || null,
     name: entry.name,
+    hora: snapshot.overrides?.hora || snapshot.schedule?.hora || '09:00',
+    duracionMin: snapshot.overrides?.duracionMin || snapshot.quantities?.duracionMin || 0,
     total: Number(snapshot.total || 0),
     warnings: ruleWarnings.length,
     errors: ruleErrors.length,
@@ -84,9 +89,17 @@ function buildDayState(dayIndex, runtimeEntries) {
   };
 }
 
-function createEntryRuntime({ resolvedDef, globalContext, onSnapshot, createItemActorImpl }) {
+function createEntryRuntime({
+  resolvedDef,
+  globalContext,
+  onSnapshot,
+  createItemActorImpl,
+  groupId = null,
+  parentId = null,
+  kitContext = null,
+}) {
   const seed = Item.fromDefinition(resolvedDef, {
-    externalContext: { ...globalContext },
+    externalContext: { ...globalContext, kitContext },
   }).toSeed();
   seed.mode = 'basket';
 
@@ -94,12 +107,14 @@ function createEntryRuntime({ resolvedDef, globalContext, onSnapshot, createItem
   const entry = {
     entryId: createEntryId(),
     itemId: resolvedDef.ID_Item,
+    groupId,
+    parentId,
+    kitContext,
     name: resolvedDef.Nombre,
     actor,
     snapshot: actor.getSnapshot().context,
     subscription: null,
   };
-
   entry.subscription = actor.subscribe((snapshot) => {
     entry.snapshot = snapshot.context;
     onSnapshot();
@@ -144,7 +159,7 @@ export function createBasketDayActor({
     ownerActor?.send({ type: 'CHILD_SNAPSHOT_UPDATED' });
   }
 
-  function addEntryByItemId(itemId, context) {
+  function addEntryByItemId(itemId, context, groupId = null, parentId = null, kitContext = null) {
     if (!itemId) return false;
     if (!itemOptions.some((item) => String(item.id) === String(itemId))) {
       return false;
@@ -152,15 +167,36 @@ export function createBasketDayActor({
 
     try {
       const resolvedDef = resolveItemDefinition(itemId, db);
+      const isKit = (resolvedDef.children || []).length > 0;
+      const effectiveGroupId = groupId || (isKit ? `GRP_${Date.now()}_${Math.random().toString(36).slice(2, 5)}` : null);
+
       const entry = createEntryRuntime({
         resolvedDef,
         globalContext: context,
         onSnapshot: notifySnapshotUpdate,
         createItemActorImpl,
+        groupId: effectiveGroupId,
+        parentId,
+        kitContext,
       });
       runtimeEntries.set(entry.entryId, entry);
+
+      // Recursive expansion for children
+      if (isKit) {
+        for (const child of resolvedDef.children) {
+          addEntryByItemId(
+            child.ID_Item_Hijo,
+            context,
+            effectiveGroupId,
+            entry.entryId,
+            { tipoPrecio: child.Tipo_Precio, multiplier: child.Cantidad }
+          );
+        }
+      }
+
       return true;
     } catch (_error) {
+      console.error('addEntryByItemId error:', _error);
       return false;
     }
   }
@@ -219,7 +255,21 @@ export function createBasketDayActor({
           },
           REMOVE_ENTRY: {
             actions: assign(({ context, event }) => {
-              destroyRuntimeEntry(runtimeEntries, event.entryId);
+              const targetEntry = runtimeEntries.get(event.entryId);
+              if (targetEntry) {
+                const groupId = targetEntry.groupId;
+                if (groupId && !targetEntry.parentId) {
+                  // It's a parent of a group, remove all entries in the group
+                  for (const [id, entry] of runtimeEntries.entries()) {
+                    if (entry.groupId === groupId) {
+                      destroyRuntimeEntry(runtimeEntries, id);
+                    }
+                  }
+                } else {
+                  // Individual item or a child (can be removed individually)
+                  destroyRuntimeEntry(runtimeEntries, event.entryId);
+                }
+              }
               return {
                 state: buildDayState(context.dayIndex, runtimeEntries),
               };

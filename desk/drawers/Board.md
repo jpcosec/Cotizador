@@ -13,7 +13,7 @@
 
 ## D-1: Legacy Archived Plans
 
-**Location:** `work/drawers/legacy/`
+**Location:** `desk/drawers/legacy/`
 
 **Content:** Archived from `plan/legacy/`
 - I-1-database

@@ -2,12 +2,22 @@ import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.brows
 import { createDatabase } from '../../../packages/database/src/createDatabase.js';
 import { seedToResolverDb } from '../../../packages/database/src/playgroundAdapter.js';
 import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
+import { RemotePersistenceAdapter } from '../../../packages/database/src/persistence/RemotePersistenceAdapter.js';
 import {
   basketRuntimeHtml,
   catalogRuntimeHtml,
 } from '../../../packages/components/item/ui/playgroundItemSections.js';
 import { createQuotationInternalRuntime } from '../state/createQuotationInternalRuntime.js';
 import { createPersistedQuotationRuntime } from '../state/createPersistedQuotationRuntime.js';
+import { exportQuotationToCsv } from '../services/excelService.js';
+import { createSidebar } from '../../../packages/components/quotation/views/Sidebar.js';
+import { sidebarRuntimeHtml } from '../../../packages/components/quotation/ui/sidebarRuntime.js';
+import { createTimeline } from '../../../packages/components/quotation/views/Timeline.js';
+import { timelineRuntimeHtml } from '../../../packages/components/quotation/ui/timelineRuntime.js';
+import { createItemList } from '../../../packages/components/quotation/views/ItemList.js';
+import { itemListRuntimeHtml } from '../../../packages/components/quotation/ui/itemListRuntime.js';
+import { createModals } from '../../../packages/components/quotation/views/Modals.js';
+import { modalsRuntimeHtml } from '../../../packages/components/quotation/ui/modalsRuntime.js';
 
 const CSV_BASE_URL = '/data/init';
 
@@ -62,22 +72,36 @@ function resolveDatabaseEditorUrl() {
   return null;
 }
 
+function resolvePersistencePort(dbModels) {
+  if (typeof window !== 'undefined' && isLocalDevHost(window.location.hostname) && window.location.port === '8090') {
+    // Redirect to local server on port 8082 (started via serve-local.mjs)
+    return new RemotePersistenceAdapter({ endpoint: 'http://localhost:8082/api/google-script-run' });
+  }
+  return new LocalPersistenceAdapter({ models: dbModels });
+}
+
 export async function mountQuotationPlayground(root) {
   if (!root) return;
 
-  const [rawTemplate, seed] = await Promise.all([
+  const [rawTemplate, printStyles, seed] = await Promise.all([
     fetch('/apps/quotation/playground/QuotationFlowInternal.html').then((response) => response.text()),
+    fetch('/apps/quotation/components/QuotationPrintStyles.html').then((response) => response.text()),
     loadSeedFromCsvUrl(CSV_BASE_URL),
   ]);
 
   const template = rawTemplate
     .replace('<!-- CATALOG_RUNTIME -->', () => catalogRuntimeHtml)
-    .replace('<!-- BASKET_RUNTIME -->', () => basketRuntimeHtml);
+    .replace('<!-- SIDEBAR_RUNTIME -->', () => sidebarRuntimeHtml)
+    .replace('<!-- TIMELINE_RUNTIME -->', () => timelineRuntimeHtml)
+    .replace('<!-- ITEM_LIST_RUNTIME -->', () => itemListRuntimeHtml)
+    .replace('<!-- MODALS_RUNTIME -->', () => modalsRuntimeHtml)
+    .replace('<!-- BASKET_RUNTIME -->', () => basketRuntimeHtml)
+    .replace('<!-- PRINT_STYLES -->', () => printStyles);
 
   const db = seedToResolverDb(seed);
   const clients = extractClients(seed);
   const persistenceDb = createDatabase({ seed });
-  const persistencePort = new LocalPersistenceAdapter({ models: persistenceDb.models });
+  const persistencePort = resolvePersistencePort(persistenceDb.models);
   const runtime = createPersistedQuotationRuntime({
     createRuntime(initialSettings = {}) {
       return createQuotationInternalRuntime({ db, clients, initialSettings });
@@ -126,10 +150,17 @@ export async function mountQuotationPlayground(root) {
         lastLoadedId: null,
       },
       loadQuotationId: '',
-      draggingCatalogItemId: null,
       databaseEditorUrl: resolveDatabaseEditorUrl(),
+      sidebar: createSidebar(runtime),
+      timeline: createTimeline(),
+      itemList: createItemList(runtime),
+      modals: createModals(runtime),
       init() {
         const sync = (snapshot) => {
+          this.sidebar.onActorUpdate(snapshot);
+          this.timeline.onActorUpdate(snapshot);
+          this.itemList.onActorUpdate(snapshot);
+          this.modals.onActorUpdate(snapshot);
           this.stage = snapshot.stage;
           this.clientModalOpen = snapshot.clientModalOpen;
           this.selectedClient = snapshot.selectedClient;
@@ -158,6 +189,19 @@ export async function mountQuotationPlayground(root) {
 
         sync(runtime.getSnapshot());
         runtime.subscribe(sync);
+
+        this.timeline.on('ITEM_DROPPED', ({ itemId, hora }) => {
+          runtime.shipItemToSelectedDay(itemId, { hora });
+        });
+        this.timeline.on('BASKET_ENTRY_UPDATED', ({ entryId, key, value }) => {
+          runtime.setEntryOverride(entryId, key, value);
+        });
+        this.timeline.on('MOVE_STARTED', ({ entry, event }) => {
+          this.sidebar.startCatalogDrag(entry.itemId, event);
+        });
+        this.timeline.on('DRAG_ENDED', () => {
+          this.sidebar.endCatalogDrag();
+        });
       },
 
       startQuotation() {
@@ -174,6 +218,14 @@ export async function mountQuotationPlayground(root) {
 
       backToBasket() {
         runtime.backToBasket();
+      },
+
+      exportToPdf() {
+        window.print();
+      },
+
+      exportToExcel() {
+        exportQuotationToCsv(this.validation.rows, this.validation.totals);
       },
 
       openDatabaseEditor() {
@@ -220,180 +272,12 @@ export async function mountQuotationPlayground(root) {
         runtime.clearPersistenceError();
       },
 
-      async openQuotationSearchModal() {
-        this.quotationSearchModalOpen = true;
-        this.quotationSearchError = null;
-        this.quotationSearchLoading = true;
-        try {
-          const result = await runtime.listQuotations({ limit: 50 });
-          if (!result?.ok) {
-            this.quotationSearchResults = [];
-            this.quotationSearchError = result?.error?.message || result?.error || 'Unable to load quotations';
-            return;
-          }
-          this.quotationSearchResults = result.data?.items || [];
-        } finally {
-          this.quotationSearchLoading = false;
-        }
-      },
-
-      closeQuotationSearchModal() {
-        this.quotationSearchModalOpen = false;
-        this.quotationSearchError = null;
-      },
-
-      setQuotationSearch(term) {
-        this.quotationSearchTerm = String(term || '');
-      },
-
-      filteredQuotations() {
-        const term = this.quotationSearchTerm.trim().toLowerCase();
-        if (!term) return this.quotationSearchResults;
-        return this.quotationSearchResults.filter((quotation) => {
-          return [quotation.clientName, quotation.quotationId, quotation.quotationDate, quotation.pax].some((field) =>
-            String(field || '').toLowerCase().includes(term)
-          );
-        });
-      },
-
-      async selectQuotationResult(quotationId) {
-        this.closeQuotationSearchModal();
-        this.loadQuotationId = String(quotationId || '');
-        await runtime.loadQuotation(quotationId);
-      },
-
-      openClientModal() {
-        runtime.openClientModal();
-      },
-
-      closeClientModal() {
-        runtime.closeClientModal();
-      },
-
-      setClientSearch(term) {
-        this.clientSearchTerm = String(term || '');
-      },
-
-      filteredClients() {
-        const term = this.clientSearchTerm.trim().toLowerCase();
-        if (!term) return this.clients;
-        return this.clients.filter((client) => {
-          return [client.nombre, client.rut, client.email].some((field) =>
-            String(field || '').toLowerCase().includes(term)
-          );
-        });
-      },
-
-      selectClient(clientId) {
-        runtime.selectClient(clientId);
-      },
-
-      setCatalogSearch(term) {
-        runtime.setCatalogSearch(term);
-      },
-
-      toggleCategory(categoryId) {
-        runtime.toggleCategory(categoryId);
-      },
-
-      shipCatalogEntry(itemId) {
-        runtime.shipItemToSelectedDay(itemId);
-      },
-
-      startCatalogDrag(itemId, event) {
-        if (!itemId) return;
-        this.draggingCatalogItemId = itemId;
-        if (event?.dataTransfer) {
-          event.dataTransfer.setData('text/plain', String(itemId));
-          event.dataTransfer.effectAllowed = 'copy';
-        }
-      },
-
-      endCatalogDrag() {
-        this.draggingCatalogItemId = null;
-      },
-
-      isDraggingCatalogItem(itemId) {
-        return String(this.draggingCatalogItemId || '') === String(itemId || '');
-      },
-
-      draggedItemId(event) {
-        if (this.draggingCatalogItemId) return this.draggingCatalogItemId;
-        const fromDataTransfer = event?.dataTransfer?.getData('text/plain');
-        if (fromDataTransfer) return fromDataTransfer;
-        return null;
-      },
-
-      dropOnSelectedDay(event) {
-        const itemId = this.draggedItemId(event);
-        this.endCatalogDrag();
-        if (!itemId) return;
-        runtime.shipItemToSelectedDay(itemId);
-      },
-
-      dropOnDay(dayIndex, event) {
-        const itemId = this.draggedItemId(event);
-        this.endCatalogDrag();
-        if (!itemId) return;
-        runtime.selectDay(Number(dayIndex));
-        runtime.shipItemToSelectedDay(itemId);
-      },
-
       selectDay(dayIndex) {
         runtime.selectDay(Number(dayIndex));
       },
 
-      setSetting(key, value) {
-        runtime.setQuotationSettings({
-          [key]: parseSettingValue(key, value, this.settings),
-        });
-      },
 
-      setBasketOverride(entryId, key, value) {
-        if (value === '') {
-          runtime.clearEntryOverride(entryId, key);
-          return;
-        }
-        runtime.setEntryOverride(entryId, key, parseOverrideValue(value));
-      },
 
-      clearBasketOverride(entryId, key) {
-        runtime.clearEntryOverride(entryId, key);
-      },
-
-      resetBasketOverrides(entryId) {
-        runtime.resetEntryOverrides(entryId);
-      },
-
-      destroyRuntimeEntry(column, entryId) {
-        if (column !== 'basket') return;
-        runtime.removeEntry(entryId);
-      },
-
-      duplicateBasketEntry(entryId) {
-        runtime.duplicateEntryInDay(entryId);
-      },
-
-      copyBasketEntry(entryId) {
-        const target = Number(this.basket.selectedDayIndex || 1) + 1;
-        runtime.copyEntryToDay(entryId, target);
-      },
-
-      copyDayToNextDay() {
-        runtime.copySelectedDayToNextDay();
-      },
-
-      ruleClass(state) {
-        if ((state?.ruleErrors || []).length > 0) return 'error';
-        if ((state?.ruleWarnings || []).length > 0) return 'warn';
-        return 'ok';
-      },
-
-      ruleIcon(state) {
-        if ((state?.ruleErrors || []).length > 0) return 'fa-xmark';
-        if ((state?.ruleWarnings || []).length > 0) return 'fa-exclamation';
-        return 'fa-check';
-      },
 
       formatMoney(value) {
         return Number(value || 0).toLocaleString('es-CL');

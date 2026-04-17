@@ -1,0 +1,225 @@
+
+<main class="main panel" x-data="{
+  HOUR_H: 64,
+  N_HOURS: 16,
+  START_H: 8,
+  hours: Array.from({ length: 16 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`),
+  dropIndicatorY: null,
+  dropIndicatorTime: '',
+  movingId: null,
+  dragOffsetMin: 0,
+  resizeId: null,
+  resizeStartY: 0,
+  resizeOrigDur: 0,
+  yToStartMin(relY, offsetMin = 0) {
+    const raw = (relY / this.HOUR_H) * 60 + (this.START_H * 60) - offsetMin;
+    const snapped = Math.round(raw / 15) * 15;
+    const minStart = this.START_H * 60;
+    const maxStart = (this.START_H + this.N_HOURS) * 60 - 15;
+    return Math.max(minStart, Math.min(maxStart, snapped));
+  },
+  minuteToY(m) {
+    const startH = this.START_H || 8;
+    return ((m - (startH * 60)) / 60) * this.HOUR_H;
+  },
+  fmtMin(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  },
+  onGridDragOver(event) {
+    if (!draggingCatalogItemId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    this.dropIndicatorY = this.minuteToY(startMin);
+    this.dropIndicatorTime = this.fmtMin(startMin);
+  },
+  onGridDragLeave(event) {
+    if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+      this.dropIndicatorY = null;
+      this.dropIndicatorTime = '';
+    }
+  },
+  onGridDrop(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    const time = this.fmtMin(startMin);
+
+    if (this.movingId) {
+      setBasketOverride(this.movingId, 'hora', time);
+    } else {
+      const itemId = draggedItemId(event);
+      if (itemId) shipCatalogEntry(itemId, { hora: time });
+    }
+
+    this.endDrag();
+    this.dropIndicatorY = null;
+    this.dropIndicatorTime = '';
+  },
+  blockStyle(entry) {
+    const startH = this.START_H || 8;
+    const hora = entry.hora || '09:00';
+    const [h, m] = hora.split(':').map(Number);
+    const startMin = h * 60 + m;
+    const top = this.minuteToY(startMin);
+    const dur = Number(entry.duracionMin || entry.state?.quantities?.duracionMin || 60);
+    const height = (dur / 60) * this.HOUR_H;
+    return `top:${top}px; height:${Math.max(48, height)}px; left: 70px; right: 8px;`;
+  },
+  startMovePlaced(entry, event) {
+    this.movingId = entry.entryId;
+    this.dragOffsetMin = (event.offsetY / this.HOUR_H) * 60;
+    startCatalogDrag(entry.itemId, event);
+  },
+  startResize(entry, event) {
+    this.resizeId = entry.entryId;
+    this.resizeStartY = event.clientY;
+    this.resizeOrigDur = entry.duracionMin;
+  },
+  doResize(event) {
+    if (!this.resizeId) return;
+    const deltaY = event.clientY - this.resizeStartY;
+    const deltaMins = (deltaY / this.HOUR_H) * 60;
+    const newDuration = Math.max(15, Math.round((this.resizeOrigDur + deltaMins) / 15) * 15);
+    setBasketOverride(this.resizeId, 'duracionMin', newDuration);
+  },
+  endResize() {
+    this.resizeId = null;
+  },
+  endDrag() {
+    endCatalogDrag();
+    this.movingId = null;
+    this.dragOffsetMin = 0;
+  }
+}"
+@mousemove.window="doResize($event)"
+@mouseup.window="endResize()"
+:class="{ 'is-resizing': !!resizeId }">
+  <header class="timeline-header">
+    <span class="timeline-title">
+      <i class="fa-regular fa-calendar"></i>
+      Day <span x-text="basket.selectedDayIndex"></span>
+      <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio"></span></span>
+    </span>
+    <span class="timeline-hint" x-show="!draggingCatalogItemId && basket.basketEntries.length === 0">
+      Drag items from catalog into this timeline
+    </span>
+    <span class="timeline-hint" x-show="draggingCatalogItemId">
+      Dropping on a day tab ships directly to that day
+    </span>
+  </header>
+
+  <section class="day-tabs">
+    <template x-for="day in basket.dayOptions" :key="day.dayIndex">
+      <button
+        class="day-tab"
+        :class="basket.selectedDayIndex === day.dayIndex ? 'active' : ''"
+        @click="selectDay(day.dayIndex)"
+        @dragover.prevent
+        @drop.prevent="dropOnDay(day.dayIndex, $event)"
+      >
+        <strong x-text="day.label"></strong>
+      </button>
+    </template>
+  </section>
+
+  <section class="timeline-controls">
+    <div class="timeline-controls-summary">
+      <span>Client: <strong x-text="selectedClient?.nombre || '-' "></strong></span>
+      <span>Pax: <strong x-text="settings.paxGlobal"></strong></span>
+      <span>Days: <strong x-text="settings.duracionDias"></strong></span>
+    </div>
+    <div class="settings-actions">
+      <button class="btn btn-small btn-secondary" @click="copyDayToNextDay()">Copy Day</button>
+      <button class="btn btn-small btn-secondary"
+              @click="saveQuotation()"
+              :disabled="basket.basketEntries.length === 0 || persistence.isSaving">
+        <span x-show="!persistence.isSaving">Save Quotation</span>
+        <span x-show="persistence.isSaving">Saving...</span>
+      </button>
+      <button class="btn btn-small btn-primary" @click="goValidation()" :disabled="basket.basketEntries.length === 0">Validate</button>
+    </div>
+  </section>
+
+  <!-- Tab Switcher -->
+  <nav class="view-tabs" style="display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+    <button type="button" class="tab-btn" 
+            :class="mainTab === 'timeline' ? 'tab-active' : ''" 
+            @click="mainTab = 'timeline'"
+            style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+      <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>Timeline
+    </button>
+    <button type="button" class="tab-btn" 
+            :class="mainTab === 'list' ? 'tab-active' : ''" 
+            @click="mainTab = 'list'"
+            style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+      <i class="fa-solid fa-list-ul" style="margin-right: 6px;"></i>Item List & Overrides
+    </button>
+  </nav>
+
+  <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
+    <div class="tl-grid"
+         :style="{ height: (N_HOURS * HOUR_H) + 'px' }"
+         @dragover.prevent="onGridDragOver($event)"
+         @dragleave="onGridDragLeave($event)"
+         @drop.prevent="onGridDrop($event)">
+
+      <!-- Hour rows (decorative) -->
+      <template x-for="(h, i) in hours" :key="h">
+        <div class="tl-hour" :style="{ top: (i * HOUR_H) + 'px', height: HOUR_H + 'px' }">
+          <span class="tl-hour-label" x-text="h"></span>
+        </div>
+      </template>
+
+      <!-- Drop indicator line -->
+      <template x-if="dropIndicatorY !== null">
+        <div class="tl-drop-line" :style="{ top: dropIndicatorY + 'px' }">
+          <span class="tl-drop-label" x-text="dropIndicatorTime"></span>
+        </div>
+      </template>
+
+      <!-- Placed event blocks -->
+      <template x-for="entry in basket.basketEntries" :key="entry.entryId">
+        <div class="tl-block"
+             :class="{ 'is-moving': movingId === entry.entryId }"
+             :style="blockStyle(entry)"
+             draggable="true"
+             @dragstart="startMovePlaced(entry, $event)"
+             @dragend="endDrag()">
+
+          <button class="tl-block-close" @click.stop="destroyRuntimeEntry('basket', entry.entryId)">×</button>
+          <div class="tl-block-title" x-text="entry.name"></div>
+          <div class="tl-block-meta">
+            <span x-text="entry.hora"></span>
+            · <span x-text="entry.duracionMin + 'min'"></span>
+            · <span x-text="'$' + formatMoney(entry.total)"></span>
+            · <button @click.stop="mainTab = 'list'; $nextTick(() => { document.getElementById('entry-' + entry.entryId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })" 
+                      style="background: none; border: none; padding: 0; cursor: pointer; color: var(--primary); font-size: 0.7rem;">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+          </div>
+          <div class="tl-resize" @mousedown.prevent.stop="startResize(entry, $event)"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <section class="basket-list" id="basket-details"
+           x-show="mainTab === 'list'"
+           x-data="{ get basketEntries() { return basket.basketEntries || []; } }"
+           style="margin-top: 0; border-top: none; border-radius: 0 0 10px 10px;">
+    <!-- BASKET_RUNTIME -->
+  </section>
+
+  <footer class="summary-row">
+    <div>
+      <p class="muted">Entries: <strong x-text="basket.summary.totalEntries || 0"></strong></p>
+    </div>
+    <div>
+      <p class="muted">Subtotal: <strong>$<span x-text="formatMoney(validation.totals.subtotal)"></span></strong></p>
+      <p class="total">Total: $<span x-text="formatMoney(validation.totals.total)"></span></p>
+    </div>
+  </footer>
+</main>

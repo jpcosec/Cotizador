@@ -66,7 +66,7 @@ Examples:
 
 The Tasks Board is the **single entry point** for all active work.
 
-**Location:** `work/tasks/Board.md`
+**Location:** `desk/tasks/Board.md`
 
 ```
 # Tasks Board

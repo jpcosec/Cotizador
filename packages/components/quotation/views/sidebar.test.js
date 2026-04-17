@@ -1,28 +1,59 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createSidebar } from './Sidebar.js';
 
-describe('Sidebar', () => {
-  const items = [
-    { id: 'i1', name: 'Coffee Break', category: 'Coffee' },
-    { id: 'i2', name: 'Open Bar', category: 'Bar' }
-  ];
-
-  it('filters items by search term', () => {
-    const sidebar = createSidebar(items);
-    sidebar.search('coffee');
-
-    expect(sidebar.getFilteredItems()).toEqual([items[0]]);
+describe('SidebarController', () => {
+  const createMockRuntime = () => ({
+    getSnapshot: vi.fn(() => ({
+      selectedClient: { name: 'Test Client' },
+      settings: { pax: 10 },
+      catalog: { items: [], search: '', categories: [] }
+    })),
+    openClientModal: vi.fn(),
+    setQuotationSettings: vi.fn(),
+    setCatalogSearch: vi.fn(),
+    toggleCategory: vi.fn(),
+    shipItemToSelectedDay: vi.fn(),
   });
 
-  it('emits ITEM_SELECTED on selectItem', () => {
-    const sidebar = createSidebar(items);
-    let selected = null;
-    sidebar.on('ITEM_SELECTED', (item) => {
-      selected = item;
-    });
+  it('toDisplayObject returns snapshot data and methods', () => {
+    const runtime = createMockRuntime();
+    const sidebar = createSidebar(runtime);
+    const display = sidebar.toDisplayObject();
 
-    sidebar.selectItem('i2');
+    expect(display.selectedClient.name).toBe('Test Client');
+    expect(display.settings.pax).toBe(10);
+    expect(typeof display.openClientModal).toBe('function');
+  });
 
-    expect(selected).toEqual(items[1]);
+  it('proxies methods to runtime', () => {
+    const runtime = createMockRuntime();
+    const sidebar = createSidebar(runtime);
+    const display = sidebar.toDisplayObject();
+
+    display.openClientModal();
+    expect(runtime.openClientModal).toHaveBeenCalled();
+
+    display.setSetting('pax', 20);
+    expect(runtime.setQuotationSettings).toHaveBeenCalledWith({ pax: 20 });
+
+    display.setCatalogSearch('coffee');
+    expect(runtime.setCatalogSearch).toHaveBeenCalledWith('coffee');
+
+    display.toggleCategory('cat1');
+    expect(runtime.toggleCategory).toHaveBeenCalledWith('cat1');
+
+    display.shipCatalogEntry('item1', { qty: 2 });
+    expect(runtime.shipItemToSelectedDay).toHaveBeenCalledWith('item1', { qty: 2 });
+  });
+
+  it('handles dragging state locally', () => {
+    const runtime = createMockRuntime();
+    const sidebar = createSidebar(runtime);
+    
+    sidebar.startCatalogDrag('item1');
+    expect(sidebar.toDisplayObject().draggingCatalogItemId).toBe('item1');
+
+    sidebar.endCatalogDrag();
+    expect(sidebar.toDisplayObject().draggingCatalogItemId).toBe(null);
   });
 });
