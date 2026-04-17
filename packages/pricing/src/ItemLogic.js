@@ -1,3 +1,4 @@
+import { resolveContextQuantity, resolveBasketQuantity, applyExclusiveDefaultMode } from './QuantityResolution.js';
 
 
 /**
@@ -159,54 +160,9 @@ export class ItemLogic {
     return 0;
   }
 
-  /**
-   * Resolve the quantity from external context (paxGlobal, duracionMin)
-   * and default multipliers (e.g. unidadesPorUsuario).
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {Object} [defaults={}]
-   * @param {Object} [context={}] - External context with paxGlobal, duracionMin.
-   * @returns {number}
-   */
-  resolveContextQuantity(kind, mode, defaults = {}, context = {}) {
-    const paxGlobal = toNumber(context.paxGlobal, 0);
-    const durationMin = toNumber(context.duracionMin, 0);
+  
 
-    if (mode === InitializationMode.CONTEXT_PAX) {
-      if (kind === PricingKind.PAX) return paxGlobal;
-      if (kind === PricingKind.UNITS) return paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
-      if (kind === PricingKind.TIME) return paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
-    }
-
-    if (mode === InitializationMode.CONTEXT_TIME) {
-      if (kind === PricingKind.UNITS) return (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
-      if (kind === PricingKind.TIME) return durationMin;
-    }
-
-    return 0;
-  }
-
-  /**
-   * Resolve the final basket quantity, considering user overrides first,
-   * then fixed defaults, then context-derived values.
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {Object} [defaults={}]
-   * @param {Object} [context={}]
-   * @param {Object} [overrides={}]
-   * @returns {{ quantity: number, isOverridden: boolean, overrideField: string|null }}
-   */
-  resolveBasketQuantity(kind, mode, defaults = {}, context = {}, overrides = {}) {
-    const overrideField = this.overrideFieldForKind(kind);
-    const overrideValue = overrideField ? overrides[overrideField] : null;
-
-    if (overrideField && overrideValue != null) {
-      return {
-        quantity: toInteger(overrideValue, 0),
-        isOverridden: true,
-        overrideField
-      };
-    }
+  
 
     if (mode === InitializationMode.FIXED_AMOUNT) {
       return {
@@ -387,7 +343,7 @@ export class ItemLogic {
     const rate = this.rateForKind(profile, kind);
     const base = toNumber(profile.baseFijo, 0);
 
-    const basketResolution = this.resolveBasketQuantity(
+    const basketResolution = resolveBasketQuantity(
       kind,
       initMode,
       defaults,
@@ -490,21 +446,7 @@ export class ItemLogic {
     return this.recalculate();
   }
 
-  /**
-   * Enforce exclusive initialization modes when setting one default key.
-   * @param {Object} defaultQuantities
-   * @param {string} key
-   * @param {number|string} rawValue
-   * @returns {Object}
-   */
-  applyExclusiveDefaultMode(defaultQuantities = {}, key, rawValue) {
-    const value = toNumber(rawValue, 0);
-    const next = { ...(defaultQuantities || {}) };
-
-    if (value <= 0) {
-      delete next[key];
-      return next;
-    }
+  
 
     next[key] = value;
 
@@ -532,7 +474,7 @@ export class ItemLogic {
    * @returns {ItemLogic}
    */
   setDefaultInitializationValue(key, value) {
-    this.definition.defaultQuantities = this.applyExclusiveDefaultMode(
+    this.definition.defaultQuantities = applyExclusiveDefaultMode(
       this.definition.defaultQuantities || {},
       key,
       value
