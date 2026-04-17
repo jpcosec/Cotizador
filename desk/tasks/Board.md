@@ -2,64 +2,68 @@
 
 > Single entry point for all active work. Read this before starting any task.
 
-## Active (status=open|in_progress)
+## Execution Order
 
-| ID | Domain | Task | Priority | Depends On | Pills |
-|----|--------|------|----------|------------|-------|
-| V-03 | editor | Time Adjustment (Resize) | P1 | V-02 | pill-timeline-gestures |
-| V-04 | quotation | Groups / Packs Logic | P1 | | pill-kits-logic |
-| U-4 | quotation | PDF Export | P1 | U-3 | pill-pdf-generation-strategy |
-| V-06 | quotation | Excel Export | P2 | U-1 | pill-excel-export-strategy |
-| V-07 | quality | Detail Hover | P2 | | pill-rules-hover |
-| V-08 | database | Pack Editor UI | P3 | V-04 | pill-pack-editor-ui |
-| V-09 | pricing | Rule Visualizers | P3 | | pill-rule-graphs |
-| V-10 | database | Rule Creator UI | P3 | V-09 | pill-rule-creator-ui |
+### Phase 1: Debt Reduction (Monsters)
+*Priority: Immediate. Do not add logic to Monsters.*
+- **A-01-x**: Atomize Item Component (667 lines)
+- **A-02-x**: Atomize Item Logic (825 lines)
 
-## Completed
+### Phase 2: Structural Modularization
+*Priority: High. Prepare the ground for components.*
+- **A-04-x**: Reorganize Views Folder (Geography)
+- **R-0x-x**: Extract & Implement Component Controllers (Sidebar, Timeline, ItemList, Modals)
 
-| ID | Domain | Task | Completed |
-|----|--------|------|----------|
-| V-03 | editor | Time Adjustment (Resize) | 2026-04-16 |
-| V-01 | quotation | Item Comments | 2026-04-16 |
-| V-02 | editor | Time Adjustment (Move) | 2026-04-16 |
-| U-2 | editor | Editor Basic | 2026-04-15 |
-| U-5 | quality | Source Code Quality Check | 2026-04-15 |
-| U-1 | persistence | Save Vertical Slice | 2026-04-15 |
+### Phase 3: Orchestration & Cleanup
+- **R-05**: Refactor App Orchestrator (Monolithic GAS source)
+- **A-03-x**: Refactor Playground Orchestrator (861 lines)
 
-## Blocked (status=blocked)
-
-| ID | Domain | Task | Reason |
-|----|--------|------|--------|
-| U-4 | quotation | PDF Export | Depends on U-3 |
-
-## Ready to Promote (from drawers/)
-
-No items pending promotion.
+### Phase 4: Feature Expansion
+- **V-04**: Groups / Packs Logic (Kits)
+- **U-4**: PDF Export
+- **V-06**: Excel Export
+- **V-08**: Pack Editor UI
 
 ---
 
-## Current Priority
+## Active Tasks
 
-1. V-03 (Time Adjustment - Resize)
-2. V-04 (Groups / Packs Logic)
-3. U-4 (PDF Export)
+| ID | Domain | Task | Phase | Depends On | Pills |
+|----|--------|------|-------|------------|-------|
+| **A-01-1** | item | [UI] Extract Item Templates | P1 | [A-00] | pill-srp-file-80-lines, pill-folder-structure-srp |
+| **A-01-2** | item | [Logic] Extract Item State & Projections | P1 | [A-01-1] | pill-srp-file-80-lines, pill-mandatory-docstrings, pill-atom-testing-parity |
+| **A-01-3** | item | [Logic] Refactor Item Orchestrator | P1 | [A-01-2] | pill-srp-file-80-lines, pill-actor-bridge-pattern, pill-decision-rule-filtering |
+| **A-02-1** | pricing | [Logic] Extract Pricing Enums & Helpers | P1 | [A-00] | pill-srp-file-80-lines, pill-naming-conventions |
+| **A-02-2** | pricing | [Logic] Extract Pricing Detection | P1 | [A-02-1] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
+| **A-02-3** | pricing | [Logic] Extract Quantity Resolution | P1 | [A-02-2] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
+| **A-02-4** | pricing | [Logic] Extract Pricing Formulas | P1 | [A-02-3] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
+| **A-04-1** | quotation | [Geography] Reorganize Timeline View | P2 | [] | pill-folder-structure-srp |
+| **A-04-2** | quotation | [Geography] Reorganize Basket View | P2 | [] | pill-folder-structure-srp |
+| **A-04-3** | quotation | [Geography] Reorganize Sidebar View | P2 | [] | pill-folder-structure-srp |
+| **R-01-3** | quotation | [Integration] Sidebar Modularization | P2 | [R-01-1, R-01-2] | pill-modular-composition, pill-build-markers-contract |
+| **R-02-2** | quotation | [Logic] Implement Timeline Controller | P2 | [R-02-1, A-04-1] | pill-naming-conventions |
+| **R-02-3** | quotation | [Integration] Timeline Modularization | P2 | [R-02-2] | pill-modular-composition |
+| **R-03-2** | quotation | [Logic] Implement Item List Controller | P2 | [R-03-1, A-04-2] | pill-naming-conventions |
+| **R-03-3** | quotation | [Integration] Item List Modularization | P2 | [R-03-2] | pill-modular-composition |
+| **R-04-2** | quotation | [Logic] Implement Modals Controller | P2 | [R-04-1] | pill-naming-conventions |
+| **R-04-3** | quotation | [Integration] Modals Modularization | P2 | [R-04-2] | pill-modular-composition |
+| **R-05** | quotation | Refactor App Orchestrator | P3 | [R-01-3, R-02-3, R-03-3, R-04-3] | pill-modular-composition |
+| **A-03-1** | item | [UI] Extract Playground Templates | P3 | [A-00] | pill-srp-file-80-lines, pill-folder-structure-srp |
+| **A-03-2** | item | [Logic] Extract Playground Controller | P3 | [A-03-1] | pill-srp-file-80-lines, pill-mandatory-docstrings |
+| **A-03-3** | item | [Logic] Refactor Playground Orchestrator | P3 | [A-03-2] | pill-srp-file-80-lines, pill-mandatory-docstrings |
+| **V-04** | quotation | Groups / Packs Logic | P4 | [A-01-3] | pill-kits-logic |
+| **U-4** | quotation | PDF Export | P4 | [U-1] | pill-pdf-generation-strategy |
+| **V-06** | quotation | Excel Export | P4 | [U-1] | pill-excel-export-strategy |
+| **V-08** | database | Pack Editor UI | P4 | [V-04] | pill-pack-editor-ui |
 
-## Dependency Graph
+## Completed
 
-```mermaid
-graph TD
-    V-02 --> V-03
-    V-04 --> V-08
-    V-09 --> V-10
-    U-3 --> U-4
-    U-1 --> V-06
-```
-
-## Execution Order
-
-1. V-04, V-07, V-09 (Parallelizable)
-2. V-03 (Depends on V-02, which is completed)
-3. V-08 (Depends on V-04)
-4. V-10 (Depends on V-09)
-5. V-06 (Depends on U-1)
-6. U-4 (Depends on U-3)
+| ID | Domain | Task | Date |
+|----|--------|------|------|
+| A-00 | quality | Linter Enforcement Setup | 2026-04-17 |
+| R-01-1 | quotation | [UI] Finalize Sidebar Template | 2026-04-17 |
+| R-01-2 | quotation | [Logic] Implement Sidebar Controller | 2026-04-17 |
+| R-02-1 | quotation | [UI] Extract Timeline Template | 2026-04-17 |
+| R-03-1 | quotation | [UI] Extract Item List Template | 2026-04-17 |
+| R-04-1 | quotation | [UI] Extract Modals Template | 2026-04-17 |
+| U-1 | persistence | Save Vertical Slice | 2026-04-17 |
