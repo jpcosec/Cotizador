@@ -36,7 +36,8 @@ export const resolvePricingParams = (state) => {
     kind,
     initMode: detectInitializationMode(kind, state.definition.defaultQuantities || {}),
     rate: rateForKind(profile, kind),
-    base: toNumber(profile.baseFijo, 0)
+    base: toNumber(profile.baseFijo, 0),
+    defaults: state.definition.defaultQuantities || {}
   };
 };
 
@@ -71,7 +72,7 @@ export const resolveQuantityAndTotal = (params, effective, state) => {
     quantity: res.quantity,
     isOverridden: res.isOverridden,
     overrideField: res.overrideField,
-    total: toInteger(effective.effectiveBase + res.quantity * effective.effectiveRate, 0)
+    total: effective.effectiveBase + res.quantity * effective.effectiveRate
   };
 };
 
@@ -118,8 +119,8 @@ export const evaluateItemRules = (state, quantities, schedule) => {
  * @returns {Object}
  */
 export const formatDisplayStrings = (p, q, t) => ({
-  catalogDisaggregated: formatCatalogTerms(p.base, p.kind, p.initMode, p.rate, {}),
-  policyHintText: policyHint(p.kind, p.initMode, {}),
+  catalogDisaggregated: formatCatalogTerms(p.base, p.kind, p.initMode, p.rate, p.defaults),
+  policyHintText: policyHint(p.kind, p.initMode, p.defaults),
   basketLegendText: legendForBasket(p.base, p.kind, q, p.rate, t),
   pricingHumanText: profileHumanText(p.base, p.kind, p.rate),
   lineRateLabelText: lineRateLabel(p.kind, p.initMode)
