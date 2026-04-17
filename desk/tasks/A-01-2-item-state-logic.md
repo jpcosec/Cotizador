@@ -2,7 +2,7 @@
 id: A-01-2
 name: "[Logic] Extract Item State & Projections"
 domain: item
-status: open
+status: completed
 priority: p1
 depends_on: [A-01-1]
 pills:
