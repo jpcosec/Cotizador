@@ -34,9 +34,6 @@
 | **A-03-1** | item | [UI] Extract Playground Templates | P3 | [A-00] | pill-srp-file-80-lines, pill-folder-structure-srp |
 | **A-03-2** | item | [Logic] Extract Playground Controller | P3 | [A-03-1] | pill-srp-file-80-lines, pill-mandatory-docstrings |
 | **A-03-3** | item | [Logic] Refactor Playground Orchestrator | P3 | [A-03-2] | pill-srp-file-80-lines, pill-mandatory-docstrings |
-| **V-04** | quotation | Groups / Packs Logic | P4 | [A-01-3] | pill-kits-logic |
-| **U-4** | quotation | PDF Export | P4 | [U-1] | pill-pdf-generation-strategy |
-| **V-06** | quotation | Excel Export | P4 | [U-1] | pill-excel-export-strategy |
 | **V-08** | database | Pack Editor UI | P4 | [V-04] | pill-pack-editor-ui |
 
 ## Completed
@@ -67,3 +64,6 @@
 | R-04-2 | quotation | [Logic] Implement Modals Controller | 2026-04-18 |
 | R-04-3 | quotation | [Integration] Modals Modularization | 2026-04-18 |
 | U-1 | persistence | Save Vertical Slice | 2026-04-17 |
+| V-04 | quotation | Groups / Packs Logic | 2026-04-18 |
+| U-4 | quotation | PDF Export | 2026-04-18 |
+| V-06 | quotation | Excel Export | 2026-04-18 |
