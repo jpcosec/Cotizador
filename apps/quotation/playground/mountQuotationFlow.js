@@ -3,21 +3,13 @@ import { createDatabase } from '../../../packages/database/src/createDatabase.js
 import { seedToResolverDb } from '../../../packages/database/src/playgroundAdapter.js';
 import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
 import { RemotePersistenceAdapter } from '../../../packages/database/src/persistence/RemotePersistenceAdapter.js';
-import {
-  basketRuntimeHtml,
-  catalogRuntimeHtml,
-} from '../../../packages/components/item/ui/playgroundItemSections.js';
 import { createQuotationInternalRuntime } from '../state/createQuotationInternalRuntime.js';
 import { createPersistedQuotationRuntime } from '../state/createPersistedQuotationRuntime.js';
 import { exportQuotationToCsv } from '../services/excelService.js';
-import { createSidebar } from '../../../packages/components/quotation/views/Sidebar.js';
-import { sidebarRuntimeHtml } from '../../../packages/components/quotation/ui/sidebarRuntime.js';
-import { createTimeline } from '../../../packages/components/quotation/views/Timeline.js';
-import { timelineRuntimeHtml } from '../../../packages/components/quotation/ui/timelineRuntime.js';
+import { createSidebar } from '../../../packages/components/quotation/views/sidebar/Sidebar.js';
+import { createTimeline } from '../../../packages/components/quotation/views/timeline/Timeline.js';
 import { createItemList } from '../../../packages/components/quotation/views/ItemList.js';
-import { itemListRuntimeHtml } from '../../../packages/components/quotation/ui/itemListRuntime.js';
 import { createModals } from '../../../packages/components/quotation/views/Modals.js';
-import { modalsRuntimeHtml } from '../../../packages/components/quotation/ui/modalsRuntime.js';
 
 const CSV_BASE_URL = '/data/init';
 
@@ -83,19 +75,25 @@ function resolvePersistencePort(dbModels) {
 export async function mountQuotationPlayground(root) {
   if (!root) return;
 
-  const [rawTemplate, printStyles, seed] = await Promise.all([
-    fetch('/apps/quotation/playground/QuotationFlowInternal.html').then((response) => response.text()),
-    fetch('/apps/quotation/components/QuotationPrintStyles.html').then((response) => response.text()),
+  const [rawTemplate, printStyles, sidebarHtml, timelineHtml, itemListHtml, modalsHtml, basketHtml, catalogHtml, seed] = await Promise.all([
+    fetch('/apps/quotation/playground/QuotationFlowInternal.html').then((r) => r.text()),
+    fetch('/apps/quotation/components/QuotationPrintStyles.html').then((r) => r.text()),
+    fetch('/packages/components/quotation/views/sidebar/Sidebar.html').then((r) => r.text()),
+    fetch('/packages/components/quotation/views/timeline/Timeline.html').then((r) => r.text()),
+    fetch('/packages/components/quotation/views/ItemList.html').then((r) => r.text()),
+    fetch('/packages/components/quotation/views/Modals.html').then((r) => r.text()),
+    fetch('/packages/components/quotation/views/basket/Basket.html').then((r) => r.text()),
+    fetch('/packages/components/item/ui/ItemCatalog.html').then((r) => r.text()),
     loadSeedFromCsvUrl(CSV_BASE_URL),
   ]);
 
   const template = rawTemplate
-    .replace('<!-- CATALOG_RUNTIME -->', () => catalogRuntimeHtml)
-    .replace('<!-- SIDEBAR_RUNTIME -->', () => sidebarRuntimeHtml)
-    .replace('<!-- TIMELINE_RUNTIME -->', () => timelineRuntimeHtml)
-    .replace('<!-- ITEM_LIST_RUNTIME -->', () => itemListRuntimeHtml)
-    .replace('<!-- MODALS_RUNTIME -->', () => modalsRuntimeHtml)
-    .replace('<!-- BASKET_RUNTIME -->', () => basketRuntimeHtml)
+    .replace('<!-- SIDEBAR_RUNTIME -->', () => sidebarHtml)
+    .replace('<!-- TIMELINE_RUNTIME -->', () => timelineHtml)
+    .replace('<!-- ITEM_LIST_RUNTIME -->', () => itemListHtml)
+    .replace('<!-- MODALS_RUNTIME -->', () => modalsHtml)
+    .replace('<!-- BASKET_RUNTIME -->', () => basketHtml)
+    .replace('<!-- CATALOG_RUNTIME -->', () => catalogHtml)
     .replace('<!-- PRINT_STYLES -->', () => printStyles);
 
   const db = seedToResolverDb(seed);

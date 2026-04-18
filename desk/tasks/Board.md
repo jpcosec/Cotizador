@@ -30,13 +30,6 @@
 
 | ID | Domain | Task | Phase | Depends On | Pills |
 |----|--------|------|-------|------------|-------|
-| **R-01-3** | quotation | [Integration] Sidebar Modularization | P2 | [R-01-1, R-01-2] | pill-modular-composition, pill-build-markers-contract |
-| **R-02-2** | quotation | [Logic] Implement Timeline Controller | P2 | [R-02-1, A-04-1] | pill-naming-conventions |
-| **R-02-3** | quotation | [Integration] Timeline Modularization | P2 | [R-02-2] | pill-modular-composition |
-| **R-03-2** | quotation | [Logic] Implement Item List Controller | P2 | [R-03-1, A-04-2] | pill-naming-conventions |
-| **R-03-3** | quotation | [Integration] Item List Modularization | P2 | [R-03-2] | pill-modular-composition |
-| **R-04-2** | quotation | [Logic] Implement Modals Controller | P2 | [R-04-1] | pill-naming-conventions |
-| **R-04-3** | quotation | [Integration] Modals Modularization | P2 | [R-04-2] | pill-modular-composition |
 | **R-05** | quotation | Refactor App Orchestrator | P3 | [R-01-3, R-02-3, R-03-3, R-04-3] | pill-modular-composition |
 | **A-03-1** | item | [UI] Extract Playground Templates | P3 | [A-00] | pill-srp-file-80-lines, pill-folder-structure-srp |
 | **A-03-2** | item | [Logic] Extract Playground Controller | P3 | [A-03-1] | pill-srp-file-80-lines, pill-mandatory-docstrings |
@@ -63,7 +56,14 @@
 | A-04-3 | quotation | [Geography] Reorganize Sidebar View | 2026-04-18 |
 | R-01-1 | quotation | [UI] Finalize Sidebar Template | 2026-04-17 |
 | R-01-2 | quotation | [Logic] Implement Sidebar Controller | 2026-04-17 |
+| R-01-3 | quotation | [Integration] Sidebar Modularization | 2026-04-18 |
 | R-02-1 | quotation | [UI] Extract Timeline Template | 2026-04-17 |
+| R-02-2 | quotation | [Logic] Implement Timeline Controller | 2026-04-18 |
+| R-02-3 | quotation | [Integration] Timeline Modularization | 2026-04-18 |
 | R-03-1 | quotation | [UI] Extract Item List Template | 2026-04-17 |
+| R-03-2 | quotation | [Logic] Implement Item List Controller | 2026-04-18 |
+| R-03-3 | quotation | [Integration] Item List Modularization | 2026-04-18 |
 | R-04-1 | quotation | [UI] Extract Modals Template | 2026-04-17 |
+| R-04-2 | quotation | [Logic] Implement Modals Controller | 2026-04-18 |
+| R-04-3 | quotation | [Integration] Modals Modularization | 2026-04-18 |
 | U-1 | persistence | Save Vertical Slice | 2026-04-17 |
