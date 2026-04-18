@@ -5,8 +5,9 @@ import { UIContainerBase } from '../../../common/base/ui/UIContainerBase.js';
  * including drag and drop, resizing, and grid coordinate calculations.
  */
 export class TimelineController extends UIContainerBase {
-  constructor() {
+  constructor(runtime) {
     super();
+    this.runtime = runtime;
     this.HOUR_H = 64;
     this.N_HOURS = 16;
     this.START_H = 8;
@@ -18,9 +19,22 @@ export class TimelineController extends UIContainerBase {
     this.resizeStartY = 0;
     this.resizeOrigDur = 0;
     this.mainTab = 'timeline';
+    this.settings = {};
+    this.basket = { basketEntries: [] };
+    this.selectedClient = null;
+    this.validation = { totals: { subtotal: 0, total: 0 } };
+    this.draggingCatalogItemId = null;
     this.hours = Array.from({ length: this.N_HOURS }, (_, i) =>
       `${String(i + this.START_H).padStart(2, '0')}:00`
     );
+  }
+
+  onActorUpdate(snapshot) {
+    this.settings = snapshot.settings;
+    this.basket = snapshot.basket;
+    this.selectedClient = snapshot.selectedClient;
+    this.validation = snapshot.validation;
+    this.draggingCatalogItemId = snapshot.draggingCatalogItemId;
   }
 
   /**
@@ -132,6 +146,7 @@ export class TimelineController extends UIContainerBase {
    * Returns the state required by the Timeline UI.
    */
   toDisplayObject() {
+    const snapshot = this.runtime.getSnapshot();
     return {
       HOUR_H: this.HOUR_H,
       N_HOURS: this.N_HOURS,
@@ -143,6 +158,11 @@ export class TimelineController extends UIContainerBase {
       dragOffsetMin: this.dragOffsetMin,
       resizeId: this.resizeId,
       mainTab: this.mainTab,
+      settings: snapshot.settings,
+      basket: snapshot.basket,
+      selectedClient: snapshot.selectedClient,
+      validation: snapshot.validation,
+      draggingCatalogItemId: snapshot.draggingCatalogItemId,
       yToStartMin: (relY, offsetMin) => this.yToStartMin(relY, offsetMin),
       minuteToY: (m) => this.minuteToY(m),
       fmtMin: (totalMin) => this.fmtMin(totalMin),
@@ -159,6 +179,6 @@ export class TimelineController extends UIContainerBase {
   }
 }
 
-export function createTimeline() {
-  return new TimelineController();
+export function createTimeline(runtime) {
+  return new TimelineController(runtime);
 }

@@ -5,6 +5,15 @@ export class SidebarController extends UIContainerBase {
     super();
     this.runtime = runtime;
     this.draggingCatalogItemId = null;
+    this.selectedClient = null;
+    this.settings = {};
+    this.catalog = { categories: [] };
+  }
+
+  onActorUpdate(snapshot) {
+    this.selectedClient = snapshot.selectedClient;
+    this.settings = snapshot.settings;
+    this.catalog = snapshot.catalog;
   }
 
   openClientModal() { this.runtime.openClientModal(); }

@@ -3320,621 +3320,6 @@ var QuotationEngine = (function (exports) {
     return new StateMachine(config, implementations);
   }
 
-  /**
-   * Enum for the variable pricing dimension of an item.
-   * Determines which quantity axis drives the per-unit cost.
-   * @enum {string}
-   */
-  const PricingKind = {
-    NONE: 'NONE',
-    PAX: 'PAX',
-    UNITS: 'UNITS',
-    TIME: 'TIME'
-  };
-
-  /**
-   * Enum for how the initial quantity is resolved.
-   * - NONE: no variable quantity.
-   * - FIXED_AMOUNT: quantity comes from a hardcoded default.
-   * - CONTEXT_PAX: quantity derived from the global pax count.
-   * - CONTEXT_TIME: quantity derived from the event duration.
-   * @enum {string}
-   */
-  const InitializationMode = {
-    NONE: 'NONE',
-    FIXED_AMOUNT: 'FIXED_AMOUNT',
-    CONTEXT_PAX: 'CONTEXT_PAX',
-    CONTEXT_TIME: 'CONTEXT_TIME'
-  };
-
-  /**
-   * Coerce a value to a finite number, returning fallback if NaN/Infinity.
-   * @param {*} value
-   * @param {number} [fallback=0]
-   * @returns {number}
-   */
-  function toNumber(value, fallback = 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  /**
-   * Coerce a value to the nearest integer, returning fallback if invalid.
-   * @param {*} value
-   * @param {number} [fallback=0]
-   * @returns {number}
-   */
-  function toInteger(value, fallback = 0) {
-    return Math.round(toNumber(value, fallback));
-  }
-
-  /**
-   * Normalize a raw pricing profile into canonical field names.
-   * Supports both camelCase (`baseFijo`) and schema-style (`Costo_Base_Fijo`) keys.
-   * @param {Object} [raw={}]
-   * @returns {{ baseFijo: number, porPersona: number, porUnidad: number, porMinuto: number }}
-   */
-  function normalizeProfile(raw = {}) {
-    return {
-      baseFijo: toNumber(raw.baseFijo ?? raw.Costo_Base_Fijo ?? 0),
-      porPersona: toNumber(raw.porPersona ?? raw.Costo_Unitario_Pax ?? 0),
-      porUnidad: toNumber(raw.porUnidad ?? raw.Costo_Unitario_Item ?? 0),
-      porMinuto: toNumber(raw.porMinuto ?? raw.Costo_Unitario_Tiempo ?? 0)
-    };
-  }
-
-  /**
-   * Determine the pricing kind from a normalized profile.
-   * Priority: PAX > UNITS > TIME > NONE.
-   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
-   * @returns {PricingKind}
-   */
-  function detectPricingKind(profile) {
-    if (toNumber(profile.porPersona, 0) > 0) return PricingKind.PAX;
-    if (toNumber(profile.porUnidad, 0) > 0) return PricingKind.UNITS;
-    if (toNumber(profile.porMinuto, 0) > 0) return PricingKind.TIME;
-    return PricingKind.NONE;
-  }
-
-  /**
-   * Determine how the initial quantity should be resolved based on the
-   * pricing kind and the available default quantity fields.
-   * @param {PricingKind} kind
-   * @param {Object} [defaults={}] - Default quantity configuration.
-   * @returns {InitializationMode}
-   */
-  function detectInitializationMode(kind, defaults = {}) {
-    if (kind === PricingKind.NONE) return InitializationMode.NONE;
-
-    if (kind === PricingKind.PAX) {
-      if (toNumber(defaults.pax, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      return InitializationMode.CONTEXT_PAX;
-    }
-
-    if (kind === PricingKind.UNITS) {
-      if (toNumber(defaults.cantidad, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      if (toNumber(defaults.unidadesPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
-      if (toNumber(defaults.unidadesPorHora, 0) > 0) return InitializationMode.CONTEXT_TIME;
-      return InitializationMode.NONE;
-    }
-
-    if (kind === PricingKind.TIME) {
-      if (toNumber(defaults.duracionMin, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      if (toNumber(defaults.minutosPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
-      return InitializationMode.CONTEXT_TIME;
-    }
-
-    return InitializationMode.NONE;
-  }
-
-  /**
-   * Extract the per-unit rate from the profile for the given pricing kind.
-   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
-   * @param {PricingKind} kind
-   * @returns {number}
-   */
-  function rateForKind(profile, kind) {
-    if (kind === PricingKind.PAX) return toNumber(profile.porPersona, 0);
-    if (kind === PricingKind.UNITS) return toNumber(profile.porUnidad, 0);
-    if (kind === PricingKind.TIME) return toNumber(profile.porMinuto, 0);
-    return 0;
-  }
-
-  /**
-   * Map a pricing kind to the override field name used in the overrides object.
-   * @param {PricingKind} kind
-   * @returns {'pax'|'cantidad'|'duracionMin'|null}
-   */
-  function overrideFieldForKind(kind) {
-    if (kind === PricingKind.PAX) return 'pax';
-    if (kind === PricingKind.UNITS) return 'cantidad';
-    if (kind === PricingKind.TIME) return 'duracionMin';
-    return null;
-  }
-
-  /**
-   * Get the fixed default quantity for the given pricing kind.
-   * @param {PricingKind} kind
-   * @param {Object} [defaults={}]
-   * @returns {number}
-   */
-  function fixedAmountForKind(kind, defaults = {}) {
-    if (kind === PricingKind.PAX) return toNumber(defaults.pax, 0);
-    if (kind === PricingKind.UNITS) return toNumber(defaults.cantidad, 0);
-    if (kind === PricingKind.TIME) return toNumber(defaults.duracionMin, 0);
-    return 0;
-  }
-
-  /**
-   * Quantity resolution logic for items.
-   *
-   * Standalone functions for resolving item quantities based on:
-   * - pricing kind (PAX, UNITS, TIME, NONE)
-   * - initialization mode (FIXED_AMOUNT, CONTEXT_PAX, CONTEXT_TIME, NONE)
-   * - default quantities from item definition
-   * - external context (paxGlobal, duracionMin)
-   * - user overrides (pax, cantidad, duracionMin)
-   *
-   * @module quantity
-   */
-
-
-  /**
-   * Resolve the quantity from external context (paxGlobal, duracionMin)
-   * and default multipliers (e.g. unidadesPorUsuario).
-   *
-   * @param {PricingKind} kind - The pricing dimension (PAX, UNITS, TIME, NONE)
-   * @param {InitializationMode} mode - How to derive the quantity
-   * @param {Object} [defaults={}] - Default quantity configuration
-   * @param {Object} [context={}] - External context with paxGlobal, duracionMin
-   * @returns {number} - The computed quantity
-   *
-   * @example
-   * // Context-based PAX: returns global pax count
-   * resolveContextQuantity(PricingKind.PAX, InitializationMode.CONTEXT_PAX, {}, { paxGlobal: 50 })
-   * // => 50
-   *
-   * @example
-   * // Context-based UNITS: returns pax * multiplier
-   * resolveContextQuantity(
-   *   PricingKind.UNITS,
-   *   InitializationMode.CONTEXT_PAX,
-   *   { unidadesPorUsuario: 3 },
-   *   { paxGlobal: 50 }
-   * )
-   * // => 150
-   *
-   * @example
-   * // Time-based UNITS: returns (hours) * multiplier
-   * resolveContextQuantity(
-   *   PricingKind.UNITS,
-   *   InitializationMode.CONTEXT_TIME,
-   *   { unidadesPorHora: 12 },
-   *   { duracionMin: 120 }
-   * )
-   * // => 24 (2 hours * 12)
-   */
-  function resolveContextQuantity(kind, mode, defaults = {}, context = {}) {
-    const paxGlobal = toNumber(context.paxGlobal, 0);
-    const durationMin = toNumber(context.duracionMin, 0);
-    const multiplier = toNumber(context.kitContext?.multiplier, 1);
-
-    let quantity = 0;
-
-    if (mode === InitializationMode.CONTEXT_PAX) {
-      if (kind === PricingKind.PAX) quantity = paxGlobal;
-      else if (kind === PricingKind.UNITS) quantity = paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
-      else if (kind === PricingKind.TIME) quantity = paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
-    } else if (mode === InitializationMode.CONTEXT_TIME) {
-      if (kind === PricingKind.UNITS) quantity = (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
-      else if (kind === PricingKind.TIME) quantity = durationMin;
-    }
-
-    return quantity * multiplier;
-  }
-
-  /**
-   * Resolve the final basket quantity, considering user overrides first,
-   * then fixed defaults, then context-derived values.
-   *
-   * Returns structured result with quantity, override status, and field name.
-   *
-   * @param {PricingKind} kind - The pricing dimension (PAX, UNITS, TIME, NONE)
-   * @param {InitializationMode} mode - How to derive the quantity
-   * @param {Object} [defaults={}] - Default quantity configuration
-   * @param {Object} [context={}] - External context with paxGlobal, duracionMin
-   * @param {Object} [overrides={}] - User overrides (pax, cantidad, duracionMin, etc.)
-   * @returns {Object} - Object with quantity, isOverridden, overrideField
-   * @returns {number} result.quantity - The final computed quantity
-   * @returns {boolean} result.isOverridden - Whether user provided an override
-   * @returns {string|null} result.overrideField - Field name if overridden (pax/cantidad/duracionMin)
-   *
-   * @example
-   * // User override takes precedence
-   * resolveBasketQuantity(
-   *   PricingKind.PAX,
-   *   InitializationMode.CONTEXT_PAX,
-   *   {},
-   *   { paxGlobal: 50 },
-   *   { pax: 100 }
-   * )
-   * // => { quantity: 100, isOverridden: true, overrideField: 'pax' }
-   *
-   * @example
-   * // Fixed default (no override)
-   * resolveBasketQuantity(
-   *   PricingKind.UNITS,
-   *   InitializationMode.FIXED_AMOUNT,
-   *   { cantidad: 5 },
-   *   {},
-   *   {}
-   * )
-   * // => { quantity: 5, isOverridden: false, overrideField: 'cantidad' }
-   *
-   * @example
-   * // Context derivation (no override)
-   * resolveBasketQuantity(
-   *   PricingKind.PAX,
-   *   InitializationMode.CONTEXT_PAX,
-   *   {},
-   *   { paxGlobal: 50 },
-   *   {}
-   * )
-   * // => { quantity: 50, isOverridden: false, overrideField: 'pax' }
-   */
-  function resolveBasketQuantity(kind, mode, defaults = {}, context = {}, overrides = {}) {
-    const overrideField = overrideFieldForKind(kind);
-    const overrideValue = overrideField ? overrides[overrideField] : null;
-
-    if (overrideField && overrideValue != null) {
-      return {
-        quantity: toInteger(overrideValue, 0),
-        isOverridden: true,
-        overrideField
-      };
-    }
-
-    if (mode === InitializationMode.FIXED_AMOUNT) {
-      const multiplier = toNumber(context.kitContext?.multiplier, 1);
-      return {
-        quantity: toInteger(fixedAmountForKind(kind, defaults) * multiplier, 0),
-        isOverridden: false,
-        overrideField
-      };
-    }
-
-    return {
-      quantity: toInteger(resolveContextQuantity(kind, mode, defaults, context), 0),
-      isOverridden: false,
-      overrideField
-    };
-  }
-
-  /**
-   * Enforce exclusive initialization modes when setting one default key.
-   *
-   * Business rule: Only one initialization mode can be active per pricing kind.
-   * Setting one key deletes conflicting keys:
-   * - `cantidad` conflicts with `unidadesPorUsuario`, `unidadesPorHora`
-   * - `unidadesPorUsuario` or `unidadesPorHora` conflict with `cantidad`
-   * - `duracionMin` conflicts with `minutosPorUsuario`
-   * - `minutosPorUsuario` conflicts with `duracionMin`
-   *
-   * @param {Object} [defaultQuantities={}] - Current default quantities
-   * @param {string} key - The field being set (cantidad, unidadesPorUsuario, etc.)
-   * @param {number|string} rawValue - The value to set
-   * @returns {Object} - Updated defaultQuantities with conflicts resolved
-   *
-   * @example
-   * // Setting cantidad clears unit multipliers
-   * applyExclusiveDefaultMode(
-   *   { unidadesPorUsuario: 2, unidadesPorHora: 12 },
-   *   'cantidad',
-   *   5
-   * )
-   * // => { cantidad: 5 }
-   *
-   * @example
-   * // Negative or zero values remove the key
-   * applyExclusiveDefaultMode(
-   *   { cantidad: 5 },
-   *   'cantidad',
-   *   0
-   * )
-   * // => {}
-   *
-   * @example
-   * // Setting multiplier clears fixed value
-   * applyExclusiveDefaultMode(
-   *   { cantidad: 10 },
-   *   'unidadesPorUsuario',
-   *   3
-   * )
-   * // => { unidadesPorUsuario: 3 }
-   */
-  function applyExclusiveDefaultMode(defaultQuantities = {}, key, rawValue) {
-    const value = toNumber(rawValue, 0);
-    const next = { ...(defaultQuantities || {}) };
-
-    if (value <= 0) {
-      delete next[key];
-      return next;
-    }
-
-    next[key] = value;
-
-    if (key === 'cantidad') {
-      delete next.unidadesPorUsuario;
-      delete next.unidadesPorHora;
-    }
-    if (key === 'unidadesPorUsuario' || key === 'unidadesPorHora') {
-      delete next.cantidad;
-    }
-    if (key === 'duracionMin') {
-      delete next.minutosPorUsuario;
-    }
-    if (key === 'minutosPorUsuario') {
-      delete next.duracionMin;
-    }
-
-    return next;
-  }
-
-  /**
-   * Formatting functions for pricing display.
-   * Extracted from ItemLogic for use in templates and UI components.
-   * All functions are pure and stateless.
-   */
-
-
-  /**
-   * Format a numeric value as Chilean peso currency string (e.g. "$1.200").
-   * @param {number} value
-   * @returns {string}
-   */
-  function money(value) {
-    return `$${toInteger(value, 0).toLocaleString('es-CL')}`;
-  }
-
-  /**
-   * Build a human-readable pricing formula string for catalog display.
-   * Example: "$400 fijo + 3 und/pax x $1"
-   * @param {number} base - Fixed base cost.
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {number} rate - Per-unit rate.
-   * @param {Object} defaults - Default quantities for label formatting.
-   * @returns {string}
-   */
-  function formatCatalogTerms(base, kind, mode, rate, defaults) {
-    const parts = [];
-    if (base > 0) parts.push(`${money(base)} fijo`);
-
-    if (kind === PricingKind.NONE) {
-      return parts.join(' + ') || '$0';
-    }
-
-    if (kind === PricingKind.PAX) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.pax, 0)} pax x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por pax`);
-      }
-      return parts.join(' + ');
-    }
-
-    if (kind === PricingKind.UNITS) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.cantidad, 0)} und x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_PAX) {
-        parts.push(`${toNumber(defaults.unidadesPorUsuario, 0)} und/pax x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_TIME) {
-        parts.push(`${toNumber(defaults.unidadesPorHora, 0)} und/h x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por unidad`);
-      }
-      return parts.join(' + ');
-    }
-
-    if (kind === PricingKind.TIME) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.duracionMin, 0)} min x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_PAX) {
-        parts.push(`${toNumber(defaults.minutosPorUsuario, 0)} min/pax x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por minuto`);
-      }
-      return parts.join(' + ');
-    }
-
-    return parts.join(' + ') || '$0';
-  }
-
-  /**
-   * Generate a short policy hint describing the initialization rule.
-   * Example: "3 und/persona" or "10 min/persona".
-   * @param {PricingKind} kind
-   * @param {InitializationMode} mode
-   * @param {Object} [defaults={}]
-   * @returns {string} Empty string if no hint applies.
-   */
-  function policyHint(kind, mode, defaults = {}) {
-    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_PAX) {
-      return `${toNumber(defaults.unidadesPorUsuario, 0)} und/persona`;
-    }
-    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_TIME) {
-      return `${toNumber(defaults.unidadesPorHora, 0)} und/hora`;
-    }
-    if (kind === PricingKind.TIME && mode === InitializationMode.CONTEXT_PAX) {
-      return `${toNumber(defaults.minutosPorUsuario, 0)} min/persona`;
-    }
-    return '';
-  }
-
-  /**
-   * Build a human-readable breakdown legend for basket display.
-   * Example: "$400 + (60 und x $1) = $460"
-   * @param {number} base - Fixed base cost.
-   * @param {PricingKind} kind
-   * @param {number} quantity
-   * @param {number} rate
-   * @param {number} total
-   * @returns {string}
-   */
-  function legendForBasket(base, kind, quantity, rate, total) {
-    if (kind === PricingKind.NONE) return `${money(base)} fijo`;
-
-    const qtyLabel = kind === PricingKind.PAX
-      ? `${quantity} pax`
-      : kind === PricingKind.UNITS
-        ? `${quantity} und`
-        : `${quantity} min`;
-
-    return `${money(base)} + (${qtyLabel} x ${money(rate)}) = ${money(total)}`;
-  }
-
-  /**
-   * Build a human-readable profile description for pricing display.
-   * Example: "$400 fijo + $1 por pax"
-   * @param {number} base - Fixed base cost.
-   * @param {PricingKind} kind
-   * @param {number} rate - Per-unit rate.
-   * @returns {string}
-   */
-  function profileHumanText(base, kind, rate) {
-    const parts = [];
-    if (base > 0) parts.push(`${money(base)} fijo`);
-    if (kind === PricingKind.PAX && rate > 0) parts.push(`${money(rate)} por pax`);
-    if (kind === PricingKind.UNITS && rate > 0) parts.push(`${money(rate)} por unidad`);
-    if (kind === PricingKind.TIME && rate > 0) parts.push(`${money(rate)} por minuto`);
-    return parts.join(' + ') || '$0';
-  }
-
-  /**
-   * Map pricing kind to a human-readable rate label for line items.
-   * Example: PAX → "Pax", UNITS → "Unidades", TIME → "Duracion"
-   * @param {PricingKind} kind
-   * @returns {string}
-   */
-  function lineRateLabel(kind, initMode = null) {
-    // For items priced by quantity but controlled by pax, show "per Pax"
-    if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
-      return 'por Pax';
-    }
-
-    if (kind === PricingKind.NONE) return 'Fijo';
-    
-    if (kind === PricingKind.PAX) return 'Pax';
-    if (kind === PricingKind.UNITS) return 'Unidades';
-    if (kind === PricingKind.TIME) return 'Duracion';
-    return 'Cantidad';
-  }
-
-  /**
-   * Event-aware time utilities.
-   *
-   * The venue operates on an "event day" that may cross midnight.
-   * A configurable day boundary (default 09:00) anchors the day:
-   * times before the boundary are treated as next-day overflow (+1440 minutes).
-   *
-   * This yields a monotonic integer ("event minutes") suitable for
-   * plain numeric comparisons in JSON Logic:
-   *
-   *   09:00  →  540   (day start, boundary)
-   *   21:00  → 1260   (normal evening)
-   *   01:00  → 1500   (1 AM next day — correctly > 1260)
-   *   08:59  → 1979   (8:59 AM next day)
-   */
-
-  const DEFAULT_BOUNDARY = '09:00';
-
-  /**
-   * Parse a time string to minutes from midnight (0–1439).
-   * Accepts 24h ('21:30', '09:00', '00:00') and
-   * 12h ('9:00 AM', '9:00 PM', '12:00 AM', '12:00 PM').
-   *
-   * @param {string} str
-   * @returns {number} minutes 0–1439
-   * @throws {Error} if the string cannot be parsed or is out of range
-   */
-  function parseTimeString(str) {
-    if (typeof str !== 'string') {
-      throw new Error(`parseTimeString: expected string, got ${typeof str}`);
-    }
-    const s = str.trim();
-
-    // 12h format: "9:00 AM", "9:00 PM", "12:00 AM", "12:00 PM"
-    const h12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (h12) {
-      let h = parseInt(h12[1], 10);
-      const m = parseInt(h12[2], 10);
-      const meridiem = h12[3].toUpperCase();
-      if (h < 1 || h > 12 || m < 0 || m > 59) {
-        throw new Error(`parseTimeString: invalid 12h time '${str}'`);
-      }
-      if (meridiem === 'AM') {
-        h = h === 12 ? 0 : h;        // 12:xx AM → 0:xx (midnight)
-      } else {
-        h = h === 12 ? 12 : h + 12;  // 12:xx PM → 12:xx (noon), 1:xx PM → 13:xx
-      }
-      return h * 60 + m;
-    }
-
-    // 24h format: "21:30", "09:00", "00:00"
-    const h24 = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (h24) {
-      const h = parseInt(h24[1], 10);
-      const m = parseInt(h24[2], 10);
-      if (h < 0 || h > 23 || m < 0 || m > 59) {
-        throw new Error(`parseTimeString: invalid 24h time '${str}'`);
-      }
-      return h * 60 + m;
-    }
-
-    throw new Error(`parseTimeString: unrecognized format '${str}'`);
-  }
-
-  /**
-   * Convert a time string to event minutes — a monotonic integer
-   * anchored to the start of the venue's event day.
-   *
-   * Times before the boundary are treated as next-day overflow (+1440).
-   *
-   * @param {string} timeStr   - Any supported time string
-   * @param {string} [boundary='09:00'] - Day start boundary (24h string)
-   * @returns {number} event minutes (≥ boundaryMinutes, possibly > 1440)
-   */
-  function eventMinutes(timeStr, boundary = DEFAULT_BOUNDARY) {
-    const minutes = parseTimeString(timeStr);
-    const boundaryMin = parseTimeString(boundary);
-    return minutes < boundaryMin ? minutes + 1440 : minutes;
-  }
-
-  /**
-   * Resolves scheduling parameters using a precedence hierarchy.
-   *
-   * Precedence: overrides > externalContext > defaults
-   *
-   * Returns:
-   *   dia      - day number (1-based)
-   *   hora     - time string as-given, for display (e.g. '21:30')
-   *   horaMin  - event minutes: boundary-aware integer for JSON Logic comparisons
-   *              Times before boundary (default 09:00) are treated as next-day (+1440).
-   *              Examples: '09:00' → 540, '21:00' → 1260, '01:00' → 1500
-   *
-   * @param {Object} [externalContext={}]
-   * @param {Object} [overrides={}]
-   * @returns {{ dia: number, hora: string, horaMin: number }}
-   */
-  function resolveSchedule(externalContext = {}, overrides = {}) {
-    const hora = overrides.hora ?? externalContext.hora ?? '09:00';
-    return {
-      dia: overrides.dia ?? externalContext.dia ?? 1,
-      hora,
-      horaMin: eventMinutes(hora)
-    };
-  }
-
   function getDefaultExportFromCjs (x) {
   	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
   }
@@ -4654,643 +4039,1054 @@ var QuotationEngine = (function (exports) {
   }
 
   /**
-   * Refactored Item business object.
+   * Enum for the variable pricing dimension of an item.
+   * Determines which quantity axis drives the per-unit cost.
+   * @enum {string}
+   */
+  const PricingKind = {
+    NONE: 'NONE',
+    PAX: 'PAX',
+    UNITS: 'UNITS',
+    TIME: 'TIME'
+  };
+
+  /**
+   * Enum for how the initial quantity is resolved.
+   * - NONE: no variable quantity.
+   * - FIXED_AMOUNT: quantity comes from a hardcoded default.
+   * - CONTEXT_PAX: quantity derived from the global pax count.
+   * - CONTEXT_TIME: quantity derived from the event duration.
+   * @enum {string}
+   */
+  const InitializationMode = {
+    NONE: 'NONE',
+    FIXED_AMOUNT: 'FIXED_AMOUNT',
+    CONTEXT_PAX: 'CONTEXT_PAX',
+    CONTEXT_TIME: 'CONTEXT_TIME'
+  };
+
+  /**
+   * Coerce a value to a finite number, returning fallback if NaN/Infinity.
+   * @param {*} value
+   * @param {number} [fallback=0]
+   * @returns {number}
+   */
+  function toNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  /**
+   * Coerce a value to the nearest integer, returning fallback if invalid.
+   * @param {*} value
+   * @param {number} [fallback=0]
+   * @returns {number}
+   */
+  function toInteger(value, fallback = 0) {
+    return Math.round(toNumber(value, fallback));
+  }
+
+  /**
+   * Format a numeric value as Chilean peso currency string (e.g. "$1.200").
+   * @param {number} value
+   * @returns {string}
+   */
+  function money(value) {
+    return `$${toInteger(value, 0).toLocaleString('es-CL')}`;
+  }
+
+  /**
+   * Build a human-readable pricing formula string for catalog display.
+   * @param {number} base - Fixed base cost.
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {number} rate - Per-unit rate.
+   * @param {Object} defaults - Default quantities for label formatting.
+   * @returns {string}
+   */
+  function formatCatalogTerms(base, kind, mode, rate, defaults) {
+    const parts = [];
+    if (base > 0) parts.push(`${money(base)} fijo`);
+
+    if (kind === PricingKind.NONE) return parts.join(' + ') || '$0';
+
+    if (kind === PricingKind.PAX) {
+      if (mode === InitializationMode.FIXED_AMOUNT) parts.push(`${toInteger(defaults.pax, 0)} pax x ${money(rate)}`);
+      else parts.push(`${money(rate)} por pax`);
+      return parts.join(' + ');
+    }
+
+    if (kind === PricingKind.UNITS) {
+      if (mode === InitializationMode.FIXED_AMOUNT) parts.push(`${toInteger(defaults.cantidad, 0)} und x ${money(rate)}`);
+      else if (mode === InitializationMode.CONTEXT_PAX) parts.push(`${toNumber(defaults.unidadesPorUsuario, 0)} und/pax x ${money(rate)}`);
+      else if (mode === InitializationMode.CONTEXT_TIME) parts.push(`${toNumber(defaults.unidadesPorHora, 0)} und/h x ${money(rate)}`);
+      else parts.push(`${money(rate)} por unidad`);
+      return parts.join(' + ');
+    }
+
+    if (kind === PricingKind.TIME) {
+      if (mode === InitializationMode.FIXED_AMOUNT) parts.push(`${toInteger(defaults.duracionMin, 0)} min x ${money(rate)}`);
+      else if (mode === InitializationMode.CONTEXT_PAX) parts.push(`${toNumber(defaults.minutosPorUsuario, 0)} min/pax x ${money(rate)}`);
+      else parts.push(`${money(rate)} por minuto`);
+      return parts.join(' + ');
+    }
+
+    return parts.join(' + ') || '$0';
+  }
+
+  /**
+   * Generate a short policy hint describing the initialization rule.
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {Object} [defaults={}]
+   * @returns {string}
+   */
+  function policyHint(kind, mode, defaults = {}) {
+    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_PAX) return `${toNumber(defaults.unidadesPorUsuario, 0)} und/persona`;
+    if (kind === PricingKind.UNITS && mode === InitializationMode.CONTEXT_TIME) return `${toNumber(defaults.unidadesPorHora, 0)} und/hora`;
+    if (kind === PricingKind.TIME && mode === InitializationMode.CONTEXT_PAX) return `${toNumber(defaults.minutosPorUsuario, 0)} min/persona`;
+    return '';
+  }
+
+  /**
+   * Build a human-readable breakdown legend for basket display.
+   * @param {number} base
+   * @param {PricingKind} kind
+   * @param {number} quantity
+   * @param {number} rate
+   * @param {number} total
+   * @returns {string}
+   */
+  function legendForBasket(base, kind, quantity, rate, total) {
+    if (kind === PricingKind.NONE) return `${money(base)} fijo`;
+    const qtyLabel = kind === PricingKind.PAX ? `${quantity} pax` : kind === PricingKind.UNITS ? `${quantity} und` : `${quantity} min`;
+    return `${money(base)} + (${qtyLabel} x ${money(rate)}) = ${money(total)}`;
+  }
+
+  /**
+   * Build a human-readable profile description for pricing display.
+   * Example: "$400 fijo + $1 por pax"
+   * @param {number} base - Fixed base cost.
+   * @param {PricingKind} kind
+   * @param {number} rate - Per-unit rate.
+   * @returns {string}
+   */
+  function profileHumanText(base, kind, rate) {
+    const parts = [];
+    if (base > 0) parts.push(`${money(base)} fijo`);
+    if (kind === PricingKind.PAX && rate > 0) parts.push(`${money(rate)} por pax`);
+    if (kind === PricingKind.UNITS && rate > 0) parts.push(`${money(rate)} por unidad`);
+    if (kind === PricingKind.TIME && rate > 0) parts.push(`${money(rate)} por minuto`);
+    return parts.join(' + ') || '$0';
+  }
+
+  /**
+   * Map pricing kind to a human-readable rate label for line items.
+   * Example: PAX → "Pax", UNITS → "Unidades", TIME → "Duracion"
+   * @param {PricingKind} kind
+   * @param {InitializationMode} [initMode=null]
+   * @returns {string}
+   */
+  function lineRateLabel(kind, initMode = null) {
+    if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
+      return 'por Pax';
+    }
+    if (kind === PricingKind.NONE) return 'Fijo';
+    if (kind === PricingKind.PAX) return 'Pax';
+    if (kind === PricingKind.UNITS) return 'Unidades';
+    if (kind === PricingKind.TIME) return 'Duracion';
+    return 'Cantidad';
+  }
+
+  /**
+   * Determine the pricing kind from a normalized profile.
+   * Priority: PAX > UNITS > TIME > NONE.
+   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
+   * @returns {PricingKind}
+   */
+  function detectPricingKind(profile) {
+    if (toNumber(profile.porPersona, 0) > 0) return PricingKind.PAX;
+    if (toNumber(profile.porUnidad, 0) > 0) return PricingKind.UNITS;
+    if (toNumber(profile.porMinuto, 0) > 0) return PricingKind.TIME;
+    return PricingKind.NONE;
+  }
+
+  /**
+   * Determine how the initial quantity should be resolved.
+   * @param {PricingKind} kind
+   * @param {Object} [defaults={}]
+   * @returns {InitializationMode}
+   */
+  function detectInitializationMode(kind, defaults = {}) {
+    if (kind === PricingKind.NONE) return InitializationMode.NONE;
+    if (kind === PricingKind.PAX) {
+      if (toNumber(defaults.pax, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+      return InitializationMode.CONTEXT_PAX;
+    }
+    if (kind === PricingKind.UNITS) {
+      if (toNumber(defaults.cantidad, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+      if (toNumber(defaults.unidadesPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
+      if (toNumber(defaults.unidadesPorHora, 0) > 0) return InitializationMode.CONTEXT_TIME;
+      return InitializationMode.NONE;
+    }
+    if (toNumber(defaults.duracionMin, 0) > 0) return InitializationMode.FIXED_AMOUNT;
+    if (toNumber(defaults.minutosPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
+    return kind === PricingKind.TIME ? InitializationMode.CONTEXT_TIME : InitializationMode.NONE;
+  }
+
+  /**
+   * Extract the per-unit rate from the profile for the given pricing kind.
+   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
+   * @param {PricingKind} kind
+   * @returns {number}
+   */
+  function rateForKind(profile, kind) {
+    if (kind === PricingKind.PAX) return toNumber(profile.porPersona, 0);
+    if (kind === PricingKind.UNITS) return toNumber(profile.porUnidad, 0);
+    if (kind === PricingKind.TIME) return toNumber(profile.porMinuto, 0);
+    return 0;
+  }
+
+  /**
+   * Map a pricing kind to the override field name used in the overrides object.
+   * @param {PricingKind} kind
+   * @returns {'pax'|'cantidad'|'duracionMin'|null}
+   */
+  function overrideFieldForKind(kind) {
+    if (kind === PricingKind.PAX) return 'pax';
+    if (kind === PricingKind.UNITS) return 'cantidad';
+    if (kind === PricingKind.TIME) return 'duracionMin';
+    return null;
+  }
+
+  /**
+   * Get the fixed default quantity for the given pricing kind.
+   * @param {PricingKind} kind
+   * @param {Object} [defaults={}]
+   * @returns {number}
+   */
+  function fixedAmountForKind(kind, defaults = {}) {
+    if (kind === PricingKind.PAX) return toNumber(defaults.pax, 0);
+    if (kind === PricingKind.UNITS) return toNumber(defaults.cantidad, 0);
+    if (kind === PricingKind.TIME) return toNumber(defaults.duracionMin, 0);
+    return 0;
+  }
+
+  /**
+   * Normalize a raw pricing profile into canonical field names.
+   * Supports both camelCase (`baseFijo`) and schema-style (`Costo_Base_Fijo`) keys.
+   * @param {Object} [raw={}]
+   * @returns {{ baseFijo: number, porPersona: number, porUnidad: number, porMinuto: number }}
+   */
+  function normalizeProfile(raw = {}) {
+    return {
+      baseFijo: toNumber(raw.baseFijo ?? raw.Costo_Base_Fijo ?? 0),
+      porPersona: toNumber(raw.porPersona ?? raw.Costo_Unitario_Pax ?? 0),
+      porUnidad: toNumber(raw.porUnidad ?? raw.Costo_Unitario_Item ?? 0),
+      porMinuto: toNumber(raw.porMinuto ?? raw.Costo_Unitario_Tiempo ?? 0)
+    };
+  }
+
+  /**
+   * Resolve the quantity from external context (paxGlobal, duracionMin)
+   * and default multipliers (e.g. unidadesPorUsuario).
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {Object} [defaults={}]
+   * @param {Object} [context={}] - External context with paxGlobal, duracionMin.
+   * @returns {number}
+   */
+  function resolveContextQuantity(kind, mode, defaults = {}, context = {}) {
+    const paxGlobal = toNumber(context.paxGlobal, 0);
+    const durationMin = toNumber(context.duracionMin, 0);
+    const multiplier = toNumber(context.kitContext?.multiplier, 1);
+
+    let quantity = 0;
+
+    if (mode === InitializationMode.CONTEXT_PAX) {
+      if (kind === PricingKind.PAX) quantity = paxGlobal;
+      else if (kind === PricingKind.UNITS) quantity = paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
+      else if (kind === PricingKind.TIME) quantity = paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
+    } else if (mode === InitializationMode.CONTEXT_TIME) {
+      if (kind === PricingKind.UNITS) quantity = (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
+      else if (kind === PricingKind.TIME) quantity = durationMin;
+    }
+
+    return quantity * multiplier;
+  }
+
+  /**
+   * Resolve the final basket quantity, considering user overrides first,
+   * then fixed defaults, then context-derived values.
+   * @param {PricingKind} kind
+   * @param {InitializationMode} mode
+   * @param {Object} [defaults={}]
+   * @param {Object} [context={}]
+   * @param {Object} [overrides={}]
+   * @returns {{ quantity: number, isOverridden: boolean, overrideField: string|null }}
+   */
+  function resolveBasketQuantity(kind, mode, defaults = {}, context = {}, overrides = {}) {
+    const overrideField = overrideFieldForKind(kind);
+    const overrideValue = overrideField ? overrides[overrideField] : null;
+
+    if (overrideField && overrideValue != null) {
+      return {
+        quantity: toInteger(overrideValue, 0),
+        isOverridden: true,
+        overrideField
+      };
+    }
+
+    if (mode === InitializationMode.FIXED_AMOUNT) {
+      const multiplier = toNumber(context.kitContext?.multiplier, 1);
+      return {
+        quantity: toInteger(fixedAmountForKind(kind, defaults) * multiplier, 0),
+        isOverridden: false,
+        overrideField
+      };
+    }
+
+    return {
+      quantity: toInteger(resolveContextQuantity(kind, mode, defaults, context), 0),
+      isOverridden: false,
+      overrideField
+    };
+  }
+
+  /**
+   * Enforce exclusive initialization modes when setting one default key.
+   * @param {Object} defaultQuantities
+   * @param {string} key
+   * @param {number|string} rawValue
+   * @returns {Object}
+   */
+  function applyExclusiveDefaultMode(defaultQuantities = {}, key, rawValue) {
+    const value = toNumber(rawValue, 0);
+    const next = { ...(defaultQuantities || {}) };
+
+    if (value <= 0) {
+      delete next[key];
+      return next;
+    }
+
+    next[key] = value;
+
+    if (key === 'cantidad') {
+      delete next.unidadesPorUsuario;
+      delete next.unidadesPorHora;
+    }
+    if (key === 'unidadesPorUsuario' || key === 'unidadesPorHora') {
+      delete next.cantidad;
+    }
+    if (key === 'duracionMin') {
+      delete next.minutosPorUsuario;
+    }
+    if (key === 'minutosPorUsuario') {
+      delete next.duracionMin;
+    }
+
+    return next;
+  }
+
+  /**
+   * A factory function that creates an object containing the state mutation methods for an Item.
+   * This is designed to be composed into the Item class.
+   * @param {Item} item - The Item instance.
+   * @returns {Object} An object with state mutation methods.
+   */
+  function createItemState(item) {
+    return {
+      /**
+       * Set mode (catalog/basket) and recalculate.
+       *
+       * @param {'catalog'|'basket'} mode
+       * @returns {Item}
+       */
+      setMode(mode = 'catalog') {
+        item.mode = mode;
+        return item.calculate();
+      },
+
+      /**
+       * Merge external context values and recalculate.
+       * External context includes paxGlobal, duracionMin, dia, hora from the event.
+       *
+       * @param {Object} patch
+       * @returns {Item}
+       */
+      receiveContext(patch = {}) {
+        item.externalContext = {
+          ...item.externalContext,
+          ...(patch || {})
+        };
+        return item.calculate();
+      },
+
+      /**
+       * Set one override value and recalculate.
+       * Overrides include pax, cantidad, duracionMin, dia, hora, comentarios.
+       *
+       * @param {string} key
+       * @param {any} value
+       * @returns {Item}
+       */
+      setOverride(key, value) {
+        item.overrides = {
+          ...item.overrides,
+          [key]: value
+        };
+        // Track quantity fields as user-set (not comments or schedule)
+        if (['pax', 'cantidad', 'duracionMin'].includes(key)) {
+          item.userSetFields.add(key);
+        }
+        return item.calculate();
+      },
+
+      /**
+       * Remove one override value and recalculate.
+       *
+       * @param {string} key
+       * @returns {Item}
+       */
+      clearOverride(key) {
+        const next = { ...item.overrides };
+        delete next[key];
+        item.overrides = next;
+        item.userSetFields.delete(key);
+        return item.calculate();
+      },
+
+      /**
+       * Clear all overrides and recalculate.
+       *
+       * @returns {Item}
+       */
+      resetOverrides() {
+        item.overrides = {};
+        item.userSetFields = new Set();
+        return item.calculate();
+      },
+
+      /**
+       * Update one pricing profile field and recalculate.
+       *
+       * @param {string} key
+       * @param {number|string} value
+       * @returns {Item}
+       */
+      setProfileValue(key, value) {
+        item.definition.pricingProfile = {
+          ...(item.definition.pricingProfile || {}),
+          [key]: toNumber(value, 0)
+        };
+        return item.calculate();
+      },
+
+      /**
+       * Update one initialization field with exclusivity rules and recalculate.
+       * Uses applyExclusiveDefaultMode to enforce only one mode per kind.
+       *
+       * @param {string} key
+       * @param {number|string} value
+       * @returns {Item}
+       */
+      setDefaultQuantity(key, value) {
+        item.definition.defaultQuantities = applyExclusiveDefaultMode(
+          item.definition.defaultQuantities || {},
+          key,
+          value
+        );
+        return item.calculate();
+      },
+
+      /**
+       * Remove one initialization field and recalculate.
+       *
+       * @param {string} key
+       * @returns {Item}
+       */
+      clearDefaultQuantity(key) {
+        const next = { ...(item.definition.defaultQuantities || {}) };
+        delete next[key];
+        item.definition.defaultQuantities = next;
+        return item.calculate();
+      }
+    };
+  }
+
+  /**
+   * A factory function that creates an object containing the projection getters for an Item.
+   * This is designed to be composed into the Item class.
+   * @param {Item} item - The Item instance.
+   * @returns {Object} An object with projection getters.
+   */
+  function createItemProjections(item) {
+    return {
+      /**
+       * Get current mode (catalog or basket).
+       * @returns {'catalog'|'basket'}
+       */
+      get mode() {
+        return item.mode;
+      },
+
+      /**
+       * Get current definition.
+       * @returns {Object}
+       */
+      get definition() {
+        return item.definition;
+      },
+
+      /**
+       * Get current external context.
+       * @returns {Object}
+       */
+      get externalContext() {
+        return item.externalContext;
+      },
+
+      /**
+       * Get current overrides.
+       * @returns {Object}
+       */
+      get overrides() {
+        return item.overrides;
+      },
+
+      /**
+       * Get the detected pricing kind.
+       * @returns {PricingKind}
+       */
+      get pricingKind() {
+        return item.derived.pricingKind;
+      },
+
+      /**
+       * Get the computed total price.
+       * @returns {number}
+       */
+      get total() {
+        return item.derived.total;
+      },
+
+      /**
+       * Get whether the quantity is user-overridden.
+       * @returns {boolean}
+       */
+      get isOverridden() {
+        return item.derived.isOverridden;
+      },
+
+      /**
+       * Get quantities object with pax, cantidad, duracionMin.
+       * @returns {Object}
+       */
+      get quantities() {
+        return item.derived.quantities;
+      },
+
+      /**
+       * Get schedule object with dia and hora.
+       * @returns {Object}
+       */
+      get schedule() {
+        return item.derived.schedule;
+      },
+
+      /**
+       * Get the rules array for this item.
+       * @returns {Array}
+       */
+      get rules() {
+        return item.definition.rules || [];
+      },
+
+      /**
+       * Get the children array for this item (if it is a kit).
+       * @returns {Array}
+       */
+      get children() {
+        return item.definition.children || [];
+      },
+
+      /**
+       * Projection for catalog card rendering.
+       * Includes pricing formula, description, and category.
+       *
+       * @returns {Object}
+       */
+      get catalogCard() {
+        return {
+          ID_Item: item.definition.id ?? 'ITEM_UNKNOWN',
+          Nombre: item.definition.name,
+          Precio_Calculado_Default: item.derived.catalogDisaggregated,
+          Precio_Por_Cantidad: item.derived.pricingHumanText,
+          InitPolicyHuman: item.derived.policyHintText,
+          detalle: `${item.definition.description || ''}
+${item.derived.catalogDisaggregated}`,
+          categoria: item.definition.category
+        };
+      },
+
+      /**
+       * Projection for basket line rendering.
+       * Includes schedule, quantities, pricing details, and availability.
+       *
+       * @returns {Object}
+       */
+      get basketLine() {
+        return {
+          id: item.definition.id ?? 'ITEM_UNKNOWN',
+          lineId: null,
+          itemId: item.definition.id ?? 'ITEM_UNKNOWN',
+          nombre: item.definition.name,
+          descripcion: item.definition.description,
+          categoria: item.definition.category,
+          hora: item.derived.schedule.hora,
+          horaMin: item.derived.schedule.horaMin,
+          horaFinMin: item.derived.schedule.horaMin + item.derived.quantities.duracionMin,
+          dia: item.derived.schedule.dia,
+          comentarios: item.derived.comentarios,
+          pax: item.derived.quantities.pax,
+          cantidad: item.derived.quantities.cantidad,
+          duracionMin: item.derived.quantities.duracionMin,
+          precio: item.derived.unitDisplay,
+          baseFijo: item.derived.base,
+          rateLabel: item.derived.lineRateLabel,
+          rateValue: item.derived.pricingKind === PricingKind.NONE
+            ? item.derived.base
+            : item.derived.rate,
+          rateSubtotal: item.derived.lineRateSubtotal,
+          pricingKind: item.derived.pricingKind,
+          basketLegend: item.derived.basketLegendText,
+          isOverridden: item.derived.isOverridden,
+          isAbsorbido: item.derived.isAbsorbido,
+          showPaxControl: item.derived.showPaxControl,
+          showUnitsControl: item.derived.showUnitsControl,
+          showTimeControl: item.derived.showTimeControl,
+          total: item.derived.total,
+          children: item.definition.children || []
+        };
+      },
+
+      /**
+       * Full projection consumed by XState context / Alpine bridge.
+       * @returns {Object}
+       */
+      toDisplayObject() {
+        const catalogCard = this.catalogCard;
+        const basketLine = this.basketLine;
+
+        return {
+          mode: item.mode,
+          definition: item.definition,
+          externalContext: item.externalContext,
+          overrides: item.overrides,
+          catalogCard,
+          basketLine,
+          profile: item.derived.profile,
+          quantities: item.derived.quantities,
+          schedule: item.derived.schedule,
+          comentarios: item.derived.comentarios,
+          pricingKind: item.derived.pricingKind,
+          initializationMode: item.derived.initializationMode,
+          pricingHuman: item.derived.pricingHumanText,
+          pricingPerQuantityHuman: item.derived.catalogDisaggregated,
+          total: item.derived.total,
+          catalogPriceDisaggregated: item.derived.catalogDisaggregated,
+          catalogFormulaHuman: item.derived.catalogDisaggregated,
+          initPolicyHuman: item.derived.policyHintText,
+          basketLegend: item.derived.basketLegendText,
+          isOverridden: item.derived.isOverridden,
+          isAbsorbido: item.derived.isAbsorbido,
+          lineRateLabel: item.derived.lineRateLabel,
+          lineRateValue: item.derived.pricingKind === PricingKind.NONE
+            ? item.derived.base
+            : item.derived.rate,
+          lineRateSubtotal: item.derived.lineRateSubtotal,
+          lineBaseValue: item.derived.pricingKind === PricingKind.NONE
+            ? 0
+            : item.derived.base,
+          unitDisplay: item.derived.unitDisplay,
+          showPaxControl: item.derived.showPaxControl,
+          showUnitsControl: item.derived.showUnitsControl,
+          showTimeControl: item.derived.showTimeControl,
+          userSetFields: item.derived.userSetFields,
+          isUserSetPax: item.derived.isUserSetPax,
+          isUserSetCantidad: item.derived.isUserSetCantidad,
+          isUserSetDuracion: item.derived.isUserSetDuracion,
+          appliedRules: item.ruleResult?.appliedRules || [],
+          ruleErrors: item.ruleResult?.errors || [],
+          ruleWarnings: item.ruleResult?.warnings || [],
+          available: item.ruleResult?.available ?? true,
+          showPax: item.definition.defaultQuantities?.requierePax ?? false,
+          showCantidad: item.definition.defaultQuantities?.requiereCant ?? false,
+          showDuracion: item.definition.defaultQuantities?.requiereTiempo ?? false,
+          showHora: item.definition.defaultQuantities?.requiereHora ?? false,
+          perfil: item.definition.perfil ?? null,
+          perfilInit: item.definition.perfilInit ?? null,
+          categoria: item.definition.categoria ?? null,
+          children: item.definition.children ?? [],
+        };
+      },
+
+      /**
+       * Serialize state to a seed for persistence or transmission.
+       * @returns {Object}
+       */
+      toSeed() {
+        return {
+          mode: item.mode,
+          definition: item.definition,
+          externalContext: item.externalContext,
+          overrides: item.overrides,
+          userSetFields: [...item.userSetFields]
+        };
+      }
+    };
+  }
+
+  /**
+   * Mappers for Item definitions.
    *
-   * Stateful business object for one item with:
-   * - Pure domain function-based calculations
-   * - Semantic mutation methods
-   * - Render-ready projections for Alpine/XState
+   * @module ItemMapper
+   */
+
+  /**
+   * Maps DB profile to Item pricing profile.
+   * @param {Object} perfil
+   * @returns {Object}
+   */
+  const mapPricingProfile = (perfil) => ({
+    baseFijo: perfil?.Costo_Base_Fijo ?? 0,
+    porPersona: perfil?.Costo_Unitario_Pax ?? 0,
+    porMinuto: perfil?.Costo_Unitario_Tiempo ?? 0,
+    porUnidad: perfil?.Costo_Unitario_Item ?? 0,
+  });
+
+  /**
+   * Maps DB profileInit and category to Item default quantities.
+   * @param {Object} pi
+   * @param {Object} cat
+   * @returns {Object}
+   */
+  const mapDefaultQuantities = (pi, cat) => ({
+    duracionMin: pi?.Duracion_Min ?? 0,
+    unidadesPorUsuario: pi?.Unidades_Por_Pax ?? 0,
+    unidadesPorHora: pi?.Unidades_Por_Hora ?? 0,
+    minutosPorUsuario: pi?.Minutos_Por_Usuario ?? 0,
+    cantidad: pi?.Cantidad_Fija ?? 0,
+    pax: pi?.Pax_Fijo ?? 0,
+    requierePax: cat?.Def_Requiere_Pax ?? false,
+    requiereCant: cat?.Def_Requiere_Cant ?? false,
+    requiereTiempo: cat?.Def_Requiere_Tiempo ?? false,
+    requiereHora: cat?.Def_Requiere_Hora ?? false,
+  });
+
+  /**
+   * Maps full DB definition to internal Item definition.
+   * @param {Object} def
+   * @returns {Object}
+   */
+  const mapDefinition = (def) => ({
+    id: def.ID_Item,
+    name: def.Nombre,
+    description: def.Default_Glosa ?? null,
+    category: def.categoria?.Nombre ?? null,
+    categoriaIcono: def.categoria?.Icono_UI ?? null,
+    pricingProfile: mapPricingProfile(def.perfil),
+    defaultQuantities: mapDefaultQuantities(def.perfilInit, def.categoria),
+    rules: def.reglas ?? [],
+    perfilInit: def.perfilInit ?? null,
+    perfil: def.perfil ?? null,
+    categoria: def.categoria ?? null,
+    children: def.children ?? [],
+  });
+
+  /**
+   * Event-aware time utilities.
    *
-   * Responsibilities:
-   * - Resolve pricing kind and initialization mode
-   * - Compute catalog (disaggregated) and basket (aggregated) views
-   * - Track override state and UI visibility flags
-   * - Expose render-ready projections
+   * The venue operates on an "event day" that may cross midnight.
+   * A configurable day boundary (default 09:00) anchors the day:
+   * times before the boundary are treated as next-day overflow (+1440 minutes).
    *
-   * @module Item
+   * This yields a monotonic integer ("event minutes") suitable for
+   * plain numeric comparisons in JSON Logic:
+   *
+   *   09:00  →  540   (day start, boundary)
+   *   21:00  → 1260   (normal evening)
+   *   01:00  → 1500   (1 AM next day — correctly > 1260)
+   *   08:59  → 1979   (8:59 AM next day)
+   */
+
+  const DEFAULT_BOUNDARY = '09:00';
+
+  /**
+   * Parse a time string to minutes from midnight (0–1439).
+   * Accepts 24h ('21:30', '09:00', '00:00') and
+   * 12h ('9:00 AM', '9:00 PM', '12:00 AM', '12:00 PM').
+   *
+   * @param {string} str
+   * @returns {number} minutes 0–1439
+   * @throws {Error} if the string cannot be parsed or is out of range
+   */
+  function parseTimeString(str) {
+    if (typeof str !== 'string') {
+      throw new Error(`parseTimeString: expected string, got ${typeof str}`);
+    }
+    const s = str.trim();
+
+    // 12h format: "9:00 AM", "9:00 PM", "12:00 AM", "12:00 PM"
+    const h12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (h12) {
+      let h = parseInt(h12[1], 10);
+      const m = parseInt(h12[2], 10);
+      const meridiem = h12[3].toUpperCase();
+      if (h < 1 || h > 12 || m < 0 || m > 59) {
+        throw new Error(`parseTimeString: invalid 12h time '${str}'`);
+      }
+      if (meridiem === 'AM') {
+        h = h === 12 ? 0 : h;        // 12:xx AM → 0:xx (midnight)
+      } else {
+        h = h === 12 ? 12 : h + 12;  // 12:xx PM → 12:xx (noon), 1:xx PM → 13:xx
+      }
+      return h * 60 + m;
+    }
+
+    // 24h format: "21:30", "09:00", "00:00"
+    const h24 = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (h24) {
+      const h = parseInt(h24[1], 10);
+      const m = parseInt(h24[2], 10);
+      if (h < 0 || h > 23 || m < 0 || m > 59) {
+        throw new Error(`parseTimeString: invalid 24h time '${str}'`);
+      }
+      return h * 60 + m;
+    }
+
+    throw new Error(`parseTimeString: unrecognized format '${str}'`);
+  }
+
+  /**
+   * Convert a time string to event minutes — a monotonic integer
+   * anchored to the start of the venue's event day.
+   *
+   * Times before the boundary are treated as next-day overflow (+1440).
+   *
+   * @param {string} timeStr   - Any supported time string
+   * @param {string} [boundary='09:00'] - Day start boundary (24h string)
+   * @returns {number} event minutes (≥ boundaryMinutes, possibly > 1440)
+   */
+  function eventMinutes(timeStr, boundary = DEFAULT_BOUNDARY) {
+    const minutes = parseTimeString(timeStr);
+    const boundaryMin = parseTimeString(boundary);
+    return minutes < boundaryMin ? minutes + 1440 : minutes;
+  }
+
+  /**
+   * Resolves scheduling parameters using a precedence hierarchy.
+   *
+   * Precedence: overrides > externalContext > defaults
+   *
+   * Returns:
+   *   dia      - day number (1-based)
+   *   hora     - time string as-given, for display (e.g. '21:30')
+   *   horaMin  - event minutes: boundary-aware integer for JSON Logic comparisons
+   *              Times before boundary (default 09:00) are treated as next-day (+1440).
+   *              Examples: '09:00' → 540, '21:00' → 1260, '01:00' → 1500
+   *
+   * @param {Object} [externalContext={}]
+   * @param {Object} [overrides={}]
+   * @returns {{ dia: number, hora: string, horaMin: number }}
+   */
+  function resolveSchedule(externalContext = {}, overrides = {}) {
+    const hora = overrides.hora ?? externalContext.hora ?? '09:00';
+    return {
+      dia: overrides.dia ?? externalContext.dia ?? 1,
+      hora,
+      horaMin: eventMinutes(hora)
+    };
+  }
+
+  /**
+   * Calculation logic for Item.
+   *
+   * @module ItemCalculator
    */
 
 
   /**
-   * Refactored Item class using domain functions.
-   * All fields are private (#). Public interface is via getters and mutations.
+   * Resolves pricing parameters from definition.
+   * @param {Object} state
+   * @returns {Object}
    */
-  class Item {
-    #mode;
-    #definition;
-    #externalContext;
-    #overrides;
-    #userSetFields;
-    #derived;
-    #rulesCoordinator;
-    #ruleResult;
+  const resolvePricingParams = (state) => {
+    const profile = normalizeProfile(state.definition.pricingProfile || {});
+    const kind = detectPricingKind(profile);
+    return {
+      profile,
+      kind,
+      initMode: detectInitializationMode(kind, state.definition.defaultQuantities || {}),
+      rate: rateForKind(profile, kind),
+      base: toNumber(profile.baseFijo, 0),
+      defaults: state.definition.defaultQuantities || {}
+    };
+  };
 
-    /**
-     * Private constructor. Use static factories instead.
-     */
-    constructor() {
-      // Nothing here; factories set private fields via initialize()
-    }
+  /**
+   * Resolves effective rate and base considering kit context.
+   * @param {Object} params
+   * @param {Object} state
+   * @returns {Object}
+   */
+  const resolveEffectiveValues = (params, state) => {
+    const isAbsorbido = state.externalContext.kitContext?.tipoPrecio === 'ABSORBIDO';
+    return {
+      isAbsorbido,
+      effectiveRate: isAbsorbido ? 0 : params.rate,
+      effectiveBase: isAbsorbido ? 0 : params.base
+    };
+  };
 
-    /**
-     * Build an Item instance from a definition and optional context.
-     * Useful for catalog card display (no overrides).
-     *
-     * @param {Object} definition - Item definition object
-     * @param {Object} [options={}] - Optional context and overrides
-     * @param {Object} [options.externalContext={}] - External context
-     * @param {Object} [options.overrides={}] - User overrides
-     * @returns {Item}
-     */
-    static fromDefinition(resolvedDef, options = {}) {
-      const item = new Item();
-      const definition = {
-        id:             resolvedDef.ID_Item,
-        name:           resolvedDef.Nombre,
-        description:    resolvedDef.Default_Glosa ?? null,
-        category:       resolvedDef.categoria?.Nombre ?? null,
-        categoriaIcono: resolvedDef.categoria?.Icono_UI ?? null,
-        pricingProfile: {
-          baseFijo:   resolvedDef.perfil?.Costo_Base_Fijo       ?? 0,
-          porPersona: resolvedDef.perfil?.Costo_Unitario_Pax    ?? 0,
-          porMinuto:  resolvedDef.perfil?.Costo_Unitario_Tiempo ?? 0,
-          porUnidad:  resolvedDef.perfil?.Costo_Unitario_Item   ?? 0,
-        },
-        defaultQuantities: {
-          duracionMin:        resolvedDef.perfilInit?.Duracion_Min        ?? 0,
-          unidadesPorUsuario: resolvedDef.perfilInit?.Unidades_Por_Pax    ?? 0,
-          unidadesPorHora:    resolvedDef.perfilInit?.Unidades_Por_Hora   ?? 0,
-          minutosPorUsuario:  resolvedDef.perfilInit?.Minutos_Por_Usuario ?? 0,
-          cantidad:           resolvedDef.perfilInit?.Cantidad_Fija       ?? 0,
-          pax:                resolvedDef.perfilInit?.Pax_Fijo            ?? 0,
-          requierePax:    resolvedDef.categoria?.Def_Requiere_Pax    ?? false,
-          requiereCant:   resolvedDef.categoria?.Def_Requiere_Cant   ?? false,
-          requiereTiempo: resolvedDef.categoria?.Def_Requiere_Tiempo ?? false,
-          requiereHora:   resolvedDef.categoria?.Def_Requiere_Hora   ?? false,
-        },
-        rules:    resolvedDef.reglas    ?? [],
-        perfilInit: resolvedDef.perfilInit ?? null,
-        perfil:   resolvedDef.perfil    ?? null,
-        categoria: resolvedDef.categoria ?? null,
-        children: resolvedDef.children ?? [],
-      };
-      return item.initialize({
-        mode: 'catalog',
-        definition,
-        externalContext: options.externalContext || {},
-        overrides:       options.overrides       || {}
-      });
-    }
+  /**
+   * Resolves basket quantity and total price.
+   * @param {Object} params
+   * @param {Object} effective
+   * @param {Object} state
+   * @returns {Object}
+   */
+  const resolveQuantityAndTotal = (params, effective, state) => {
+    const res = resolveBasketQuantity(
+      params.kind, params.initMode, state.definition.defaultQuantities || {},
+      state.externalContext, state.overrides
+    );
+    return {
+      quantity: res.quantity,
+      isOverridden: res.isOverridden,
+      overrideField: res.overrideField,
+      total: effective.effectiveBase + res.quantity * effective.effectiveRate
+    };
+  };
 
-    /**
-     * Build an Item instance from a complete seed.
-     * Useful for restoring persisted state.
-     *
-     * @param {Object} seed - Complete state seed
-     * @param {string} [seed.mode='catalog']
-     * @param {Object} [seed.definition={}]
-     * @param {Object} [seed.externalContext={}]
-     * @param {Object} [seed.overrides={}]
-     * @returns {Item}
-     */
-    static fromSeed(seed) {
-      const item = new Item();
-      return item.initialize(seed);
-    }
+  /**
+   * Resolves quantities object for different pricing kinds.
+   * @param {PricingKind} kind
+   * @param {number} quantity
+   * @returns {Object}
+   */
+  const resolveQuantitiesObject = (kind, quantity) => ({
+    pax: kind === PricingKind.PAX ? quantity : 0,
+    cantidad: kind === PricingKind.UNITS ? quantity : 0,
+    duracionMin: kind === PricingKind.TIME ? quantity : 0
+  });
 
-    /**
-     * Reset state with a new seed and recalculate all derived fields.
-     * Called by factories and after any mutation.
-     *
-     * @param {Object} seed
-     * @param {'catalog'|'basket'} [seed.mode='catalog']
-     * @param {Object} [seed.definition={}]
-     * @param {Object} [seed.externalContext={}]
-     * @param {Object} [seed.overrides={}]
-     * @returns {Item}
-     */
-    initialize({
-      mode = 'catalog',
-      definition = {},
-      externalContext = {},
-      overrides = {},
-      userSetFields = []
-    } = {}) {
-      this.#mode = mode;
-      this.#definition = {
-        ...(definition || {}),
-        pricingProfile: { ...((definition || {}).pricingProfile || {}) },
-        defaultQuantities: { ...((definition || {}).defaultQuantities || {}) },
-        rules: [...((definition || {}).rules || [])],
-        children: [...((definition || {}).children || [])]
-      };
-      this.#externalContext = { ...(externalContext || {}) };
-      this.#overrides = { ...(overrides || {}) };
-      this.#userSetFields = new Set(userSetFields || []);
-
-      // Initialize RulesCoordinator for ITEM-scoped rules (Step 3.3)
-      // Rules will be evaluated in calculate() with full context available
-      this.#rulesCoordinator = new RulesCoordinator('ITEM', this.#definition.rules || [], this.#definition.id ?? null);
-
-      return this.calculate();
-    }
-
-    /**
-     * Recompute full derived state after any mutation.
-     * Implements the complete calculation pipeline:
-     * 1. Normalize profile
-     * 2. Detect pricing kind
-     * 3. Detect initialization mode
-     * 4. Extract rate
-     * 5. Resolve basket quantity
-     * 6. Compute total
-     * 7. Resolve schedule
-     * 8. Evaluate rules
-     * 9. Format display strings
-     *
-     * @returns {Item}
-     */
-    calculate() {
-      const defaults = this.#definition.defaultQuantities || {};
-      const profile = normalizeProfile(this.#definition.pricingProfile || {});
-      const kind = detectPricingKind(profile);
-      const initMode = detectInitializationMode(kind, defaults);
-      const rate = rateForKind(profile, kind);
-      const base = toNumber(profile.baseFijo, 0);
-
-      const isAbsorbido = this.#externalContext.kitContext?.tipoPrecio === 'ABSORBIDO';
-      const effectiveRate = isAbsorbido ? 0 : rate;
-      const effectiveBase = isAbsorbido ? 0 : base;
-
-      const basketResolution = resolveBasketQuantity(
-        kind,
-        initMode,
-        defaults,
-        this.#externalContext,
-        this.#overrides
-      );
-
-      const quantity = basketResolution.quantity;
-      const total = toInteger(effectiveBase + quantity * effectiveRate, 0);
-
-      const quantities = {
-        pax: kind === PricingKind.PAX ? quantity : 0,
-        cantidad: kind === PricingKind.UNITS ? quantity : 0,
-        duracionMin: kind === PricingKind.TIME ? quantity : 0
-      };
-
-      const schedule = resolveSchedule(this.#externalContext, this.#overrides);
-      const horaFinMin = schedule.horaMin + quantities.duracionMin;
-
-      // Evaluate rules using RulesCoordinator.
-      // Snapshot uses the `linea.*` namespace that matches Condicion_JSON var paths
-      // in REGLAS_NEGOCIO.csv (e.g. { "var": "linea._pax" }, { "var": "linea.ID_Item" }).
-      this.#rulesCoordinator.invalidateCache();
-      this.#ruleResult = this.#rulesCoordinator.evaluate({
-        item: {
-          id:       this.#definition.id,
-          pax:      quantities.pax,
-          cantidad: quantities.cantidad,
-          duracion: quantities.duracionMin,
-          hora:     schedule.hora,
-          horaMin:  schedule.horaMin,
-          horaFinMin,
-          dia:      schedule.dia,
-        }
-      });
-
-      const catalogDisaggregated = formatCatalogTerms(
-        base,
-        kind,
-        initMode,
-        rate,
-        defaults
-      );
-
-      const policyHintText = policyHint(kind, initMode, defaults);
-      const basketLegendText = legendForBasket(base, kind, quantity, rate, total);
-      const pricingHumanText = profileHumanText(base, kind, rate);
-      const lineRateLabelText = lineRateLabel(kind, initMode);
-
-      // Store all derived values
-      this.#derived = {
-        profile,
-        pricingKind: kind,
-        initializationMode: initMode,
-        rate,
-        base,
-        basketQuantity: quantity,
-        total,
-        unitDisplay: quantity > 0 ? toInteger(total / quantity, 0) : toInteger(total, 0),
-        isAbsorbido,
-        isOverridden: basketResolution.isOverridden,
-        overrideField: basketResolution.overrideField,
-        catalogDisaggregated,
-        policyHintText,
-        basketLegendText,
-        pricingHumanText,
-        quantities,
-        schedule,
-        lineRateLabel: lineRateLabelText,
-        lineRateSubtotal: quantity * rate,
-        comentarios: this.#overrides.comentarios ?? '',
-        showPaxControl: kind === PricingKind.PAX,
-        showUnitsControl: kind === PricingKind.UNITS,
-        showTimeControl: kind === PricingKind.TIME,
-        userSetFields: [...this.#userSetFields],
-        isUserSetPax: this.#userSetFields.has('pax'),
-        isUserSetCantidad: this.#userSetFields.has('cantidad'),
-        isUserSetDuracion: this.#userSetFields.has('duracionMin')
-      };
-
-      return this;
-    }
-
-    // ---- Semantic Mutations (each returns this for chaining) ----
-
-    /**
-     * Set mode (catalog/basket) and recalculate.
-     *
-     * @param {'catalog'|'basket'} mode
-     * @returns {Item}
-     */
-    setMode(mode = 'catalog') {
-      this.#mode = mode;
-      return this.calculate();
-    }
-
-    /**
-     * Merge external context values and recalculate.
-     * External context includes paxGlobal, duracionMin, dia, hora from the event.
-     *
-     * @param {Object} patch
-     * @returns {Item}
-     */
-    receiveContext(patch = {}) {
-      this.#externalContext = {
-        ...this.#externalContext,
-        ...(patch || {})
-      };
-      return this.calculate();
-    }
-
-    /**
-     * Set one override value and recalculate.
-     * Overrides include pax, cantidad, duracionMin, dia, hora, comentarios.
-     *
-     * @param {string} key
-     * @param {any} value
-     * @returns {Item}
-     */
-    setOverride(key, value) {
-      this.#overrides = {
-        ...this.#overrides,
-        [key]: value
-      };
-      // Track quantity fields as user-set (not comments or schedule)
-      if (['pax', 'cantidad', 'duracionMin'].includes(key)) {
-        this.#userSetFields.add(key);
+  /**
+   * Evaluates rules for the item.
+   * @param {Object} state
+   * @param {Object} quantities
+   * @param {Object} schedule
+   * @returns {Object}
+   */
+  const evaluateItemRules = (state, quantities, schedule) => {
+    state.rulesCoordinator.invalidateCache();
+    return state.rulesCoordinator.evaluate({
+      item: {
+        id: state.definition.id,
+        pax: quantities.pax,
+        cantidad: quantities.cantidad,
+        duracion: quantities.duracionMin,
+        hora: schedule.hora,
+        horaMin: schedule.horaMin,
+        horaFinMin: schedule.horaMin + quantities.duracionMin,
+        dia: schedule.dia,
       }
-      return this.calculate();
+    });
+  };
+
+  /**
+   * Formats all display strings for the item.
+   * @param {Object} p - params
+   * @param {number} q - quantity
+   * @param {number} t - total
+   * @returns {Object}
+   */
+  const formatDisplayStrings = (p, q, t) => ({
+    catalogDisaggregated: formatCatalogTerms(p.base, p.kind, p.initMode, p.rate, p.defaults),
+    policyHintText: policyHint(p.kind, p.initMode, p.defaults),
+    basketLegendText: legendForBasket(p.base, p.kind, q, p.rate, t),
+    pricingHumanText: profileHumanText(p.base, p.kind, p.rate),
+    lineRateLabelText: lineRateLabel(p.kind, p.initMode)
+  });
+
+  class Item {
+    mode; definition; externalContext; overrides; userSetFields;
+    derived; rulesCoordinator; ruleResult;
+
+    constructor() {
+      Object.assign(this, createItemState(this));
+      const descriptors = Object.getOwnPropertyDescriptors(createItemProjections(this));
+      for (const key in descriptors) {
+        if (!['mode', 'definition', 'externalContext', 'overrides'].includes(key)) {
+          Object.defineProperty(this, key, descriptors[key]);
+        }
+      }
     }
 
-    /**
-     * Remove one override value and recalculate.
-     *
-     * @param {string} key
-     * @returns {Item}
-     */
-    clearOverride(key) {
-      const next = { ...this.#overrides };
-      delete next[key];
-      this.#overrides = next;
-      this.#userSetFields.delete(key);
-      return this.calculate();
+    static fromDefinition(resolvedDef, options = {}) {
+      return new Item().initialize({
+        mode: 'catalog',
+        definition: mapDefinition(resolvedDef),
+        externalContext: options.externalContext || {},
+        overrides: options.overrides || {}
+      });
     }
 
-    /**
-     * Clear all overrides and recalculate.
-     *
-     * @returns {Item}
-     */
-    resetOverrides() {
-      this.#overrides = {};
-      this.#userSetFields = new Set();
-      return this.calculate();
+    static fromSeed(seed) {
+      return new Item().initialize(seed);
     }
 
-    /**
-     * Update one pricing profile field and recalculate.
-     *
-     * @param {string} key
-     * @param {number|string} value
-     * @returns {Item}
-     */
-    setProfileValue(key, value) {
-      this.#definition.pricingProfile = {
-        ...(this.#definition.pricingProfile || {}),
-        [key]: toNumber(value, 0)
+    initialize(seed = {}) {
+      this.mode = seed.mode || 'catalog';
+      const def = seed.definition || {};
+      this.definition = {
+        ...def,
+        pricingProfile: { ...def.pricingProfile },
+        defaultQuantities: { ...def.defaultQuantities },
+        rules: [...(def.rules || [])],
+        children: [...(def.children || [])]
       };
+      this.externalContext = { ...seed.externalContext };
+      this.overrides = { ...seed.overrides };
+      this.userSetFields = new Set(seed.userSetFields || []);
+      this.rulesCoordinator = new RulesCoordinator('ITEM', this.definition.rules, this.definition.id ?? null);
       return this.calculate();
     }
 
-    /**
-     * Update one initialization field with exclusivity rules and recalculate.
-     * Uses applyExclusiveDefaultMode to enforce only one mode per kind.
-     *
-     * @param {string} key
-     * @param {number|string} value
-     * @returns {Item}
-     */
-    setDefaultQuantity(key, value) {
-      this.#definition.defaultQuantities = applyExclusiveDefaultMode(
-        this.#definition.defaultQuantities || {},
-        key,
-        value
-      );
-      return this.calculate();
-    }
+    calculate() {
+      const p = resolvePricingParams(this);
+      const eff = resolveEffectiveValues(p, this);
+      const qt = resolveQuantityAndTotal(p, eff, this);
+      const q = resolveQuantitiesObject(p.kind, qt.quantity);
+      const sched = resolveSchedule(this.externalContext, this.overrides);
+      const s = formatDisplayStrings(p, qt.quantity, qt.total);
 
-    /**
-     * Remove one initialization field and recalculate.
-     *
-     * @param {string} key
-     * @returns {Item}
-     */
-    clearDefaultQuantity(key) {
-      const next = { ...(this.#definition.defaultQuantities || {}) };
-      delete next[key];
-      this.#definition.defaultQuantities = next;
-      return this.calculate();
-    }
+      this.ruleResult = evaluateItemRules(this, q, sched);
 
-    // ---- Getters (read-only, no computation) ----
-
-    /**
-     * Get current mode (catalog or basket).
-     * @returns {'catalog'|'basket'}
-     */
-    get mode() {
-      return this.#mode;
-    }
-
-    /**
-     * Get current definition.
-     * @returns {Object}
-     */
-    get definition() {
-      return this.#definition;
-    }
-
-    /**
-     * Get current external context.
-     * @returns {Object}
-     */
-    get externalContext() {
-      return this.#externalContext;
-    }
-
-    /**
-     * Get current overrides.
-     * @returns {Object}
-     */
-    get overrides() {
-      return this.#overrides;
-    }
-
-    // ---- Key Derived Fields (from #derived cache) ----
-
-    /**
-     * Get the detected pricing kind.
-     * @returns {PricingKind}
-     */
-    get pricingKind() {
-      return this.#derived.pricingKind;
-    }
-
-    /**
-     * Get the computed total price.
-     * @returns {number}
-     */
-    get total() {
-      return this.#derived.total;
-    }
-
-    /**
-     * Get whether the quantity is user-overridden.
-     * @returns {boolean}
-     */
-    get isOverridden() {
-      return this.#derived.isOverridden;
-    }
-
-
-    /**
-     * Get quantities object with pax, cantidad, duracionMin.
-     * @returns {Object}
-     */
-    get quantities() {
-      return this.#derived.quantities;
-    }
-
-    /**
-     * Get schedule object with dia and hora.
-     * @returns {Object}
-     */
-    get schedule() {
-      return this.#derived.schedule;
-    }
-
-    /**
-     * Get the rules array for this item.
-     * Rules evaluation is NOT YET IMPLEMENTED at Item level (Step 3.3).
-     *
-     * Rule structure (from REGLAS_NEGOCIO.csv):
-     * {
-     *   ID_Regla: string,
-     *   Nombre: string,
-     *   Etapa: string,              // (not used in Step 3.3)
-     *   Scope: string,              // ITEM, CATEGORY, KIT, CONTAINER, BASKET
-     *   Tipo_Accion: string,        // ERROR, WARNING, MULTIPLY, ADD_FIXED, SET_VALUE, SET_TAX, SET_DEFAULT, ADD_ITEM, INVALIDATE_BASKET
-     *   Condicion_JSON: string|obj, // json-logic-js expression (business logic only, no ID matching)
-     *   Payload_JSON: string|obj,   // action-specific payload
-     *   Prioridad: number,
-     *   Acumulable: boolean,
-     *   Activo: boolean,
-     *   Updated_At: string
-     * }
-     *
-     * When implemented (Step 3.3):
-     * - Filter rules at construction: r.Scope === 'ITEM' && r.ID_Item === itemId && r.Activo === true
-     * - Sort by Prioridad (ascending)
-     * - Evaluate each condition (Condicion_JSON) against: { pax, cantidad, duracionMin, hora, dia }
-     * - Execute matching action handlers (ERROR/WARNING have effects, others are no-op for now)
-     * - Cache results (no re-evaluation on quantity changes)
-     * - Use humanize.js for readable condition/action formatting
-     * - Re-evaluate on externalContext changes (re-filter + re-evaluate)
-     *
-     * Key insight: Component ID matching (ID_Item) happens in the FILTER, not the condition.
-     * This keeps conditions pure and reusable across CATEGORY, KIT, CONTAINER, BASKET later.
-     *
-     * See: packages/components/item/domain/rulesEngine/README.md (filtering strategy)
-     * See: claps_codelab/packages/pricing/src/RulesEngine/ (implementation reference)
-     *
-     * @returns {Array}
-     */
-    get rules() {
-      return this.#definition.rules || [];
-    }
-
-    /**
-     * Get the children array for this item (if it is a kit).
-     * @returns {Array}
-     */
-    get children() {
-      return this.#definition.children || [];
-    }
-
-    // ---- Projections ----
-
-    /**
-     * Projection for catalog card rendering.
-     * Includes pricing formula, description, and category.
-     *
-     * @returns {Object}
-     */
-    get catalogCard() {
-      return {
-        ID_Item: this.#definition.id ?? 'ITEM_UNKNOWN',
-        Nombre: this.#definition.name,
-        Precio_Calculado_Default: this.#derived.catalogDisaggregated,
-        Precio_Por_Cantidad: this.#derived.pricingHumanText,
-        InitPolicyHuman: this.#derived.policyHintText,
-        detalle: `${this.#definition.description || ''}\n${this.#derived.catalogDisaggregated}`,
-        categoria: this.#definition.category
+      this.derived = {
+        profile: p.profile, pricingKind: p.kind, initializationMode: p.initMode,
+        rate: p.rate, base: p.base, basketQuantity: qt.quantity, total: qt.total,
+        unitDisplay: qt.quantity > 0 ? (qt.total / qt.quantity) : qt.total,
+        isAbsorbido: eff.isAbsorbido, isOverridden: qt.isOverridden, overrideField: qt.overrideField,
+        catalogDisaggregated: s.catalogDisaggregated, policyHintText: s.policyHintText,
+        basketLegendText: s.basketLegendText, pricingHumanText: s.pricingHumanText,
+        quantities: q, schedule: sched, lineRateLabel: s.lineRateLabelText, lineRateSubtotal: qt.quantity * p.rate,
+        comentarios: this.overrides.comentarios ?? '',
+        showPaxControl: p.kind === 'por-persona', showUnitsControl: p.kind === 'por-unidad', showTimeControl: p.kind === 'por-tiempo',
+        userSetFields: [...this.userSetFields], isUserSetPax: this.userSetFields.has('pax'),
+        isUserSetCantidad: this.userSetFields.has('cantidad'), isUserSetDuracion: this.userSetFields.has('duracionMin')
       };
-    }
-
-    /**
-     * Projection for basket line rendering.
-     * Includes schedule, quantities, pricing details, and availability.
-     *
-     * @returns {Object}
-     */
-    get basketLine() {
-      return {
-        id: this.#definition.id ?? 'ITEM_UNKNOWN',
-        lineId: null,
-        itemId: this.#definition.id ?? 'ITEM_UNKNOWN',
-        nombre: this.#definition.name,
-        descripcion: this.#definition.description,
-        categoria: this.#definition.category,
-        hora: this.#derived.schedule.hora,
-        horaMin: this.#derived.schedule.horaMin,
-        horaFinMin: this.#derived.schedule.horaMin + this.#derived.quantities.duracionMin,
-        dia: this.#derived.schedule.dia,
-        comentarios: this.#derived.comentarios,
-        pax: this.#derived.quantities.pax,
-        cantidad: this.#derived.quantities.cantidad,
-        duracionMin: this.#derived.quantities.duracionMin,
-        precio: this.#derived.unitDisplay,
-        baseFijo: this.#derived.base,
-        rateLabel: this.#derived.lineRateLabel,
-        rateValue: this.#derived.pricingKind === PricingKind.NONE
-          ? this.#derived.base
-          : this.#derived.rate,
-        rateSubtotal: this.#derived.lineRateSubtotal,
-        pricingKind: this.#derived.pricingKind,
-        basketLegend: this.#derived.basketLegendText,
-        isOverridden: this.#derived.isOverridden,
-        isAbsorbido: this.#derived.isAbsorbido,
-        showPaxControl: this.#derived.showPaxControl,
-        showUnitsControl: this.#derived.showUnitsControl,
-        showTimeControl: this.#derived.showTimeControl,
-        total: this.#derived.total,
-        children: this.#definition.children || []
-      };
-    }
-
-    /**
-     * Full projection consumed by XState context / Alpine bridge.
-     * Includes all computed fields and both catalog/basket views.
-     *
-     * EXACT same shape as ItemLogic.toMachineContext() for backward compat.
-     *
-     * @returns {Object}
-     */
-    toDisplayObject() {
-      const catalogCard = this.catalogCard;
-      const basketLine = this.basketLine;
-
-      return {
-        mode: this.#mode,
-        definition: this.#definition,
-        externalContext: this.#externalContext,
-        overrides: this.#overrides,
-        catalogCard,
-        basketLine,
-        profile: this.#derived.profile,
-        quantities: this.#derived.quantities,
-        schedule: this.#derived.schedule,
-        comentarios: this.#derived.comentarios,
-        pricingKind: this.#derived.pricingKind,
-        initializationMode: this.#derived.initializationMode,
-        pricingHuman: this.#derived.pricingHumanText,
-        pricingPerQuantityHuman: this.#derived.catalogDisaggregated,
-        total: this.#derived.total,
-        catalogPriceDisaggregated: this.#derived.catalogDisaggregated,
-        catalogFormulaHuman: this.#derived.catalogDisaggregated,
-        initPolicyHuman: this.#derived.policyHintText,
-        basketLegend: this.#derived.basketLegendText,
-        isOverridden: this.#derived.isOverridden,
-        isAbsorbido: this.#derived.isAbsorbido,
-        lineRateLabel: this.#derived.lineRateLabel,
-        lineRateValue: this.#derived.pricingKind === PricingKind.NONE
-          ? this.#derived.base
-          : this.#derived.rate,
-        lineRateSubtotal: this.#derived.lineRateSubtotal,
-        lineBaseValue: this.#derived.pricingKind === PricingKind.NONE
-          ? 0
-          : this.#derived.base,
-        unitDisplay: this.#derived.unitDisplay,
-        showPaxControl: this.#derived.showPaxControl,
-        showUnitsControl: this.#derived.showUnitsControl,
-        showTimeControl: this.#derived.showTimeControl,
-        userSetFields: this.#derived.userSetFields,
-        isUserSetPax: this.#derived.isUserSetPax,
-        isUserSetCantidad: this.#derived.isUserSetCantidad,
-        isUserSetDuracion: this.#derived.isUserSetDuracion,
-        appliedRules: this.#ruleResult?.appliedRules || [],
-        ruleErrors: this.#ruleResult?.errors || [],
-        ruleWarnings: this.#ruleResult?.warnings || [],
-        available: this.#ruleResult?.available ?? true,
-        // Visibility flags — from category dimension flags (set by DB definition)
-        showPax:      this.#definition.defaultQuantities?.requierePax    ?? false,
-        showCantidad: this.#definition.defaultQuantities?.requiereCant   ?? false,
-        showDuracion: this.#definition.defaultQuantities?.requiereTiempo ?? false,
-        showHora:     this.#definition.defaultQuantities?.requiereHora   ?? false,
-        // Raw DB objects for read-only display panels
-        perfil:     this.#definition.perfil     ?? null,
-        perfilInit: this.#definition.perfilInit ?? null,
-        categoria:  this.#definition.categoria  ?? null,
-        children:   this.#definition.children   ?? [],
-      };
-    }
-
-    /**
-     * Serialize state to a seed for persistence or transmission.
-     * Can be restored with Item.fromSeed().
-     *
-     * @returns {Object}
-     */
-    toSeed() {
-      return {
-        mode: this.#mode,
-        definition: this.#definition,
-        externalContext: this.#externalContext,
-        overrides: this.#overrides,
-        userSetFields: [...this.#userSetFields]
-      };
+      return this;
     }
   }
 
@@ -14443,6 +14239,510 @@ var QuotationEngine = (function (exports) {
     document.body.removeChild(link);
   }
 
+  function Eventable(Base) {
+    return class extends Base {
+      _listeners = {};
+
+      on(eventName, callback) {
+        if (!this._listeners[eventName]) {
+          this._listeners[eventName] = [];
+        }
+
+        this._listeners[eventName].push(callback);
+        return this;
+      }
+
+      emit(eventName, data) {
+        const callbacks = this._listeners[eventName] ?? [];
+        for (const callback of callbacks) {
+          callback(data);
+        }
+        return this;
+      }
+
+      off(eventName, callback) {
+        const callbacks = this._listeners[eventName] ?? [];
+        this._listeners[eventName] = callbacks.filter((item) => item !== callback);
+        return this;
+      }
+    };
+  }
+
+  function Alpineable(Base) {
+    return class extends Base {
+      toDisplayObject() {
+        throw new Error(`${this.constructor.name} must implement toDisplayObject()`);
+      }
+    };
+  }
+
+  function Actorlike(Base) {
+    return class extends Base {
+      _actorRef = null;
+
+      setActorRef(actorRef) {
+        this._actorRef = actorRef ?? null;
+        return this;
+      }
+
+      sendEvent(type, payload = {}) {
+        if (this._actorRef && typeof this._actorRef.send === 'function') {
+          this._actorRef.send({ type, ...payload });
+        }
+        return this;
+      }
+
+      getSnapshot() {
+        return this._actorRef?.getSnapshot?.();
+      }
+
+      subscribe(callback) {
+        return this._actorRef?.subscribe?.(callback);
+      }
+
+      onActorUpdate(snapshot) {
+        // Hook for subclasses to respond to actor state changes
+      }
+
+      get hasActorRef() {
+        return this._actorRef !== null;
+      }
+    };
+  }
+
+  const UIContainerMixin = (Base) => Alpineable(Eventable(Actorlike(Base)));
+
+  class UIContainerBase extends UIContainerMixin(class {}) {}
+
+  class SidebarController extends UIContainerBase {
+    constructor(runtime) {
+      super();
+      this.runtime = runtime;
+      this.draggingCatalogItemId = null;
+      this.selectedClient = null;
+      this.settings = {};
+      this.catalog = { categories: [] };
+    }
+
+    onActorUpdate(snapshot) {
+      this.selectedClient = snapshot.selectedClient;
+      this.settings = snapshot.settings;
+      this.catalog = snapshot.catalog;
+    }
+
+    openClientModal() { this.runtime.openClientModal(); }
+    setSetting(key, value) { this.runtime.setQuotationSettings({ [key]: value }); }
+    setCatalogSearch(term) { this.runtime.setCatalogSearch(term); }
+    toggleCategory(categoryId) { this.runtime.toggleCategory(categoryId); }
+    shipCatalogEntry(itemId, overrides = {}) { this.runtime.shipItemToSelectedDay(itemId, overrides); }
+
+    startCatalogDrag(itemId, event) {
+      if (!itemId) return;
+      this.draggingCatalogItemId = itemId;
+      if (event?.dataTransfer) {
+        event.dataTransfer.setData('text/plain', String(itemId));
+        event.dataTransfer.effectAllowed = 'copy';
+      }
+    }
+
+    endCatalogDrag() {
+      this.draggingCatalogItemId = null;
+    }
+
+    toDisplayObject() {
+      const snapshot = this.runtime.getSnapshot();
+      return {
+        selectedClient: snapshot.selectedClient,
+        settings: snapshot.settings,
+        catalog: snapshot.catalog,
+        draggingCatalogItemId: this.draggingCatalogItemId,
+        // Methods
+        openClientModal: () => this.openClientModal(),
+        setSetting: (k, v) => this.setSetting(k, v),
+        setCatalogSearch: (t) => this.setCatalogSearch(t),
+        toggleCategory: (id) => this.toggleCategory(id),
+        shipCatalogEntry: (id, o) => this.shipCatalogEntry(id, o),
+        startCatalogDrag: (id, e) => this.startCatalogDrag(id, e),
+        endCatalogDrag: () => this.endCatalogDrag(),
+      };
+    }
+  }
+
+  function createSidebar(runtime) {
+    return new SidebarController(runtime);
+  }
+
+  /**
+   * TimelineController manages the logic for the quotation timeline,
+   * including drag and drop, resizing, and grid coordinate calculations.
+   */
+  class TimelineController extends UIContainerBase {
+    constructor(runtime) {
+      super();
+      this.runtime = runtime;
+      this.HOUR_H = 64;
+      this.N_HOURS = 16;
+      this.START_H = 8;
+      this.dropIndicatorY = null;
+      this.dropIndicatorTime = '';
+      this.movingId = null;
+      this.dragOffsetMin = 0;
+      this.resizeId = null;
+      this.resizeStartY = 0;
+      this.resizeOrigDur = 0;
+      this.mainTab = 'timeline';
+      this.settings = {};
+      this.basket = { basketEntries: [] };
+      this.selectedClient = null;
+      this.validation = { totals: { subtotal: 0, total: 0 } };
+      this.draggingCatalogItemId = null;
+      this.hours = Array.from({ length: this.N_HOURS }, (_, i) =>
+        `${String(i + this.START_H).padStart(2, '0')}:00`
+      );
+    }
+
+    onActorUpdate(snapshot) {
+      this.settings = snapshot.settings;
+      this.basket = snapshot.basket;
+      this.selectedClient = snapshot.selectedClient;
+      this.validation = snapshot.validation;
+      this.draggingCatalogItemId = snapshot.draggingCatalogItemId;
+    }
+
+    /**
+     * Converts relative Y coordinate to starting minute, snapped to 15-min intervals.
+     */
+    yToStartMin(relY, offsetMin = 0) {
+      const raw = (relY / this.HOUR_H) * 60 + (this.START_H * 60) - offsetMin;
+      const snapped = Math.round(raw / 15) * 15;
+      const minStart = this.START_H * 60;
+      const maxStart = (this.START_H + this.N_HOURS) * 60 - 15;
+      return Math.max(minStart, Math.min(maxStart, snapped));
+    }
+
+    /**
+     * Converts minute to Y coordinate relative to the grid start.
+     */
+    minuteToY(m) {
+      return ((m - (this.START_H * 60)) / 60) * this.HOUR_H;
+    }
+
+    /**
+     * Formats minutes as HH:mm.
+     */
+    fmtMin(totalMin) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    /**
+     * Calculates the style for an entry block.
+     */
+    blockStyle(entry) {
+      const hora = entry.hora || '09:00';
+      const [h, m] = hora.split(':').map(Number);
+      const startMin = h * 60 + m;
+      const top = this.minuteToY(startMin);
+      const dur = Number(entry.duracionMin || entry.state?.quantities?.duracionMin || 60);
+      const height = (dur / 60) * this.HOUR_H;
+      return `top:${top}px; height:${Math.max(48, height)}px; left: 70px; right: 8px;`;
+    }
+
+    // --- Event Handlers ---
+
+    onGridDragOver(event, isDraggingCatalogItem) {
+      if (!isDraggingCatalogItem) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const relY = event.clientY - rect.top;
+      const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+      this.dropIndicatorY = this.minuteToY(startMin);
+      this.dropIndicatorTime = this.fmtMin(startMin);
+    }
+
+    onGridDragLeave(event) {
+      if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+        this.dropIndicatorY = null;
+        this.dropIndicatorTime = '';
+      }
+    }
+
+    onGridDrop(event, draggedItemId) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const relY = event.clientY - rect.top;
+      const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+      const time = this.fmtMin(startMin);
+
+      if (this.movingId) {
+        this.emit('BASKET_ENTRY_UPDATED', { entryId: this.movingId, key: 'hora', value: time });
+      } else if (draggedItemId) {
+        this.emit('ITEM_DROPPED', { itemId: draggedItemId, hora: time });
+      }
+
+      this.endDrag();
+      this.dropIndicatorY = null;
+      this.dropIndicatorTime = '';
+    }
+
+    startMovePlaced(entry, event) {
+      this.movingId = entry.entryId;
+      this.dragOffsetMin = (event.offsetY / this.HOUR_H) * 60;
+      this.emit('MOVE_STARTED', { entry, event });
+    }
+
+    startResize(entry, event) {
+      this.resizeId = entry.entryId;
+      this.resizeStartY = event.clientY;
+      this.resizeOrigDur = entry.duracionMin || 60;
+    }
+
+    doResize(event) {
+      if (!this.resizeId) return;
+      const deltaY = event.clientY - this.resizeStartY;
+      const deltaMins = (deltaY / this.HOUR_H) * 60;
+      const newDuration = Math.max(15, Math.round((this.resizeOrigDur + deltaMins) / 15) * 15);
+      this.emit('BASKET_ENTRY_UPDATED', { entryId: this.resizeId, key: 'duracionMin', value: newDuration });
+    }
+
+    endResize() {
+      this.resizeId = null;
+    }
+
+    endDrag() {
+      this.emit('DRAG_ENDED');
+      this.movingId = null;
+      this.dragOffsetMin = 0;
+    }
+
+    /**
+     * Returns the state required by the Timeline UI.
+     */
+    toDisplayObject() {
+      const snapshot = this.runtime.getSnapshot();
+      return {
+        HOUR_H: this.HOUR_H,
+        N_HOURS: this.N_HOURS,
+        START_H: this.START_H,
+        hours: this.hours,
+        dropIndicatorY: this.dropIndicatorY,
+        dropIndicatorTime: this.dropIndicatorTime,
+        movingId: this.movingId,
+        dragOffsetMin: this.dragOffsetMin,
+        resizeId: this.resizeId,
+        mainTab: this.mainTab,
+        settings: snapshot.settings,
+        basket: snapshot.basket,
+        selectedClient: snapshot.selectedClient,
+        validation: snapshot.validation,
+        draggingCatalogItemId: snapshot.draggingCatalogItemId,
+        yToStartMin: (relY, offsetMin) => this.yToStartMin(relY, offsetMin),
+        minuteToY: (m) => this.minuteToY(m),
+        fmtMin: (totalMin) => this.fmtMin(totalMin),
+        blockStyle: (entry) => this.blockStyle(entry),
+        onGridDragOver: (event, isDragging) => this.onGridDragOver(event, isDragging),
+        onGridDragLeave: (event) => this.onGridDragLeave(event),
+        onGridDrop: (event, draggedId) => this.onGridDrop(event, draggedId),
+        startMovePlaced: (entry, event) => this.startMovePlaced(entry, event),
+        startResize: (entry, event) => this.startResize(entry, event),
+        doResize: (event) => this.doResize(event),
+        endResize: () => this.endResize(),
+        endDrag: () => this.endDrag()
+      };
+    }
+  }
+
+  function createTimeline(runtime) {
+    return new TimelineController(runtime);
+  }
+
+  function parseOverrideValue$1(value) {
+    if (value === '') return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+
+  /**
+   * Controller for the Item List (Basket details).
+   */
+  class ItemListController extends UIContainerBase {
+    constructor(runtime) {
+      super();
+      this.runtime = runtime;
+      this.basket = { basketEntries: [] };
+      this.globalContext = { hora: '09:00' };
+    }
+
+    onActorUpdate(snapshot) {
+      this.basket = snapshot.basket;
+      this.globalContext = { hora: snapshot.settings?.horaInicio || '09:00' };
+    }
+
+    get basketEntries() {
+      return this.basket?.basketEntries || [];
+    }
+
+    setBasketOverride(entryId, key, value) {
+      if (value === '') {
+        this.runtime.clearEntryOverride(entryId, key);
+        return;
+      }
+      this.runtime.setEntryOverride(entryId, key, parseOverrideValue$1(value));
+    }
+
+    clearBasketOverride(entryId, key) {
+      this.runtime.clearEntryOverride(entryId, key);
+    }
+
+    resetBasketOverrides(entryId) {
+      this.runtime.resetEntryOverrides(entryId);
+    }
+
+    destroyRuntimeEntry(column, entryId) {
+      if (column !== 'basket') return;
+      this.runtime.removeEntry(entryId);
+    }
+
+    duplicateBasketEntry(entryId) {
+      this.runtime.duplicateEntryInDay(entryId);
+    }
+
+    copyBasketEntry(entryId) {
+      const snapshot = this.runtime.getSnapshot();
+      const target = Number(snapshot.basket?.selectedDayIndex || 0) + 2; // Next day
+      this.runtime.copyEntryToDay(entryId, target);
+    }
+
+    toDisplayObject() {
+      const snapshot = this.runtime.getSnapshot();
+      return {
+        basket: snapshot.basket,
+        setBasketOverride: (id, k, v) => this.setBasketOverride(id, k, v),
+        clearBasketOverride: (id, k) => this.clearBasketOverride(id, k),
+        resetBasketOverrides: (id) => this.resetBasketOverrides(id),
+        destroyRuntimeEntry: (c, id) => this.destroyRuntimeEntry(c, id),
+        duplicateBasketEntry: (id) => this.duplicateBasketEntry(id),
+        copyBasketEntry: (id) => this.copyBasketEntry(id),
+      };
+    }
+  }
+
+  function createItemList(runtime) {
+    return new ItemListController(runtime);
+  }
+
+  class ModalsController extends UIContainerBase {
+    constructor(runtime) {
+      super();
+      this.runtime = runtime;
+      this.clientSearchTerm = '';
+      this.quotationSearchTerm = '';
+      this.quotationSearchResults = [];
+      this.quotationSearchLoading = false;
+      this.quotationSearchError = null;
+      this.clientModalOpen = false;
+      this.quotationSearchModalOpen = false;
+    }
+
+    onActorUpdate(snapshot) {
+      this.clientModalOpen = snapshot.clientModalOpen;
+      this.quotationSearchModalOpen = snapshot.quotationSearchModalOpen;
+    }
+
+    // Quotation Search Modal
+    async openQuotationSearchModal() {
+      this.quotationSearchError = null;
+      this.quotationSearchLoading = true;
+      try {
+        const result = await this.runtime.listQuotations({ limit: 50 });
+        if (!result?.ok) {
+          this.quotationSearchResults = [];
+          this.quotationSearchError = result?.error?.message || result?.error || 'Unable to load quotations';
+          return;
+        }
+        this.quotationSearchResults = result.data?.items || [];
+      } catch (err) {
+        this.quotationSearchError = err.message || 'Error loading quotations';
+      } finally {
+        this.quotationSearchLoading = false;
+      }
+    }
+
+    closeQuotationSearchModal() {
+      this.quotationSearchError = null;
+      // Note: visibility state is usually managed by the runtime/snapshot
+    }
+
+    setQuotationSearch(term) {
+      this.quotationSearchTerm = String(term || '');
+    }
+
+    filteredQuotations() {
+      const term = this.quotationSearchTerm.trim().toLowerCase();
+      if (!term) return this.quotationSearchResults;
+      return this.quotationSearchResults.filter((quotation) => {
+        return [
+          quotation.clientName,
+          quotation.quotationId,
+          quotation.quotationDate,
+          quotation.pax,
+        ].some((field) => String(field || '').toLowerCase().includes(term));
+      });
+    }
+
+    async selectQuotationResult(quotationId) {
+      this.closeQuotationSearchModal();
+      await this.runtime.loadQuotation(quotationId);
+    }
+
+    // Client Modal
+    setClientSearch(term) {
+      this.clientSearchTerm = String(term || '');
+    }
+
+    filteredClients() {
+      const snapshot = this.runtime.getSnapshot();
+      const clients = snapshot.clients || [];
+      const term = this.clientSearchTerm.trim().toLowerCase();
+      if (!term) return clients;
+      return clients.filter((client) => {
+        return [client.nombre, client.rut, client.email].some((field) =>
+          String(field || '').toLowerCase().includes(term)
+        );
+      });
+    }
+
+    selectClient(clientId) {
+      this.runtime.selectClient(clientId);
+    }
+
+    toDisplayObject() {
+      const snapshot = this.runtime.getSnapshot();
+      return {
+        clientSearchTerm: this.clientSearchTerm,
+        quotationSearchTerm: this.quotationSearchTerm,
+        quotationSearchResults: this.quotationSearchResults,
+        quotationSearchLoading: this.quotationSearchLoading,
+        quotationSearchError: this.quotationSearchError,
+        clientModalOpen: snapshot.clientModalOpen,
+        quotationSearchModalOpen: snapshot.quotationSearchModalOpen, // This might need to be synced if it's in runtime
+        
+        // Methods
+        openQuotationSearchModal: () => this.openQuotationSearchModal(),
+        closeQuotationSearchModal: () => this.closeQuotationSearchModal(),
+        setQuotationSearch: (t) => this.setQuotationSearch(t),
+        filteredQuotations: () => this.filteredQuotations(),
+        selectQuotationResult: (id) => this.selectQuotationResult(id),
+        setClientSearch: (t) => this.setClientSearch(t),
+        filteredClients: () => this.filteredClients(),
+        selectClient: (id) => this.selectClient(id),
+      };
+    }
+  }
+
+  function createModals(runtime) {
+    return new ModalsController(runtime);
+  }
+
   function toNumberValue(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -14586,9 +14886,17 @@ var QuotationEngine = (function (exports) {
       draggingCatalogItemId: null,
       databaseEditorUrl: resolveDatabaseEditorUrl(),
       mainTab: 'timeline',
+      sidebar: createSidebar(runtime),
+      timeline: createTimeline(runtime),
+      itemList: createItemList(runtime),
+      modals: createModals(runtime),
 
       async init() {
         const sync = (snapshot) => {
+          this.sidebar.onActorUpdate(snapshot);
+          this.timeline.onActorUpdate(snapshot);
+          this.itemList.onActorUpdate(snapshot);
+          this.modals.onActorUpdate(snapshot);
           this.stage = snapshot.stage;
           this.clientModalOpen = snapshot.clientModalOpen;
           this.selectedClient = snapshot.selectedClient;
@@ -14620,6 +14928,19 @@ var QuotationEngine = (function (exports) {
 
         sync(runtime.getSnapshot());
         runtime.subscribe(sync);
+
+        this.timeline.on('ITEM_DROPPED', ({ itemId, hora }) => {
+          runtime.shipItemToSelectedDay(itemId, { hora });
+        });
+        this.timeline.on('BASKET_ENTRY_UPDATED', ({ entryId, key, value }) => {
+          runtime.setEntryOverride(entryId, key, value);
+        });
+        this.timeline.on('MOVE_STARTED', ({ entry, event }) => {
+          this.sidebar.startCatalogDrag(entry.itemId, event);
+        });
+        this.timeline.on('DRAG_ENDED', () => {
+          this.sidebar.endCatalogDrag();
+        });
 
         if (typeof runtime.bootstrapReferenceData === 'function') {
           try {

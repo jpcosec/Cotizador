@@ -8,10 +8,10 @@
       Day <span x-text="basket.selectedDayIndex"></span>
       <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio"></span></span>
     </span>
-    <span class="timeline-hint" x-show="!sidebar.draggingCatalogItemId && basket.basketEntries.length === 0">
+    <span class="timeline-hint" x-show="!draggingCatalogItemId && basket.basketEntries.length === 0">
       Drag items from catalog into this timeline
     </span>
-    <span class="timeline-hint" x-show="sidebar.draggingCatalogItemId">
+    <span class="timeline-hint" x-show="draggingCatalogItemId">
       Dropping on a day tab ships directly to that day
     </span>
   </header>
@@ -67,9 +67,9 @@
   <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
     <div class="tl-grid"
          :style="{ height: (N_HOURS * HOUR_H) + 'px' }"
-         @dragover.prevent="onGridDragOver($event, sidebar.draggingCatalogItemId)"
+         @dragover.prevent="onGridDragOver($event, draggingCatalogItemId)"
          @dragleave="onGridDragLeave($event)"
-         @drop.prevent="onGridDrop($event, sidebar.draggingCatalogItemId)">
+         @drop.prevent="onGridDrop($event, draggingCatalogItemId)">
 
       <!-- Hour rows (decorative) -->
       <template x-for="(h, i) in hours" :key="h">
@@ -99,10 +99,10 @@
           <div class="tl-block-meta">
             <span x-text="entry.hora"></span>
             · <span x-text="entry.duracionMin + 'min'"></span>
-            · <span x-text=\"'$\' + formatMoney(entry.total)"></span>
-            · <button @click.stop=\"mainTab = 'list'; $nextTick(() => { document.getElementById('entry-' + entry.entryId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })\" 
-                      style=\"background: none; border: none; padding: 0; cursor: pointer; color: var(--primary); font-size: 0.7rem;\">
-                <i class=\"fa-solid fa-pen-to-square\"></i>
+            · <span x-text="'$' + formatMoney(entry.total)"></span>
+            · <button @click.stop="mainTab = 'list'; $nextTick(() => { document.getElementById('entry-' + entry.entryId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })" 
+                      style="background: none; border: none; padding: 0; cursor: pointer; color: var(--primary); font-size: 0.7rem;">
+                <i class="fa-solid fa-pen-to-square"></i>
               </button>
           </div>
           <div class="tl-resize" @mousedown.prevent.stop="startResize(entry, $event)"></div>

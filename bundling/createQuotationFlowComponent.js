@@ -1,5 +1,9 @@
 import { createQuotationRuntime } from './createQuotationRuntime.js';
 import { exportQuotationToCsv } from '../apps/quotation/services/excelService.js';
+import { createSidebar } from '../packages/components/quotation/views/sidebar/Sidebar.js';
+import { createTimeline } from '../packages/components/quotation/views/timeline/Timeline.js';
+import { createItemList } from '../packages/components/quotation/views/ItemList.js';
+import { createModals } from '../packages/components/quotation/views/Modals.js';
 
 function toNumberValue(value, fallback = 0) {
   const parsed = Number(value);
@@ -144,9 +148,17 @@ export function createQuotationFlowComponent(options = {}) {
     draggingCatalogItemId: null,
     databaseEditorUrl: resolveDatabaseEditorUrl(),
     mainTab: 'timeline',
+    sidebar: createSidebar(runtime),
+    timeline: createTimeline(runtime),
+    itemList: createItemList(runtime),
+    modals: createModals(runtime),
 
     async init() {
       const sync = (snapshot) => {
+        this.sidebar.onActorUpdate(snapshot);
+        this.timeline.onActorUpdate(snapshot);
+        this.itemList.onActorUpdate(snapshot);
+        this.modals.onActorUpdate(snapshot);
         this.stage = snapshot.stage;
         this.clientModalOpen = snapshot.clientModalOpen;
         this.selectedClient = snapshot.selectedClient;
@@ -178,6 +190,19 @@ export function createQuotationFlowComponent(options = {}) {
 
       sync(runtime.getSnapshot());
       runtime.subscribe(sync);
+
+      this.timeline.on('ITEM_DROPPED', ({ itemId, hora }) => {
+        runtime.shipItemToSelectedDay(itemId, { hora });
+      });
+      this.timeline.on('BASKET_ENTRY_UPDATED', ({ entryId, key, value }) => {
+        runtime.setEntryOverride(entryId, key, value);
+      });
+      this.timeline.on('MOVE_STARTED', ({ entry, event }) => {
+        this.sidebar.startCatalogDrag(entry.itemId, event);
+      });
+      this.timeline.on('DRAG_ENDED', () => {
+        this.sidebar.endCatalogDrag();
+      });
 
       if (typeof runtime.bootstrapReferenceData === 'function') {
         try {

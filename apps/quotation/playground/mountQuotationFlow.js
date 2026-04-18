@@ -75,14 +75,15 @@ function resolvePersistencePort(dbModels) {
 export async function mountQuotationPlayground(root) {
   if (!root) return;
 
-  const [rawTemplate, printStyles, sidebarHtml, timelineHtml, itemListHtml, modalsHtml, basketHtml, catalogHtml, seed] = await Promise.all([
+  const [rawTemplate, printStyles, sidebarHtml, timelineHtml, itemListHtml, modalsHtml, basketHtml, basketBodyHtml, catalogHtml, seed] = await Promise.all([
     fetch('/apps/quotation/playground/QuotationFlowInternal.html').then((r) => r.text()),
     fetch('/apps/quotation/components/QuotationPrintStyles.html').then((r) => r.text()),
     fetch('/packages/components/quotation/views/sidebar/Sidebar.html').then((r) => r.text()),
     fetch('/packages/components/quotation/views/timeline/Timeline.html').then((r) => r.text()),
     fetch('/packages/components/quotation/views/ItemList.html').then((r) => r.text()),
     fetch('/packages/components/quotation/views/Modals.html').then((r) => r.text()),
-    fetch('/packages/components/quotation/views/basket/Basket.html').then((r) => r.text()),
+    fetch('/packages/components/item/ui/ItemBasket.html').then((r) => r.text()),
+    fetch('/packages/components/item/ui/ItemBasketBody.html').then((r) => r.text()),
     fetch('/packages/components/item/ui/ItemCatalog.html').then((r) => r.text()),
     loadSeedFromCsvUrl(CSV_BASE_URL),
   ]);
@@ -92,7 +93,7 @@ export async function mountQuotationPlayground(root) {
     .replace('<!-- TIMELINE_RUNTIME -->', () => timelineHtml)
     .replace('<!-- ITEM_LIST_RUNTIME -->', () => itemListHtml)
     .replace('<!-- MODALS_RUNTIME -->', () => modalsHtml)
-    .replace('<!-- BASKET_RUNTIME -->', () => basketHtml)
+    .replace('<!-- BASKET_RUNTIME -->', () => basketHtml.replace('<!-- ITEM_BASKET_BODY -->', () => basketBodyHtml))
     .replace('<!-- CATALOG_RUNTIME -->', () => catalogHtml)
     .replace('<!-- PRINT_STYLES -->', () => printStyles);
 
@@ -150,7 +151,7 @@ export async function mountQuotationPlayground(root) {
       loadQuotationId: '',
       databaseEditorUrl: resolveDatabaseEditorUrl(),
       sidebar: createSidebar(runtime),
-      timeline: createTimeline(),
+      timeline: createTimeline(runtime),
       itemList: createItemList(runtime),
       modals: createModals(runtime),
       init() {

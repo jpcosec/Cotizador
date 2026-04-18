@@ -22,6 +22,10 @@ export function Actorlike(Base) {
       return this._actorRef?.subscribe?.(callback);
     }
 
+    onActorUpdate(snapshot) {
+      // Hook for subclasses to respond to actor state changes
+    }
+
     get hasActorRef() {
       return this._actorRef !== null;
     }

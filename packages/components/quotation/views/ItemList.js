@@ -13,6 +13,17 @@ export class ItemListController extends UIContainerBase {
   constructor(runtime) {
     super();
     this.runtime = runtime;
+    this.basket = { basketEntries: [] };
+    this.globalContext = { hora: '09:00' };
+  }
+
+  onActorUpdate(snapshot) {
+    this.basket = snapshot.basket;
+    this.globalContext = { hora: snapshot.settings?.horaInicio || '09:00' };
+  }
+
+  get basketEntries() {
+    return this.basket?.basketEntries || [];
   }
 
   setBasketOverride(entryId, key, value) {

@@ -9,6 +9,13 @@ export class ModalsController extends UIContainerBase {
     this.quotationSearchResults = [];
     this.quotationSearchLoading = false;
     this.quotationSearchError = null;
+    this.clientModalOpen = false;
+    this.quotationSearchModalOpen = false;
+  }
+
+  onActorUpdate(snapshot) {
+    this.clientModalOpen = snapshot.clientModalOpen;
+    this.quotationSearchModalOpen = snapshot.quotationSearchModalOpen;
   }
 
   // Quotation Search Modal

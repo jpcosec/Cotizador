@@ -1,4 +1,479 @@
-<script>
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotizador Lodge - Rebuild</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <script defer="" src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div x-data="quotationFlowComponent()" x-init="init()">
+    <section class="quotation-shell" x-data="{ mainTab: 'timeline' }">
+  <template x-if="stage === 'browse' || stage === 'client'">
+    <section class="panel home-panel">
+      <h2>Quotation Flow</h2>
+      <p class="muted">Full GAS app runtime: select client, configure quotation, build basket by days.</p>
+      <div class="home-actions">
+        <button class="btn btn-small btn-secondary" x-show="databaseEditorEnabled" @click="openDatabaseEditor()" :disabled="!databaseEditorUrl" :title="databaseEditorUrl ? 'Open database editor' : 'Database editor is unavailable in this runtime'">
+          Edit Database
+        </button>
+        <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
+        <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
+        <button class="btn btn-small btn-secondary" @click="openQuotationSearchModal()">Buscar cotizacion</button>
+      </div>
+      <div class="load-actions" x-show="capabilities.manualLoadById">
+        <input type="text" placeholder="Quotation ID (ex: COT-0001)" x-model="loadQuotationId" @keydown.enter.prevent="loadQuotationById()">
+        <button class="btn btn-small btn-secondary" @click="loadQuotationById()" :disabled="persistence.isLoading">
+          <span x-show="!persistence.isLoading">Load Quotation</span>
+          <span x-show="persistence.isLoading">Loading...</span>
+        </button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
+      <p class="muted" x-show="selectedClient">
+        Selected client: <strong x-text="selectedClient?.nombre"></strong>
+      </p>
+    </section>
+  </template>
+
+  <template x-if="stage === 'basket'">
+    <section class="workspace">
+      <aside class="sidebar panel" x-data="sidebar">
+  <section class="global-context-panel" x-data="{ open: true }">
+    <button class="global-context-head" @click="open = !open">
+      <span class="global-context-title" x-text="selectedClient?.nombre || 'No client selected'"></span>
+      <i class="fa-solid fa-chevron-down" :class="open ? 'open' : ''"></i>
+    </button>
+
+    <div class="global-context-body" x-show="open" x-cloak="">
+      <div class="client-row">
+        <h3>Client</h3>
+        <button class="btn btn-small btn-secondary" @click="openClientModal()">Change</button>
+      </div>
+      <template x-if="selectedClient">
+        <div>
+          <p class="client-name" x-text="selectedClient.nombre"></p>
+          <p class="muted" x-text="selectedClient.rut || '-' "></p>
+          <p class="muted" x-text="selectedClient.email || '-' "></p>
+        </div>
+      </template>
+      <template x-if="!selectedClient">
+        <p class="muted">No client selected.</p>
+      </template>
+
+      <h3>Quotation Settings</h3>
+      <div class="config-grid">
+        <label>
+          <span>Start Date</span>
+          <input type="date" :value="settings.fechaInicio" @change="setSetting('fechaInicio', $event.target.value)">
+        </label>
+        <label>
+          <span>Days</span>
+          <input type="number" min="1" :value="settings.duracionDias" @change="setSetting('duracionDias', $event.target.value)">
+        </label>
+        <label>
+          <span>Pax Global</span>
+          <input type="number" min="1" :value="settings.paxGlobal" @change="setSetting('paxGlobal', $event.target.value)">
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalog-panel">
+    <div class="catalog-header">
+      <h3>Catalog</h3>
+      <input type="text" placeholder="Search category or item" :value="catalog.searchTerm" @input="setCatalogSearch($event.target.value)">
+    </div>
+    <p class="catalog-hint" x-show="draggingCatalogItemId">Drop an item on day tabs or timeline</p>
+    <div class="categories-list">
+      <template x-for="category in catalog.categories" :key="category.id">
+        <article class="category-card">
+          <button class="category-head" @click="toggleCategory(category.id)">
+            <span class="category-name" x-text="category.nombre"></span>
+            <i class="fa-solid fa-chevron-down" :class="category.isExpanded ? 'open' : ''"></i>
+          </button>
+          <div class="category-body" x-show="category.isExpanded" x-cloak="">
+            <template x-if="!category.isLoaded">
+              <p class="muted">Loading...</p>
+            </template>
+            <div x-show="category.isLoaded" x-data="{ get catalogEntries() { return category.catalogEntries || []; } }">
+              <template x-if="catalogEntries.length === 0">
+  <p class="empty">No catalog entities yet</p>
+</template>
+<template x-for="entry in catalogEntries" :key="entry.id">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+    <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
+      <div class="mini-main">
+        <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
+        <h5 x-text="entry.state.definition?.name || 'Item'"></h5>
+        <p class="catalog-formula" x-text="entry.state.catalogFormulaHuman || '-' "></p>
+        <div class="glosa-popover" x-show="showGlosa &amp;&amp; !rulesHover" style="display:none;">
+          <div class="glosa-content">
+            <div class="glosa-desc" x-show="(entry.state.definition?.description || '').trim().length &gt; 0">
+              <strong style="display:block; margin-bottom:4px; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Descripción</strong>
+              <span x-text="entry.state.definition?.description"></span>
+            </div>
+            <div class="glosa-policy" style="margin-top:8px; padding-top:8px; border-top: 1px solid #f1f5f9;">
+              <strong style="display:block; margin-bottom:4px; font-size: 0.65rem; color: #64748b; text-transform: uppercase;">Política de Inicio</strong>
+              <span x-text="entry.state.initPolicyHuman || 'No definida'"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true; rulesHover = true" @mouseleave="open = false; rulesHover = false">
+        <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
+          <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+        </div>
+        <div class="rules-popover rules-popover-right" x-show="open" style="display:none;">
+          <div class="popover-header">
+            Business Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)
+          </div>
+          <template x-if="(entry.state.definition?.rules || []).length === 0">
+            <div class="popover-empty">No rules defined for this item.</div>
+          </template>
+          <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
+            <div class="popover-rule-row" :class="(entry.state.appliedRules || []).some(r =&gt; r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+              <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <i class="fa-solid" :class="(entry.state.appliedRules || []).some(r =&gt; r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle-check'" style="margin-top: 2px;"></i>
+                <div style="flex: 1;">
+                  <div style="font-weight: 600; font-size: 0.8rem;" x-text="rule.Nombre"></div>
+                  <div style="font-size: 0.7rem; opacity: 0.8; margin-top: 2px;" x-text="rule.Mensaje_UI"></div>
+                  <div style="font-size: 0.6rem; font-family: monospace; margin-top: 4px; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px;" x-text="rule.Condicion"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+    </div>
+  </article>
+</template>
+
+            </div>
+          </div>
+        </article>
+      </template>
+    </div>
+  </section>
+</aside>
+
+      <main class="main panel" x-data="timeline" @mousemove.window="doResize($event)" @mouseup.window="endResize()" :class="{ 'is-resizing': !!resizeId }">
+  <header class="timeline-header">
+    <span class="timeline-title">
+      <i class="fa-regular fa-calendar"></i>
+      Day <span x-text="basket.selectedDayIndex"></span>
+      <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio"></span></span>
+    </span>
+    <span class="timeline-hint" x-show="!draggingCatalogItemId &amp;&amp; basket.basketEntries.length === 0">
+      Drag items from catalog into this timeline
+    </span>
+    <span class="timeline-hint" x-show="draggingCatalogItemId">
+      Dropping on a day tab ships directly to that day
+    </span>
+  </header>
+
+  <section class="day-tabs">
+    <template x-for="day in basket.dayOptions" :key="day.dayIndex">
+      <button class="day-tab" :class="basket.selectedDayIndex === day.dayIndex ? 'active' : ''" @click="selectDay(day.dayIndex)" @dragover.prevent="" @drop.prevent="dropOnDay(day.dayIndex, $event)">
+        <strong x-text="day.label"></strong>
+      </button>
+    </template>
+  </section>
+
+  <section class="timeline-controls">
+    <div class="timeline-controls-summary">
+      <span>Client: <strong x-text="selectedClient?.nombre || '-' "></strong></span>
+      <span>Pax: <strong x-text="settings.paxGlobal"></strong></span>
+      <span>Days: <strong x-text="settings.duracionDias"></strong></span>
+    </div>
+    <div class="settings-actions">
+      <button class="btn btn-small btn-secondary" @click="copyDayToNextDay()">Copy Day</button>
+      <button class="btn btn-small btn-secondary" @click="saveQuotation()" :disabled="basket.basketEntries.length === 0 || persistence.isSaving">
+        <span x-show="!persistence.isSaving">Save Quotation</span>
+        <span x-show="persistence.isSaving">Saving...</span>
+      </button>
+      <button class="btn btn-small btn-primary" @click="goValidation()" :disabled="basket.basketEntries.length === 0">Validate</button>
+    </div>
+  </section>
+
+  <!-- Tab Switcher -->
+  <nav class="view-tabs" style="display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+    <button type="button" class="tab-btn" :class="mainTab === 'timeline' ? 'tab-active' : ''" @click="mainTab = 'timeline'" style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+      <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>Timeline
+    </button>
+    <button type="button" class="tab-btn" :class="mainTab === 'list' ? 'tab-active' : ''" @click="mainTab = 'list'" style="padding: 8px 16px; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: var(--bg-row-alt);">
+      <i class="fa-solid fa-list-ul" style="margin-right: 6px;"></i>Item List &amp; Overrides
+    </button>
+  </nav>
+
+  <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
+    <div class="tl-grid" :style="{ height: (N_HOURS * HOUR_H) + 'px' }" @dragover.prevent="onGridDragOver($event, draggingCatalogItemId)" @dragleave="onGridDragLeave($event)" @drop.prevent="onGridDrop($event, draggingCatalogItemId)">
+
+      <!-- Hour rows (decorative) -->
+      <template x-for="(h, i) in hours" :key="h">
+        <div class="tl-hour" :style="{ top: (i * HOUR_H) + 'px', height: HOUR_H + 'px' }">
+          <span class="tl-hour-label" x-text="h"></span>
+        </div>
+      </template>
+
+      <!-- Drop indicator line -->
+      <template x-if="dropIndicatorY !== null">
+        <div class="tl-drop-line" :style="{ top: dropIndicatorY + 'px' }">
+          <span class="tl-drop-label" x-text="dropIndicatorTime"></span>
+        </div>
+      </template>
+
+      <!-- Placed event blocks -->
+      <template x-for="entry in basket.basketEntries" :key="entry.entryId">
+        <div class="tl-block" :class="{ 'is-moving': movingId === entry.entryId }" :style="blockStyle(entry)" draggable="true" @dragstart="startMovePlaced(entry, $event)" @dragend="endDrag()">
+
+          <button class="tl-block-close" @click.stop="destroyRuntimeEntry('basket', entry.entryId)">×</button>
+          <div class="tl-block-title" x-text="entry.name"></div>
+          <div class="tl-block-meta">
+            <span x-text="entry.hora"></span>
+            · <span x-text="entry.duracionMin + 'min'"></span>
+            · <span x-text="'$' + formatMoney(entry.total)"></span>
+            · <button @click.stop="mainTab = 'list'; $nextTick(() =&gt; { document.getElementById('entry-' + entry.entryId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); })" style="background: none; border: none; padding: 0; cursor: pointer; color: var(--primary); font-size: 0.7rem;">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+          </div>
+          <div class="tl-resize" @mousedown.prevent.stop="startResize(entry, $event)"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <section class="basket-list" id="basket-details" x-data="itemList" x-show="mainTab === 'list'" style="margin-top: 0; border-top: none; border-radius: 0 0 10px 10px;">
+  <template x-if="basketEntries.length === 0">
+  <p class="empty">No basket entities yet</p>
+</template>
+<template x-for="entry in basketEntries" :key="entry.id">
+  <article :id="'entry-' + entry.id" class="accordion-item runtime-card basket-card" :class="{
+              'expanded': true,
+              'group-child': !!entry.parentId,
+              'group-parent': !!entry.groupId &amp;&amp; !entry.parentId,
+              'is-absorbido': !!entry.state.isAbsorbido
+           }" :style="entry.parentId ? 'margin-left: 20px; border-left-style: dashed; opacity: 0.9;' : ''" x-data="{ expanded: true }">
+    <div class="accordion-header" @click="expanded = !expanded">
+      <div class="acc-time" x-show="entry.state.showHora &amp;&amp; !entry.parentId">
+        <input type="time" :value="entry.state.overrides?.hora || entry.state.schedule?.hora || globalContext.hora || '09:00'" @click.stop="" @change="setItemTime(entry.id, $event.target.value)" class="time-input-small">
+      </div>
+      <div class="acc-time-child-indent" x-show="entry.parentId" style="width: 32px; display: flex; align-items: center; justify-content: center; color: #94a3b8;">
+        <i class="fa-solid fa-turn-up fa-rotate-90"></i>
+      </div>
+      <div class="acc-info">
+        <div class="acc-title">
+          <span x-text="entry.state.definition?.name || 'Item'"></span>
+          <span class="absorbido-badge" x-show="entry.state.isAbsorbido" style="font-size: 0.65rem; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-left: 8px; color: #475569; font-weight: bold;">INCLUIDO</span>
+        </div>
+        <div class="acc-subtitle" x-text="entry.state.basketLegend || '-' "></div>
+      </div>
+      <div class="rules-indicator" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false" @click.stop="">
+        <div class="rules-dot" :class="'dot-' + ruleClass(entry.state)">
+          <i class="fa-solid fa-xs" :class="ruleIcon(entry.state)"></i>
+        </div>
+        <div class="rules-popover rules-popover-right" x-show="open" style="display:none;">
+          <div class="popover-header">Rules (<span x-text="(entry.state.definition?.rules || []).length"></span>)</div>
+          <template x-if="(entry.state.definition?.rules || []).length === 0">
+            <div class="popover-empty">No rules</div>
+          </template>
+          <template x-for="rule in (entry.state.definition?.rules || [])" :key="rule.ID_Regla">
+            <div class="popover-rule-row" :class="(entry.state.appliedRules || []).some(r =&gt; r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'row-error' : 'row-warn') : ''">
+              <i class="fa-solid fa-xs" :class="(entry.state.appliedRules || []).some(r =&gt; r.id === rule.ID_Regla) ? (rule.Tipo_Accion === 'ERROR' ? 'fa-circle-xmark' : 'fa-triangle-exclamation') : 'fa-circle'"></i>
+              <span x-text="rule.Nombre"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="acc-total-pill" x-show="!entry.state.isAbsorbido">
+        $<span x-text="formatMoney(entry.state.total)"></span>
+      </div>
+      <div class="acc-total-pill-absorbido" x-show="entry.state.isAbsorbido" style="color: #64748b; font-size: 0.75rem; font-style: italic;">
+        $0
+      </div>
+      <div class="acc-toggle">
+        <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+      </div>
+    </div>
+    <!-- ITEM_BASKET_BODY -->
+  </article>
+</template>
+
+</section>
+
+
+  <footer class="summary-row">
+    <div>
+      <p class="muted">Entries: <strong x-text="basket.summary.totalEntries || 0"></strong></p>
+    </div>
+    <div>
+      <p class="muted">Subtotal: <strong>$<span x-text="formatMoney(validation.totals.subtotal)"></span></strong></p>
+      <p class="total">Total: $<span x-text="formatMoney(validation.totals.total)"></span></p>
+    </div>
+  </footer>
+</main>
+
+    </section>
+  </template>
+
+  <template x-if="stage === 'validation'">
+    <section class="panel validation-panel">
+      <h2>Validation Preview</h2>
+      <p class="muted">
+        Client: <strong x-text="selectedClient?.nombre || '-' "></strong>
+        · Pax: <strong x-text="settings.paxGlobal"></strong>
+        · Date: <strong x-text="settings.fechaInicio"></strong>
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Item</th>
+              <th>Pax</th>
+              <th>Units</th>
+              <th>Hour</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="row in validation.rows" :key="row.entryId">
+              <tr>
+                <td x-text="'Dia ' + row.dayIndex"></td>
+                <td x-text="row.name"></td>
+                <td x-text="row.pax"></td>
+                <td x-text="row.unidades"></td>
+                <td x-text="row.hora"></td>
+                <td x-text="'$' + formatMoney(row.total)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="validation-totals">
+        <p>Subtotal: <strong>$<span x-text="formatMoney(validation.totals.subtotal)"></span></strong></p>
+        <p>IVA: <strong>$<span x-text="formatMoney(validation.totals.iva)"></span></strong></p>
+        <p>Total: <strong>$<span x-text="formatMoney(validation.totals.total)"></span></strong></p>
+      </div>
+
+      <div class="validation-actions">
+        <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-primary" @click="exportToPdf()">Export to PDF</button>
+        <button class="btn btn-small btn-primary" @click="exportToExcel()">Export to Excel</button>
+        <button class="btn btn-small btn-primary" @click="confirmAndSave()" :disabled="persistence.isSaving || validation.rows.length === 0">
+          <span x-show="!persistence.isSaving">Confirm &amp; Save</span>
+          <span x-show="persistence.isSaving">Saving...</span>
+        </button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
+    </section>
+  </template>
+
+  <template x-if="stage === 'completed'">
+    <section class="panel validation-panel">
+      <h2>Quotation Saved</h2>
+      <p class="muted">
+        Quotation ID:
+        <strong x-text="persistence.quotationId || '-' "></strong>
+      </p>
+      <div class="validation-actions">
+        <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-secondary" @click="resetToBrowse()">Go Home</button>
+        <button class="btn btn-small btn-primary" @click="exportToPdf()">Export to PDF</button>
+        <button class="btn btn-small btn-primary" @click="exportToExcel()">Export to Excel</button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
+    </section>
+  </template><section class="panel validation-panel">
+      <h2>Quotation Saved</h2>
+      <p class="muted">
+        Quotation ID:
+        <strong x-text="persistence.quotationId || '-' ">COT-20260418140733946</strong>
+      </p>
+      <div class="validation-actions">
+        <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
+        <button class="btn btn-small btn-secondary" @click="resetToBrowse()">Go Home</button>
+        <button class="btn btn-small btn-primary" @click="exportToPdf()">Export to PDF</button>
+        <button class="btn btn-small btn-primary" @click="exportToExcel()">Export to Excel</button>
+      </div>
+      <p class="error-text" x-show="persistence.error" x-text="persistence.error" style="display: none;"></p>
+    </section>
+
+  <div x-data="modals">
+  <div class="modal-overlay" x-show="clientModalOpen" style="display: none;">
+    <div class="modal panel" @click.away="closeClientModal()">
+      <div class="modal-head">
+        <h3>Select Client</h3>
+        <button class="btn btn-small btn-secondary" @click="closeClientModal()">Close</button>
+      </div>
+      <input type="text" placeholder="Search by name/rut/email" :value="clientSearchTerm" @input="setClientSearch($event.target.value)" style="">
+      <div class="client-list">
+        <template x-for="client in filteredClients()" :key="client.id">
+          <button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre"></strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')"></small>
+          </button>
+        </template><button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre">test1</strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">18123123-5 · empresa@asda.cl</small>
+          </button><button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre">pedro palotes</strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">12345678-9 · wea@a.cl</small>
+          </button><button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre">Aventuta*/r</strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">76666800-3 · carmen@sflodge.cl</small>
+          </button><button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre">Ruth Stollsteimer</strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">11111111-1 · ruth.stollsteimer@gmail.com</small>
+          </button><button class="client-item" @click="selectClient(client.id)">
+            <strong x-text="client.nombre">La corralera spa</strong>
+            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">25870262-K · taydecorrales@gmail.com</small>
+          </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" x-show="quotationSearchModalOpen" style="display: none;">
+    <div class="modal panel" @click.away="closeQuotationSearchModal()">
+      <div class="modal-head">
+        <h3>Buscar cotizacion</h3>
+        <button class="btn btn-small btn-secondary" @click="closeQuotationSearchModal()">Close</button>
+      </div>
+      <input type="text" placeholder="Buscar por cliente, fecha o ID" :value="quotationSearchTerm" @input="setQuotationSearch($event.target.value)" style="">
+      <p class="muted" x-show="quotationSearchLoading" style="display: none;">Cargando cotizaciones...</p>
+      <p class="error-text" x-show="quotationSearchError" x-text="quotationSearchError" style="display: none;"></p>
+      <div class="client-list quotation-list" x-show="!quotationSearchLoading">
+        <template x-for="quotation in filteredQuotations()" :key="quotation.quotationId">
+          <button class="client-item quotation-item" @click="selectQuotationResult(quotation.quotationId)">
+            <strong x-text="quotation.clientName"></strong>
+            <small>
+              <span x-text="'Pax ' + (quotation.pax || 0)"></span>
+              <span x-text="' · ' + (quotation.quotationDate || '-')"></span>
+              <span x-text="' · ' + (quotation.quotationId || '-')"></span>
+            </small>
+          </button>
+        </template>
+        <p class="muted" x-show="filteredQuotations().length === 0 &amp;&amp; !quotationSearchError">
+          No hay cotizaciones para mostrar.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- missing include: QuotationPrintStyles -->
+</section>
+
+<!-- missing include: theme-quotation -->
+
+  </div>
+
+  <script>
 var QuotationEngine = (function (exports) {
   'use strict';
 
@@ -15237,3 +15712,114 @@ ${item.derived.catalogDisaggregated}`,
 //# sourceMappingURL=quotation-engine.iife.js.map
 
 </script>
+
+  <script>
+(function() {
+  function fallbackComponent(message) {
+    return {
+      stage: 'error',
+      message,
+      init() {},
+    };
+  }
+
+  window.quotationFlowComponent = function quotationFlowComponent() {
+    const engine = window.QuotationEngine;
+    if (!engine || typeof engine.createQuotationFlowComponent !== 'function') {
+      console.error('QuotationEngine bundle not loaded. Run npm run build first.');
+      return fallbackComponent('Runtime bundle missing');
+    }
+    return engine.createQuotationFlowComponent({
+      runtimeMode: 'gas',
+      capabilities: {
+        databaseEditor: false,
+        quotationSearch: true,
+        manualLoadById: true,
+      },
+    });
+  };
+})();
+</script>
+
+<script>
+(function() {
+  const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isLocalhost) return;
+  if (window.google && window.google.script && window.google.script.run) return;
+
+  const endpoint = String(window.__LOCAL_GAS_ENDPOINT__ || '/api/google-script-run');
+
+  async function invokeLocalServer(method, args) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ method, args }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error?.message || `Local GAS request failed: ${response.status}`);
+    }
+
+    return result;
+  }
+
+  function makeCaller() {
+    let successHandler = null;
+    let failureHandler = null;
+    let proxy = null;
+
+    function succeed(result) {
+      if (successHandler) successHandler(result);
+    }
+
+    function fail(error) {
+      if (failureHandler) {
+        failureHandler({ message: error && error.message ? error.message : String(error) });
+      }
+    }
+
+    const caller = {
+      withSuccessHandler(handler) {
+        successHandler = handler;
+        return proxy;
+      },
+      withFailureHandler(handler) {
+        failureHandler = handler;
+        return proxy;
+      },
+      healthcheck() {
+        invokeLocalServer('healthcheck', []).then(succeed).catch(fail);
+        return proxy;
+      },
+    };
+
+    proxy = new Proxy(caller, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        return function(...args) {
+          invokeLocalServer(String(prop), args).then(succeed).catch(fail);
+          return proxy;
+        };
+      },
+    });
+
+    return proxy;
+  }
+
+  const script = {};
+  Object.defineProperty(script, 'run', {
+    get() {
+      return makeCaller();
+    },
+  });
+
+  window.google = { script };
+})();
+</script>
+
+
+
+</body></html>
