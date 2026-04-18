@@ -7,7 +7,8 @@ import {
   detectInitializationMode, 
   rateForKind, 
   overrideFieldForKind, 
-  fixedAmountForKind 
+  fixedAmountForKind,
+  normalizeProfile
 } from './PricingDetection.js';
 
 
@@ -73,24 +74,10 @@ export class ItemLogic {
     return this.recalculate();
   }
 
-  /**
-   * Normalize a raw pricing profile into canonical field names.
-   * Supports both camelCase (`baseFijo`) and schema-style (`Costo_Base_Fijo`) keys.
-   * @param {Object} [raw={}]
-   * @returns {{ baseFijo: number, porPersona: number, porUnidad: number, porMinuto: number }}
-   */
-  normalizeProfile(raw = {}) {
-    return {
-      baseFijo: toNumber(raw.baseFijo ?? raw.Costo_Base_Fijo ?? 0),
-      porPersona: toNumber(raw.porPersona ?? raw.Costo_Unitario_Pax ?? 0),
-      porUnidad: toNumber(raw.porUnidad ?? raw.Costo_Unitario_Item ?? 0),
-      porMinuto: toNumber(raw.porMinuto ?? raw.Costo_Unitario_Tiempo ?? 0)
-    };
-  }
 
   recalculate() {
     const defaults = this.definition.defaultQuantities || {};
-    const profile = this.normalizeProfile(this.definition.pricingProfile || {});
+    const profile = normalizeProfile(this.definition.pricingProfile || {});
     const kind = detectPricingKind(profile);
     const initMode = detectInitializationMode(kind, defaults);
     const rate = rateForKind(profile, kind);

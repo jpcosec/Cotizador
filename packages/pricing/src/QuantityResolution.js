@@ -14,19 +14,20 @@ import { overrideFieldForKind, fixedAmountForKind } from './PricingDetection.js'
 export function resolveContextQuantity(kind, mode, defaults = {}, context = {}) {
   const paxGlobal = toNumber(context.paxGlobal, 0);
   const durationMin = toNumber(context.duracionMin, 0);
+  const multiplier = toNumber(context.kitContext?.multiplier, 1);
+
+  let quantity = 0;
 
   if (mode === InitializationMode.CONTEXT_PAX) {
-    if (kind === PricingKind.PAX) return paxGlobal;
-    if (kind === PricingKind.UNITS) return paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
-    if (kind === PricingKind.TIME) return paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
+    if (kind === PricingKind.PAX) quantity = paxGlobal;
+    else if (kind === PricingKind.UNITS) quantity = paxGlobal * toNumber(defaults.unidadesPorUsuario, 0);
+    else if (kind === PricingKind.TIME) quantity = paxGlobal * toNumber(defaults.minutosPorUsuario, 0);
+  } else if (mode === InitializationMode.CONTEXT_TIME) {
+    if (kind === PricingKind.UNITS) quantity = (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
+    else if (kind === PricingKind.TIME) quantity = durationMin;
   }
 
-  if (mode === InitializationMode.CONTEXT_TIME) {
-    if (kind === PricingKind.UNITS) return (durationMin / 60) * toNumber(defaults.unidadesPorHora, 0);
-    if (kind === PricingKind.TIME) return durationMin;
-  }
-
-  return 0;
+  return quantity * multiplier;
 }
 
 /**
@@ -52,8 +53,9 @@ export function resolveBasketQuantity(kind, mode, defaults = {}, context = {}, o
   }
 
   if (mode === InitializationMode.FIXED_AMOUNT) {
+    const multiplier = toNumber(context.kitContext?.multiplier, 1);
     return {
-      quantity: toInteger(fixedAmountForKind(kind, defaults), 0),
+      quantity: toInteger(fixedAmountForKind(kind, defaults) * multiplier, 0),
       isOverridden: false,
       overrideField
     };

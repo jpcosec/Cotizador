@@ -99,3 +99,38 @@ export function evaluateRules(rules = [], snapshot) {
   }
   return { appliedRules, available };
 }
+
+/**
+ * Build a human-readable profile description for pricing display.
+ * Example: "$400 fijo + $1 por pax"
+ * @param {number} base - Fixed base cost.
+ * @param {PricingKind} kind
+ * @param {number} rate - Per-unit rate.
+ * @returns {string}
+ */
+export function profileHumanText(base, kind, rate) {
+  const parts = [];
+  if (base > 0) parts.push(`${money(base)} fijo`);
+  if (kind === PricingKind.PAX && rate > 0) parts.push(`${money(rate)} por pax`);
+  if (kind === PricingKind.UNITS && rate > 0) parts.push(`${money(rate)} por unidad`);
+  if (kind === PricingKind.TIME && rate > 0) parts.push(`${money(rate)} por minuto`);
+  return parts.join(' + ') || '$0';
+}
+
+/**
+ * Map pricing kind to a human-readable rate label for line items.
+ * Example: PAX → "Pax", UNITS → "Unidades", TIME → "Duracion"
+ * @param {PricingKind} kind
+ * @param {InitializationMode} [initMode=null]
+ * @returns {string}
+ */
+export function lineRateLabel(kind, initMode = null) {
+  if (kind === PricingKind.UNITS && initMode === InitializationMode.CONTEXT_PAX) {
+    return 'por Pax';
+  }
+  if (kind === PricingKind.NONE) return 'Fijo';
+  if (kind === PricingKind.PAX) return 'Pax';
+  if (kind === PricingKind.UNITS) return 'Unidades';
+  if (kind === PricingKind.TIME) return 'Duracion';
+  return 'Cantidad';
+}

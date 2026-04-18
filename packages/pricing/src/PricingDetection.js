@@ -74,3 +74,18 @@ export function fixedAmountForKind(kind, defaults = {}) {
   if (kind === PricingKind.TIME) return toNumber(defaults.duracionMin, 0);
   return 0;
 }
+
+/**
+ * Normalize a raw pricing profile into canonical field names.
+ * Supports both camelCase (`baseFijo`) and schema-style (`Costo_Base_Fijo`) keys.
+ * @param {Object} [raw={}]
+ * @returns {{ baseFijo: number, porPersona: number, porUnidad: number, porMinuto: number }}
+ */
+export function normalizeProfile(raw = {}) {
+  return {
+    baseFijo: toNumber(raw.baseFijo ?? raw.Costo_Base_Fijo ?? 0),
+    porPersona: toNumber(raw.porPersona ?? raw.Costo_Unitario_Pax ?? 0),
+    porUnidad: toNumber(raw.porUnidad ?? raw.Costo_Unitario_Item ?? 0),
+    porMinuto: toNumber(raw.porMinuto ?? raw.Costo_Unitario_Tiempo ?? 0)
+  };
+}
