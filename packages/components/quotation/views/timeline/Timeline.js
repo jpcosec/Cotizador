@@ -1,4 +1,4 @@
-import { UIContainerBase } from '../../common/base/ui/UIContainerBase.js';
+import { UIContainerBase } from '../../../common/base/ui/UIContainerBase.js';
 
 /**
  * TimelineController manages the logic for the quotation timeline,

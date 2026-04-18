@@ -1,4 +1,4 @@
-import { UIContainerBase } from '../../common/base/ui/UIContainerBase.js';
+import { UIContainerBase } from '../../../common/base/ui/UIContainerBase.js';
 
 export class SidebarController extends UIContainerBase {
   constructor(runtime) {

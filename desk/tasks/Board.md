@@ -30,9 +30,6 @@
 
 | ID | Domain | Task | Phase | Depends On | Pills |
 |----|--------|------|-------|------------|-------|
-| **A-04-1** | quotation | [Geography] Reorganize Timeline View | P2 | [] | pill-folder-structure-srp |
-| **A-04-2** | quotation | [Geography] Reorganize Basket View | P2 | [] | pill-folder-structure-srp |
-| **A-04-3** | quotation | [Geography] Reorganize Sidebar View | P2 | [] | pill-folder-structure-srp |
 | **R-01-3** | quotation | [Integration] Sidebar Modularization | P2 | [R-01-1, R-01-2] | pill-modular-composition, pill-build-markers-contract |
 | **R-02-2** | quotation | [Logic] Implement Timeline Controller | P2 | [R-02-1, A-04-1] | pill-naming-conventions |
 | **R-02-3** | quotation | [Integration] Timeline Modularization | P2 | [R-02-2] | pill-modular-composition |
@@ -61,6 +58,9 @@
 | A-02-2 | pricing | [Logic] Refactor Pricing Detection | 2026-04-18 |
 | A-02-3 | pricing | [Logic] Refactor Quantity Resolution | 2026-04-18 |
 | A-02-4 | pricing | [Logic] Refactor Pricing Formulas | 2026-04-18 |
+| A-04-1 | quotation | [Geography] Reorganize Timeline View | 2026-04-18 |
+| A-04-2 | quotation | [Geography] Reorganize Basket View | 2026-04-18 |
+| A-04-3 | quotation | [Geography] Reorganize Sidebar View | 2026-04-18 |
 | R-01-1 | quotation | [UI] Finalize Sidebar Template | 2026-04-17 |
 | R-01-2 | quotation | [Logic] Implement Sidebar Controller | 2026-04-17 |
 | R-02-1 | quotation | [UI] Extract Timeline Template | 2026-04-17 |

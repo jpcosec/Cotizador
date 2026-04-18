@@ -1,11 +1,11 @@
 export { QuotationView, createQuotationView } from './QuotationView.js';
-export { SidebarController, createSidebar } from './Sidebar.js';
+export { SidebarController, createSidebar } from './sidebar/Sidebar.js';
 export { Catalog, createCatalog } from './Catalog.js';
 export { CategoryGroup, createCategoryGroup } from './CategoryGroup.js';
 export { CatalogItemCard, createCatalogItemCard } from './CatalogItemCard.js';
 export { QuotationHeader, createQuotationHeader } from './QuotationHeader.js';
 export { DayTabs, createDayTabs } from './DayTabs.js';
-export { Basket, createBasket } from './Basket.js';
+export { Basket, createBasket } from './basket/Basket.js';
 export { DayAccordion, createDayAccordion } from './DayAccordion.js';
 export { ItemAccordion, createItemAccordion } from './ItemAccordion.js';
 export { QuotationTotals, createQuotationTotals } from './QuotationTotals.js';
@@ -13,4 +13,4 @@ export { ValidationSummary, createValidationSummary } from './ValidationSummary.
 export { CompletionSuccess, createCompletionSuccess } from './CompletionSuccess.js';
 export { ItemListController, createItemList } from './ItemList.js';
 export { ModalsController, createModals } from './Modals.js';
-export { TimelineController, createTimeline } from './Timeline.js';
+export { TimelineController, createTimeline } from './timeline/Timeline.js';
