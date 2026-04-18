@@ -30,13 +30,6 @@
 
 | ID | Domain | Task | Phase | Depends On | Pills |
 |----|--------|------|-------|------------|-------|
-| **A-01-1** | item | [UI] Extract Item Templates | P1 | [A-00] | pill-srp-file-80-lines, pill-folder-structure-srp |
-| **A-01-2** | item | [Logic] Extract Item State & Projections | P1 | [A-01-1] | pill-srp-file-80-lines, pill-mandatory-docstrings, pill-atom-testing-parity |
-| **A-01-3** | item | [Logic] Refactor Item Orchestrator | P1 | [A-01-2] | pill-srp-file-80-lines, pill-actor-bridge-pattern, pill-decision-rule-filtering |
-| **A-02-1** | pricing | [Logic] Extract Pricing Enums & Helpers | P1 | [A-00] | pill-srp-file-80-lines, pill-naming-conventions |
-| **A-02-2** | pricing | [Logic] Extract Pricing Detection | P1 | [A-02-1] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
-| **A-02-3** | pricing | [Logic] Extract Quantity Resolution | P1 | [A-02-2] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
-| **A-02-4** | pricing | [Logic] Extract Pricing Formulas | P1 | [A-02-3] | pill-srp-file-80-lines, pill-srp-function-10-lines, pill-mandatory-docstrings |
 | **A-04-1** | quotation | [Geography] Reorganize Timeline View | P2 | [] | pill-folder-structure-srp |
 | **A-04-2** | quotation | [Geography] Reorganize Basket View | P2 | [] | pill-folder-structure-srp |
 | **A-04-3** | quotation | [Geography] Reorganize Sidebar View | P2 | [] | pill-folder-structure-srp |
@@ -61,6 +54,13 @@
 | ID | Domain | Task | Date |
 |----|--------|------|------|
 | A-00 | quality | Linter Enforcement Setup | 2026-04-17 |
+| A-01-1 | item | [UI] Extract Item Templates | 2026-04-18 |
+| A-01-2 | item | [Logic] Extract Item State & Projections | 2026-04-18 |
+| A-01-3 | item | [Logic] Refactor Item Orchestrator | 2026-04-18 |
+| A-02-1 | pricing | [Logic] Extract Pricing Enums & Helpers | 2026-04-18 |
+| A-02-2 | pricing | [Logic] Refactor Pricing Detection | 2026-04-18 |
+| A-02-3 | pricing | [Logic] Refactor Quantity Resolution | 2026-04-18 |
+| A-02-4 | pricing | [Logic] Refactor Pricing Formulas | 2026-04-18 |
 | R-01-1 | quotation | [UI] Finalize Sidebar Template | 2026-04-17 |
 | R-01-2 | quotation | [Logic] Implement Sidebar Controller | 2026-04-17 |
 | R-02-1 | quotation | [UI] Extract Timeline Template | 2026-04-17 |

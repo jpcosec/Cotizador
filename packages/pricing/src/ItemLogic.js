@@ -1,5 +1,14 @@
 import { formatCatalogTerms, policyHint, legendForBasket, resolveSchedule, evaluateRules } from './Formulas.js';
 import { resolveContextQuantity, resolveBasketQuantity, applyExclusiveDefaultMode } from './QuantityResolution.js';
+import { PricingKind, InitializationMode } from './Enums.js';
+import { toNumber, toInteger, money } from './Helpers.js';
+import { 
+  detectPricingKind, 
+  detectInitializationMode, 
+  rateForKind, 
+  overrideFieldForKind, 
+  fixedAmountForKind 
+} from './PricingDetection.js';
 
 
 /**
@@ -79,148 +88,66 @@ export class ItemLogic {
     };
   }
 
-  /**
-   * Determine the pricing kind from a normalized profile.
-   * Priority: PAX > UNITS > TIME > NONE.
-   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
-   * @returns {PricingKind}
-   */
-  detectPricingKind(profile) {
-    if (toNumber(profile.porPersona, 0) > 0) return PricingKind.PAX;
-    if (toNumber(profile.porUnidad, 0) > 0) return PricingKind.UNITS;
-    if (toNumber(profile.porMinuto, 0) > 0) return PricingKind.TIME;
-    return PricingKind.NONE;
-  }
+  recalculate() {
+    const defaults = this.definition.defaultQuantities || {};
+    const profile = this.normalizeProfile(this.definition.pricingProfile || {});
+    const kind = detectPricingKind(profile);
+    const initMode = detectInitializationMode(kind, defaults);
+    const rate = rateForKind(profile, kind);
+    const base = toNumber(profile.baseFijo, 0);
 
-  /**
-   * Determine how the initial quantity should be resolved based on the
-   * pricing kind and the available default quantity fields.
-   * @param {PricingKind} kind
-   * @param {Object} [defaults={}] - Default quantity configuration.
-   * @returns {InitializationMode}
-   */
-  detectInitializationMode(kind, defaults = {}) {
-    if (kind === PricingKind.NONE) return InitializationMode.NONE;
+    const basketResolution = resolveBasketQuantity(
+      kind,
+      initMode,
+      defaults,
+      this.externalContext,
+      this.overrides
+    );
 
-    if (kind === PricingKind.PAX) {
-      if (toNumber(defaults.pax, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      return InitializationMode.CONTEXT_PAX;
-    }
+    const quantity = basketResolution.quantity;
+    const total = toInteger(base + (quantity * rate), 0);
 
-    if (kind === PricingKind.UNITS) {
-      if (toNumber(defaults.cantidad, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      if (toNumber(defaults.unidadesPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
-      if (toNumber(defaults.unidadesPorHora, 0) > 0) return InitializationMode.CONTEXT_TIME;
-      return InitializationMode.NONE;
-    }
-
-    if (kind === PricingKind.TIME) {
-      if (toNumber(defaults.duracionMin, 0) > 0) return InitializationMode.FIXED_AMOUNT;
-      if (toNumber(defaults.minutosPorUsuario, 0) > 0) return InitializationMode.CONTEXT_PAX;
-      return InitializationMode.CONTEXT_TIME;
-    }
-
-    return InitializationMode.NONE;
-  }
-
-  /**
-   * Extract the per-unit rate from the profile for the given pricing kind.
-   * @param {{ porPersona: number, porUnidad: number, porMinuto: number }} profile
-   * @param {PricingKind} kind
-   * @returns {number}
-   */
-  rateForKind(profile, kind) {
-    if (kind === PricingKind.PAX) return toNumber(profile.porPersona, 0);
-    if (kind === PricingKind.UNITS) return toNumber(profile.porUnidad, 0);
-    if (kind === PricingKind.TIME) return toNumber(profile.porMinuto, 0);
-    return 0;
-  }
-
-  /**
-   * Map a pricing kind to the override field name used in the overrides object.
-   * @param {PricingKind} kind
-   * @returns {'pax'|'cantidad'|'duracionMin'|null}
-   */
-  overrideFieldForKind(kind) {
-    if (kind === PricingKind.PAX) return 'pax';
-    if (kind === PricingKind.UNITS) return 'cantidad';
-    if (kind === PricingKind.TIME) return 'duracionMin';
-    return null;
-  }
-
-  /**
-   * Get the fixed default quantity for the given pricing kind.
-   * @param {PricingKind} kind
-   * @param {Object} [defaults={}]
-   * @returns {number}
-   */
-  fixedAmountForKind(kind, defaults = {}) {
-    if (kind === PricingKind.PAX) return toNumber(defaults.pax, 0);
-    if (kind === PricingKind.UNITS) return toNumber(defaults.cantidad, 0);
-    if (kind === PricingKind.TIME) return toNumber(defaults.duracionMin, 0);
-    return 0;
-  }
-
-  
-
-  
-
-    if (mode === InitializationMode.FIXED_AMOUNT) {
-      return {
-        quantity: toInteger(this.fixedAmountForKind(kind, defaults), 0),
-        isOverridden: false,
-        overrideField
-      };
-    }
-
-    return {
-      quantity: toInteger(this.resolveContextQuantity(kind, mode, defaults, context), 0),
-      isOverridden: false,
-      overrideField
+    const quantities = {
+      pax: kind === PricingKind.PAX ? quantity : 0,
+      cantidad: kind === PricingKind.UNITS ? quantity : 0,
+      duracionMin: kind === PricingKind.TIME ? quantity : 0
     };
+
+    const schedule = resolveSchedule(this.externalContext, this.overrides);
+    const ruleResult = evaluateRules(this.definition.rules || [], {
+      mode: this.mode,
+      quantities,
+      schedule
+    });
+
+    this.profile = profile;
+    this.pricingKind = kind;
+    this.initializationMode = initMode;
+    this.rate = rate;
+    this.base = base;
+    this.total = total;
+    this.quantities = quantities;
+    this.schedule = schedule;
+    this.appliedRules = ruleResult.appliedRules;
+    this.available = ruleResult.available;
+
+    this.pricingHumanText = formatCatalogTerms(base, kind, initMode, rate, defaults);
+    this.policyHintText = policyHint(kind, initMode, defaults);
+    this.basketLegendText = legendForBasket(base, kind, quantity, rate, total);
+    this.catalogDisaggregated = this.pricingHumanText;
+
+    this.isOverridden = basketResolution.isOverridden;
+    this.lineRateSubtotal = quantity * rate;
+    this.lineRateLabel = kind === PricingKind.PAX ? 'Pax' : kind === PricingKind.UNITS ? 'Unidades' : 'Duracion';
+    this.unitDisplay = quantity > 0 ? (total / quantity) : total;
+
+    this.showPaxControl = kind === PricingKind.PAX;
+    this.showUnitsControl = kind === PricingKind.UNITS;
+    this.showTimeControl = kind === PricingKind.TIME;
+    this.comentarios = this.overrides.comentarios || '';
+
+    return this;
   }
-
-  
-
-    if (kind === PricingKind.PAX) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.pax, 0)} pax x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por pax`);
-      }
-      return parts.join(' + ');
-    }
-
-    if (kind === PricingKind.UNITS) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.cantidad, 0)} und x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_PAX) {
-        parts.push(`${toNumber(defaults.unidadesPorUsuario, 0)} und/pax x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_TIME) {
-        parts.push(`${toNumber(defaults.unidadesPorHora, 0)} und/h x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por unidad`);
-      }
-      return parts.join(' + ');
-    }
-
-    if (kind === PricingKind.TIME) {
-      if (mode === InitializationMode.FIXED_AMOUNT) {
-        parts.push(`${toInteger(defaults.duracionMin, 0)} min x ${money(rate)}`);
-      } else if (mode === InitializationMode.CONTEXT_PAX) {
-        parts.push(`${toNumber(defaults.minutosPorUsuario, 0)} min/pax x ${money(rate)}`);
-      } else {
-        parts.push(`${money(rate)} por minuto`);
-      }
-      return parts.join(' + ');
-    }
-
-    return parts.join(' + ') || '$0';
-  }
-
-  
-
-  
 
   /**
    * Set mode and recalculate.
@@ -257,27 +184,6 @@ export class ItemLogic {
       [key]: toNumber(value, 0)
     };
     return this.recalculate();
-  }
-
-  
-
-    next[key] = value;
-
-    if (key === 'cantidad') {
-      delete next.unidadesPorUsuario;
-      delete next.unidadesPorHora;
-    }
-    if (key === 'unidadesPorUsuario' || key === 'unidadesPorHora') {
-      delete next.cantidad;
-    }
-    if (key === 'duracionMin') {
-      delete next.minutosPorUsuario;
-    }
-    if (key === 'minutosPorUsuario') {
-      delete next.duracionMin;
-    }
-
-    return next;
   }
 
   /**
