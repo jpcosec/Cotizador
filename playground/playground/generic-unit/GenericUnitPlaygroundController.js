@@ -1,6 +1,7 @@
 /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import {
   GenericContainerBase,
+  GenericItemBase,
   GenericUnitBase,
   GenericViewBase,
 } from '../../../src/components/common/base/index.js';
@@ -130,6 +131,41 @@ function createMockBoundaries() {
   };
 }
 
+function createItemSeed(overrides = {}) {
+  return {
+    mode: 'catalog',
+    definition: {
+      id: overrides.id ?? 'ITEM-COFFEE',
+      name: overrides.name ?? 'Coffee Break Intermedio',
+      category: overrides.category ?? 'Coffee',
+      description: overrides.description ?? 'Servicio de coffee break para eventos corporativos.',
+      pricingProfile: {
+        baseFijo: 400,
+        porPersona: 0,
+        porUnidad: 1,
+        porMinuto: 0,
+        ...(overrides.pricingProfile ?? {}),
+      },
+      defaultQuantities: {
+        unidadesPorUsuario: 3,
+        unidadesPorHora: 0,
+        minutosPorUsuario: 0,
+        ...(overrides.defaultQuantities ?? {}),
+      },
+      rules: overrides.rules ?? [],
+      children: [],
+    },
+    externalContext: {
+      paxGlobal: 20,
+      duracionMin: 120,
+      dia: 1,
+      hora: '09:00',
+      ...(overrides.externalContext ?? {}),
+    },
+    overrides: overrides.itemOverrides ?? {},
+  };
+}
+
 function createDemoRuntime() {
   const view = new GenericViewBase({
     id: 'generic-unit-lab',
@@ -183,23 +219,27 @@ function createDemoRuntime() {
     },
   });
 
-  const statusUnit = new DemoUnit({
+  const statusUnit = new GenericItemBase({
     id: 'status-unit',
-    type: 'demo-unit',
     title: 'Status Unit',
-    subtitle: 'Tracks local mutations and outbound signals.',
+    subtitle: 'Real GenericItemBase using the pricing and rules runtime.',
+    seed: createItemSeed({
+      id: 'ITEM-STATUS',
+      name: 'Coffee Break Intermedio',
+      category: 'Coffee',
+    }),
   }).initialize(
-    { unitRole: 'status' },
+    { unitRole: 'status', paxGlobal: 20, duracionMin: 120, dia: 1, hora: '09:00' },
     {},
-    { count: 1, lastNote: '' },
+    {},
   );
 
   statusUnit.applyMutation({
     ui: {
       variant: 'signal',
-      badges: ['local-state'],
-      panels: ['count', 'signal'],
-      actions: ['boost', 'notify'],
+      badges: ['generic-item', 'pricing'],
+      panels: ['quantities', 'pricing'],
+      actions: ['override', 'notify'],
     },
   });
 
@@ -316,8 +356,9 @@ export function createGenericUnitPlaygroundController() {
 
     boostStatusUnit() {
       runtime.workspace.routeSignal({
-        type: 'BOOST',
-        payload: { amount: 1 },
+        type: 'SET_OVERRIDE',
+        key: 'cantidad',
+        value: Number(runtime.statusUnit.state?.quantities?.cantidad || 0) + 10,
       }, 'status-unit');
       runtime.workspace.aggregate();
     },
@@ -366,7 +407,7 @@ export function createGenericUnitPlaygroundController() {
       runtime.view.receiveSignal({
         type: 'REQUEST_PRICING',
         payload: {
-          quantity: runtime.statusUnit.state.count || 0,
+          quantity: runtime.statusUnit.state?.quantities?.cantidad || 0,
           unitPrice: 12,
         },
       });

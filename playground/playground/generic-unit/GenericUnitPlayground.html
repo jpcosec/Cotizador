@@ -123,12 +123,12 @@
 
               <dl class="unit-stats nested-stats">
                 <div>
-                  <dt>Count</dt>
-                  <dd x-text="leaf.state?.count ?? '-' "></dd>
+                  <dt>Quantity</dt>
+                  <dd x-text="leaf.state?.quantities?.cantidad ?? leaf.state?.quantities?.pax ?? '-' "></dd>
                 </div>
                 <div>
-                  <dt>Last Note</dt>
-                  <dd x-text="leaf.state?.lastNote || 'None'"></dd>
+                  <dt>Total</dt>
+                  <dd x-text="typeof leaf.derived?.pricing?.subtotal === 'number' ? leaf.derived.pricing.subtotal : (leaf.state?.lastNote || 'None')"></dd>
                 </div>
                 <div>
                   <dt>Stage</dt>

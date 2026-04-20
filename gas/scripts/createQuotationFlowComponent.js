@@ -162,18 +162,19 @@ export function createQuotationFlowComponent(options = {}) {
       const sync = (snapshot) => {
         runtimeView.receiveRuntimeSnapshot(snapshot);
         this.runtimeProjection = runtimeView.getProjection();
+        const shell = this.runtimeProjection.shell || {};
         this.sidebar.onActorUpdate(snapshot);
         this.timeline.onActorUpdate(snapshot);
         this.itemList.onActorUpdate(snapshot);
         this.modals.onActorUpdate(snapshot);
-        this.stage = snapshot.stage;
-        this.clientModalOpen = snapshot.clientModalOpen;
-        this.selectedClient = snapshot.selectedClient;
-        this.settings = { ...snapshot.settings };
+        this.stage = this.runtimeProjection.stage;
+        this.clientModalOpen = shell.clientModalOpen ?? snapshot.clientModalOpen;
+        this.selectedClient = shell.selectedClient ?? snapshot.selectedClient;
+        this.settings = { ...(shell.settings || snapshot.settings) };
         this.globalContext = {
           hora: this.settings.horaInicio,
         };
-        this.clients = normalizeClients(snapshot.clients || []);
+        this.clients = normalizeClients(shell.clients || snapshot.clients || []);
         this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
         this.basket = snapshot.basket || {
           dayOptions: [],
@@ -186,7 +187,7 @@ export function createQuotationFlowComponent(options = {}) {
           rows: [],
           totals: { subtotal: 0, iva: 0, total: 0 },
         };
-        this.persistence = snapshot.persistence || {
+        this.persistence = shell.persistence || snapshot.persistence || {
           isSaving: false,
           isLoading: false,
           error: null,

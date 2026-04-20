@@ -43,4 +43,13 @@ describe('GenericContainerBase', () => {
 
     expect(container.getProjection().aggregate.totals.count).toBe(4);
   });
+
+  it('aggregates quantity fields from item-style child state', () => {
+    const container = new GenericContainerBase({ id: 'workspace' }).initialize();
+    const child = new GenericUnitBase({ id: 'child' }).initialize({}, {}, { quantities: { cantidad: 60 } });
+
+    container.registerChild(child);
+
+    expect(container.getProjection().aggregate.totals.count).toBe(60);
+  });
 });

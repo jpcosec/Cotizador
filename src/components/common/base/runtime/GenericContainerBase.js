@@ -61,7 +61,13 @@ export class GenericContainerBase extends GenericUnitBase {
       meta,
     }));
     const totals = projections.reduce((accumulator, entry) => {
-      const count = Number(entry.projection.state?.count || 0);
+      const count = Number(
+        entry.projection.state?.count
+        ?? entry.projection.state?.quantities?.cantidad
+        ?? entry.projection.state?.quantities?.pax
+        ?? entry.projection.state?.quantities?.duracionMin
+        ?? 0
+      );
       const subtotal = Number(entry.projection.derived?.pricing?.subtotal || 0);
       return {
         count: accumulator.count + count,
