@@ -1,5 +1,6 @@
 /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import { Actorlike, Alpineable, Eventable } from '../../mixins/ui/index.js';
+import { RuntimeSignal } from './signals.js';
 
 const RuntimeUnitMixin = (Base) => Alpineable(Eventable(Actorlike(Base)));
 
@@ -223,7 +224,7 @@ export class GenericUnitBase extends RuntimeUnitMixin(class {}) {
       return this;
     }
 
-    if (envelope.type === 'PATCH_CONTEXT' || envelope.type === 'SET_CONTEXT') {
+    if (envelope.type === RuntimeSignal.patchContext || envelope.type === RuntimeSignal.setContext) {
       this.applyMutation({
         type: envelope.type,
         contextPatch: envelope.patch ?? envelope.contextPatch ?? {},
@@ -231,7 +232,7 @@ export class GenericUnitBase extends RuntimeUnitMixin(class {}) {
       return this;
     }
 
-    if (envelope.type === 'APPLY_MUTATION') {
+    if (envelope.type === RuntimeSignal.applyMutation) {
       this.applyMutation({
         type: envelope.type,
         ...(envelope.mutation ?? {}),
@@ -239,17 +240,17 @@ export class GenericUnitBase extends RuntimeUnitMixin(class {}) {
       return this;
     }
 
-    if (envelope.type === 'SET_UI') {
+    if (envelope.type === RuntimeSignal.setUi) {
       this.applyMutation({ type: envelope.type, ui: envelope.ui ?? {} });
       return this;
     }
 
-    if (envelope.type === 'SET_STATUS') {
+    if (envelope.type === RuntimeSignal.setStatus) {
       this.applyMutation({ type: envelope.type, status: envelope.status ?? 'ready' });
       return this;
     }
 
-    if (envelope.type === 'REQUEST_SNAPSHOT' || envelope.type === 'REFRESH_PROJECTION') {
+    if (envelope.type === RuntimeSignal.requestSnapshot || envelope.type === RuntimeSignal.refreshProjection) {
       this.refresh();
       return this;
     }

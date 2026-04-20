@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createQuotationFlowComponent } from './createQuotationFlowComponent.js';
 
@@ -223,5 +224,23 @@ describe('createQuotationFlowComponent database editor behavior', () => {
 
     expect(component.clients).toEqual([{ id: 'CLI-1', nombre: 'Empresa Uno' }]);
     expect(typeof subscriber).toBe('function');
+  });
+
+  it('exposes runtimeProjection through GenericView-based shell adapter', async () => {
+    const runtime = createRuntimeStub();
+    const component = createQuotationFlowComponent({ runtime });
+
+    await component.init();
+
+    expect(component.runtimeProjection).toMatchObject({
+      id: 'quotation-flow-view',
+      type: 'view',
+      stage: 'browse',
+      shell: {
+        settings: {
+          fechaInicio: '2026-01-01',
+        },
+      },
+    });
   });
 });

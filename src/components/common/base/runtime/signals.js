@@ -1,0 +1,45 @@
+/* eslint-disable jsdoc/require-jsdoc */
+export const RuntimeSignal = Object.freeze({
+  initialize: 'INITIALIZE',
+  reset: 'RESET',
+  dispose: 'DISPOSE',
+  refreshProjection: 'REFRESH_PROJECTION',
+  requestSnapshot: 'REQUEST_SNAPSHOT',
+  applyMutation: 'APPLY_MUTATION',
+  setContext: 'SET_CONTEXT',
+  patchContext: 'PATCH_CONTEXT',
+  setUi: 'SET_UI',
+  setStatus: 'SET_STATUS',
+  registerUnit: 'REGISTER_UNIT',
+  unregisterUnit: 'UNREGISTER_UNIT',
+  childSignal: 'CHILD_SIGNAL',
+  childUpdated: 'CHILD_UPDATED',
+  snapshotUpdated: 'SNAPSHOT_UPDATED',
+  projectionUpdated: 'PROJECTION_UPDATED',
+  openView: 'OPEN_VIEW',
+  enterStage: 'ENTER_STAGE',
+  nextStage: 'NEXT_STAGE',
+  previousStage: 'PREVIOUS_STAGE',
+  requestSave: 'REQUEST_SAVE',
+  requestLoad: 'REQUEST_LOAD',
+  requestExport: 'REQUEST_EXPORT',
+  requestPricing: 'REQUEST_PRICING',
+  requestRules: 'REQUEST_RULES',
+  requestStore: 'REQUEST_STORE',
+  boundaryDone: 'BOUNDARY_DONE',
+  boundaryError: 'BOUNDARY_ERROR',
+  setOverride: 'SET_OVERRIDE',
+  clearOverride: 'CLEAR_OVERRIDE',
+  resetOverrides: 'RESET_OVERRIDES',
+  setProfileValue: 'SET_PROFILE_VALUE',
+  setDefaultQuantity: 'SET_DEFAULT_QUANTITY',
+  clearDefaultQuantity: 'CLEAR_DEFAULT_QUANTITY',
+  setMode: 'SET_MODE',
+});
+
+export function createRuntimeSignal(type, payload = {}) {
+  return {
+    type,
+    ...payload,
+  };
+}

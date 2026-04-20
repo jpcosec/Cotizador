@@ -1,9 +1,11 @@
+/* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import { createQuotationRuntime } from './createQuotationRuntime.js';
 import { exportQuotationToCsv } from '../../src/services/excelService.js';
 import { createSidebar } from '../../src/components/quotation/views/sidebar/Sidebar.js';
 import { createTimeline } from '../../src/components/quotation/views/timeline/Timeline.js';
 import { createItemList } from '../../src/components/quotation/views/ItemList.js';
 import { createModals } from '../../src/components/quotation/views/Modals.js';
+import { createQuotationFlowRuntimeView } from './QuotationFlowRuntimeView.js';
 
 function toNumberValue(value, fallback = 0) {
   const parsed = Number(value);
@@ -86,6 +88,7 @@ function resolveCapabilities(options = {}) {
 export function createQuotationFlowComponent(options = {}) {
   const runtime = options.runtime || createQuotationRuntime(options);
   const capabilities = resolveCapabilities(options);
+  const runtimeView = createQuotationFlowRuntimeView(runtime);
 
   function resolveDatabaseEditorUrl() {
     if (typeof options.databaseEditorUrl === 'string' && options.databaseEditorUrl.trim()) {
@@ -148,6 +151,8 @@ export function createQuotationFlowComponent(options = {}) {
     draggingCatalogItemId: null,
     databaseEditorUrl: resolveDatabaseEditorUrl(),
     mainTab: 'timeline',
+    runtimeView,
+    runtimeProjection: runtimeView.getProjection(),
     sidebar: createSidebar(runtime),
     timeline: createTimeline(runtime),
     itemList: createItemList(runtime),
@@ -155,6 +160,8 @@ export function createQuotationFlowComponent(options = {}) {
 
     async init() {
       const sync = (snapshot) => {
+        runtimeView.receiveRuntimeSnapshot(snapshot);
+        this.runtimeProjection = runtimeView.getProjection();
         this.sidebar.onActorUpdate(snapshot);
         this.timeline.onActorUpdate(snapshot);
         this.itemList.onActorUpdate(snapshot);
@@ -189,6 +196,7 @@ export function createQuotationFlowComponent(options = {}) {
       };
 
       sync(runtime.getSnapshot());
+      runtimeView.attachRuntime(runtime);
       runtime.subscribe(sync);
 
       this.timeline.on('ITEM_DROPPED', ({ itemId, hora }) => {

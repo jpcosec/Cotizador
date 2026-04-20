@@ -1,6 +1,7 @@
 /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import { assign, createActor, setup } from 'xstate';
 import { GenericUnitBase } from './GenericUnitBase.js';
+import { RuntimeSignal } from './signals.js';
 
 function clonePlain(value) {
   if (value === null || typeof value !== 'object') {
@@ -103,6 +104,7 @@ function createViewMachine(view) {
       stageId: initialStageId,
       contextData: clonePlain(view.context),
       runtimeState: clonePlain(view.state),
+      ui: clonePlain(view.ui),
       boundaryStatus: clonePlain(view.boundaryStatus),
       derived: clonePlain(view.derived),
       errors: clonePlain(view.errors),
@@ -114,46 +116,47 @@ function createViewMachine(view) {
       active: {},
     },
     on: {
-      APPLY_MUTATION: {
+      [RuntimeSignal.applyMutation]: {
         actions: assign(({ context, event }) => ({
           runtimeState: mergePlain(context.runtimeState, clonePlain(event.patch ?? event.state ?? event.mutation?.patch ?? {})),
           contextData: mergePlain(context.contextData, clonePlain(event.contextPatch ?? event.mutation?.contextPatch ?? {})),
+          ui: mergePlain(context.ui, clonePlain(event.ui ?? event.mutation?.ui ?? {})),
           derived: mergePlain(context.derived, clonePlain(event.derived ?? event.mutation?.derived ?? {})),
           status: event.status ?? event.mutation?.status ?? context.status,
           lastSignal: clonePlain(event),
         })),
       },
-      PATCH_CONTEXT: {
+      [RuntimeSignal.patchContext]: {
         actions: assign(({ context, event }) => ({
           contextData: mergePlain(context.contextData, clonePlain(event.patch ?? event.contextPatch ?? {})),
           lastSignal: clonePlain(event),
         })),
       },
-      SET_CONTEXT: {
+      [RuntimeSignal.setContext]: {
         actions: assign(({ event }) => ({
           contextData: clonePlain(event.patch ?? event.contextPatch ?? {}),
           lastSignal: clonePlain(event),
         })),
       },
-      ENTER_STAGE: {
+      [RuntimeSignal.enterStage]: {
         actions: assign(({ context, event }) => ({
           stageId: stageOrder.includes(event.stageId) ? event.stageId : context.stageId,
           lastSignal: clonePlain(event),
         })),
       },
-      NEXT_STAGE: {
+      [RuntimeSignal.nextStage]: {
         actions: assign(({ context, event }) => ({
           stageId: getNeighborStage(stageOrder, context.stageId, 1),
           lastSignal: clonePlain(event),
         })),
       },
-      PREVIOUS_STAGE: {
+      [RuntimeSignal.previousStage]: {
         actions: assign(({ context, event }) => ({
           stageId: getNeighborStage(stageOrder, context.stageId, -1),
           lastSignal: clonePlain(event),
         })),
       },
-      REQUEST_SAVE: {
+      [RuntimeSignal.requestSave]: {
         actions: [
           assign(({ context, event }) => ({
             boundaryStatus: mergePlain(context.boundaryStatus, {
@@ -167,7 +170,7 @@ function createViewMachine(view) {
           'requestSave',
         ],
       },
-      REQUEST_EXPORT: {
+      [RuntimeSignal.requestExport]: {
         actions: [
           assign(({ context, event }) => ({
             boundaryStatus: mergePlain(context.boundaryStatus, {
@@ -181,7 +184,7 @@ function createViewMachine(view) {
           'requestExport',
         ],
       },
-      REQUEST_PRICING: {
+      [RuntimeSignal.requestPricing]: {
         actions: [
           assign(({ context, event }) => ({
             boundaryStatus: mergePlain(context.boundaryStatus, {
@@ -195,7 +198,7 @@ function createViewMachine(view) {
           'requestPricing',
         ],
       },
-      REQUEST_RULES: {
+      [RuntimeSignal.requestRules]: {
         actions: [
           assign(({ context, event }) => ({
             boundaryStatus: mergePlain(context.boundaryStatus, {
@@ -209,7 +212,7 @@ function createViewMachine(view) {
           'requestRules',
         ],
       },
-      REQUEST_STORE: {
+      [RuntimeSignal.requestStore]: {
         actions: [
           assign(({ context, event }) => ({
             boundaryStatus: mergePlain(context.boundaryStatus, {
@@ -223,7 +226,7 @@ function createViewMachine(view) {
           'requestStore',
         ],
       },
-      BOUNDARY_DONE: {
+      [RuntimeSignal.boundaryDone]: {
         actions: assign(({ context, event }) => ({
           boundaryStatus: mergePlain(context.boundaryStatus, {
             [`${event.boundaryName}.${event.actionName}`]: {
@@ -238,7 +241,7 @@ function createViewMachine(view) {
           lastSignal: clonePlain(event),
         })),
       },
-      BOUNDARY_ERROR: {
+      [RuntimeSignal.boundaryError]: {
         actions: assign(({ context, event }) => ({
           boundaryStatus: mergePlain(context.boundaryStatus, {
             [`${event.boundaryName}.${event.actionName}`]: {
@@ -251,7 +254,7 @@ function createViewMachine(view) {
           lastSignal: clonePlain(event),
         })),
       },
-      CHILD_SIGNAL: {
+      [RuntimeSignal.childSignal]: {
         actions: assign(({ context, event }) => ({
           runtimeState: mergePlain(context.runtimeState, {
             childSignals: [...(context.runtimeState.childSignals ?? []), clonePlain(event.signal)].slice(-10),
@@ -297,6 +300,7 @@ export class GenericViewBase extends GenericUnitBase {
     this.stage = machineContext.stageId ?? this.stage;
     this.context = clonePlain(machineContext.contextData ?? this.context);
     this.state = clonePlain(machineContext.runtimeState ?? this.state);
+    this.ui = clonePlain(machineContext.ui ?? this.ui);
     this.boundaryStatus = clonePlain(machineContext.boundaryStatus ?? this.boundaryStatus);
     this.derived = clonePlain(machineContext.derived ?? this.derived);
     this.errors = clonePlain(machineContext.errors ?? this.errors);
@@ -311,7 +315,7 @@ export class GenericViewBase extends GenericUnitBase {
 
     unit.on('SIGNAL_EMITTED', (signal) => {
       if (this.hasActorRef) {
-        this.sendEvent('CHILD_SIGNAL', { signal });
+        this.sendEvent(RuntimeSignal.childSignal, { signal });
       }
     });
 
