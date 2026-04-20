@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createDatabase } from '../packages/database/src/createDatabase.js';
-import { loadSeedFromCsvDir } from '../packages/database/src/csvSeed.js';
-import { LocalPersistenceAdapter } from '../packages/database/src/persistence/LocalPersistenceAdapter.js';
+import { createDatabase } from '../src/database/src/createDatabase.js';
+import { loadSeedFromCsvDir } from '../src/database/src/csvSeed.js';
+import { LocalPersistenceAdapter } from '../src/database/src/persistence/LocalPersistenceAdapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

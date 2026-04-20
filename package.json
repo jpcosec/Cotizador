@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:bundle && npm run build:gas",
-    "build:bundle": "node tools/generate_local_init_tables.mjs && rollup -c rollup.config.mjs",
-    "build:gas": "node tools/reset_gas_workspace.mjs && node tools/generate_gas_runtime_bundle.mjs && node tools/generate_gas_code.mjs",
+    "build:bundle": "node gas/scripts/generate_local_init_tables.mjs && rollup -c rollup.config.mjs",
+    "build:gas": "node gas/scripts/reset_gas_workspace.mjs && node gas/scripts/generate_gas_runtime_bundle.mjs && node gas/scripts/generate_gas_code.mjs",
     "serve:gas": "node tools/serve-local.mjs",
     "serve:local": "node tools/serve-local.mjs",
     "dev:gas": "npm run build && npm run serve:local",
