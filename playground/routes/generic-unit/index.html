@@ -241,6 +241,33 @@
       background: linear-gradient(180deg, rgba(229, 250, 247, 0.92), rgba(255, 252, 246, 0.88));
     }
 
+    .unit-card[data-variant="container"] {
+      background: linear-gradient(180deg, rgba(231, 236, 255, 0.92), rgba(255, 252, 246, 0.88));
+    }
+
+    .nested-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .nested-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .panel-head.compact {
+      margin-bottom: 10px;
+    }
+
+    .nested-stats {
+      grid-template-columns: 1fr;
+      margin: 10px 0 12px;
+    }
+
     .unit-stats {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));

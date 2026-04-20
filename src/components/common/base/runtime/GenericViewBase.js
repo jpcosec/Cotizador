@@ -88,6 +88,12 @@ function createViewMachine(view) {
           payload: clonePlain(event.payload ?? {}),
         }, { actorRef: self });
       },
+      requestStore: ({ event, self }) => {
+        void view.callBoundary('store', 'query', {
+          snapshot: view.getSnapshot(),
+          payload: clonePlain(event.payload ?? {}),
+        }, { actorRef: self });
+      },
     },
   }).createMachine({
     id: `${view.id}-view-machine`,
@@ -201,6 +207,20 @@ function createViewMachine(view) {
             lastSignal: clonePlain(event),
           })),
           'requestRules',
+        ],
+      },
+      REQUEST_STORE: {
+        actions: [
+          assign(({ context, event }) => ({
+            boundaryStatus: mergePlain(context.boundaryStatus, {
+              'store.query': {
+                status: 'pending',
+                payload: clonePlain(event.payload ?? {}),
+              },
+            }),
+            lastSignal: clonePlain(event),
+          })),
+          'requestStore',
         ],
       },
       BOUNDARY_DONE: {

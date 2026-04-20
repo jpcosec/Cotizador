@@ -1,5 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import { describe, expect, it } from 'vitest';
+import { GenericContainerBase } from './GenericContainerBase.js';
 import { GenericUnitBase } from './GenericUnitBase.js';
 import { GenericViewBase } from './GenericViewBase.js';
 
@@ -63,6 +64,27 @@ describe('GenericViewBase', () => {
     });
   });
 
+  it('records nested child feedback bubbled through a container', async () => {
+    const view = new GenericViewBase({
+      id: 'nested-view',
+      stages: ['compose', 'review'],
+    }).initialize({}, {});
+    const container = new GenericContainerBase({ id: 'workspace' }).initialize();
+    const child = new GenericUnitBase({ id: 'leaf' }).initialize();
+
+    container.registerChild(child);
+    view.registerChild(container, { stages: ['compose', 'review'] });
+
+    child.emitSignal({ type: 'LEAF_SIGNAL', payload: { count: 1 } }, 'workspace');
+    await waitForAsyncWork();
+
+    expect(view.state.childSignals.at(-1)).toMatchObject({
+      type: 'LEAF_SIGNAL',
+      sourceId: 'leaf',
+      via: ['workspace'],
+    });
+  });
+
   it('executes persistence and pricing boundaries through xstate events', async () => {
     const view = new GenericViewBase({
       id: 'boundary-view',
@@ -78,6 +100,11 @@ describe('GenericViewBase', () => {
             subtotal: Number(payload.quantity || 0) * Number(payload.unitPrice || 0),
           }),
         },
+        store: {
+          query: async ({ payload }) => ({
+            results: [{ id: payload.id, label: 'Demo entity' }],
+          }),
+        },
       },
     );
 
@@ -91,6 +118,11 @@ describe('GenericViewBase', () => {
       payload: { quantity: 3, unitPrice: 7 },
     });
 
+    view.receiveSignal({
+      type: 'REQUEST_STORE',
+      payload: { id: 'entity-1' },
+    });
+
     await waitForAsyncWork();
     await waitForAsyncWork();
 
@@ -102,6 +134,11 @@ describe('GenericViewBase', () => {
     expect(view.getProjection().boundaryStatus['pricing.evaluate']).toMatchObject({
       status: 'success',
       result: { subtotal: 21 },
+    });
+
+    expect(view.getProjection().boundaryStatus['store.query']).toMatchObject({
+      status: 'success',
+      result: { results: [{ id: 'entity-1', label: 'Demo entity' }] },
     });
 
     expect(view.derived.pricing).toEqual({ subtotal: 21 });

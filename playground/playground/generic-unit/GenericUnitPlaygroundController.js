@@ -1,5 +1,6 @@
 /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
 import {
+  GenericContainerBase,
   GenericUnitBase,
   GenericViewBase,
 } from '../../../src/components/common/base/index.js';
@@ -112,6 +113,20 @@ function createMockBoundaries() {
         };
       },
     },
+    store: {
+      async query({ payload }) {
+        await wait(60);
+        return {
+          items: [
+            {
+              id: payload.id ?? 'demo-item',
+              label: 'Catalog seed loaded from mock store',
+              category: 'playground',
+            },
+          ],
+        };
+      },
+    },
   };
 }
 
@@ -141,12 +156,30 @@ function createDemoRuntime() {
   view.applyMutation({
     ui: {
       title: 'GenericUnit Runtime Lab',
-      subtitle: 'Alpine renders projections while XState drives transitions and boundaries.',
+      subtitle: 'Alpine renders projections while XState drives transitions, boundaries, and recursive units.',
       actions: [
         { id: 'next', label: 'Next stage' },
         { id: 'save', label: 'Save snapshot' },
         { id: 'export', label: 'Export projection' },
       ],
+    },
+  });
+
+  const workspace = new GenericContainerBase({
+    id: 'workspace-container',
+    title: 'Workspace Container',
+    subtitle: 'Recursive layer between View and leaf units.',
+  }).initialize(
+    { containerRole: 'workspace' },
+    {},
+    { selectedUnitId: 'status-unit' },
+  );
+
+  workspace.applyMutation({
+    ui: {
+      variant: 'container',
+      badges: ['recursive-layer'],
+      panels: ['aggregate', 'children'],
     },
   });
 
@@ -190,18 +223,26 @@ function createDemoRuntime() {
     },
   });
 
-  view.registerChild(statusUnit, {
+  workspace.registerChild(statusUnit, {
     title: 'Status Unit',
     stages: ['compose', 'review', 'export'],
   });
 
-  view.registerChild(inspectorUnit, {
+  workspace.registerChild(inspectorUnit, {
     title: 'Inspector Unit',
     stages: ['review', 'export'],
   });
 
+  workspace.aggregate();
+
+  view.registerChild(workspace, {
+    title: 'Workspace Container',
+    stages: ['compose', 'review', 'export'],
+  });
+
   return {
     view,
+    workspace,
     statusUnit,
     inspectorUnit,
   };
@@ -232,6 +273,10 @@ export function createGenericUnitPlaygroundController() {
     recordSignal('status:emitted', signal);
   });
 
+  runtime.workspace.on('PROJECTION_UPDATED', (projection) => {
+    recordSignal('container:projection', { aggregate: projection.aggregate });
+  });
+
   runtime.inspectorUnit.on('SIGNAL_RECEIVED', (signal) => {
     recordSignal('inspector:received', signal);
   });
@@ -251,6 +296,7 @@ export function createGenericUnitPlaygroundController() {
 
       runtime.view.on('PROJECTION_UPDATED', sync);
       runtime.view.on('SNAPSHOT_UPDATED', sync);
+      runtime.workspace.on('PROJECTION_UPDATED', sync);
       runtime.statusUnit.on('PROJECTION_UPDATED', sync);
       runtime.inspectorUnit.on('PROJECTION_UPDATED', sync);
       sync();
@@ -269,10 +315,11 @@ export function createGenericUnitPlaygroundController() {
     },
 
     boostStatusUnit() {
-      runtime.view.routeSignal({
+      runtime.workspace.routeSignal({
         type: 'BOOST',
         payload: { amount: 1 },
       }, 'status-unit');
+      runtime.workspace.aggregate();
     },
 
     sendSiblingSignal() {
@@ -280,16 +327,25 @@ export function createGenericUnitPlaygroundController() {
         type: 'CHILD_NOTE',
         payload: { note: 'Sibling signal arrived through GenericUnit routing.' },
       }, 'inspector-unit');
+      runtime.workspace.aggregate();
     },
 
     mirrorViewStage() {
-      runtime.view.routeSignal({
+      runtime.workspace.routeSignal({
         type: 'SET_VISUAL_STATUS',
         payload: {
           status: runtime.view.stage === 'export' ? 'ready' : 'active',
           badges: [runtime.view.stage],
         },
       }, 'inspector-unit');
+      runtime.workspace.aggregate();
+    },
+
+    propagateStageContext() {
+      runtime.workspace.propagateContext({
+        stage: runtime.view.stage,
+        flowMode: runtime.view.stage === 'export' ? 'read-only' : 'editing',
+      });
     },
 
     requestSave() {
@@ -321,6 +377,15 @@ export function createGenericUnitPlaygroundController() {
         type: 'REQUEST_RULES',
         payload: {
           subtotal: runtime.view.derived.pricing?.subtotal ?? 0,
+        },
+      });
+    },
+
+    requestStore() {
+      runtime.view.receiveSignal({
+        type: 'REQUEST_STORE',
+        payload: {
+          id: runtime.workspace.state.selectedUnitId || 'status-unit',
         },
       });
     },

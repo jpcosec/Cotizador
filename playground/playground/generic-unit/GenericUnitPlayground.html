@@ -37,10 +37,12 @@
         <button class="lab-btn primary" @click="boostStatusUnit()">Mutate child state</button>
         <button class="lab-btn ghost" @click="sendSiblingSignal()">Signal sibling</button>
         <button class="lab-btn ghost" @click="mirrorViewStage()">Mirror stage to child</button>
+        <button class="lab-btn ghost" @click="propagateStageContext()">Propagate context</button>
         <button class="lab-btn ghost" @click="requestSave()">Save snapshot</button>
         <button class="lab-btn ghost" @click="requestExport()">Export projection</button>
         <button class="lab-btn ghost" @click="requestPricing()">Run pricing</button>
         <button class="lab-btn ghost" @click="requestRules()">Run rules</button>
+        <button class="lab-btn ghost" @click="requestStore()">Query store</button>
       </div>
     </article>
 
@@ -91,12 +93,12 @@
 
         <dl class="unit-stats">
           <div>
-            <dt>Count</dt>
-            <dd x-text="child.state?.count ?? '-' "></dd>
+            <dt>Children</dt>
+            <dd x-text="child.aggregate?.childCount ?? child.state?.count ?? '-' "></dd>
           </div>
           <div>
-            <dt>Last Note</dt>
-            <dd x-text="child.state?.lastNote || 'None'"></dd>
+            <dt>Aggregate Count</dt>
+            <dd x-text="typeof child.aggregate?.totals?.count === 'number' ? child.aggregate.totals.count : (child.state?.lastNote || 'None')"></dd>
           </div>
           <div>
             <dt>Status</dt>
@@ -104,7 +106,42 @@
           </div>
         </dl>
 
-        <pre class="json-mini" x-text="pretty({ derived: child.derived, meta: child.meta })"></pre>
+        <div class="nested-grid" x-show="child.children?.length">
+          <template x-for="leaf in child.children || []" :key="leaf.id">
+            <article class="nested-card">
+              <div class="panel-head compact">
+                <div>
+                  <p class="panel-label" x-text="leaf.type"></p>
+                  <h3 x-text="leaf.ui.title"></h3>
+                </div>
+                <div class="unit-badges">
+                  <template x-for="badge in leaf.ui.badges || []" :key="badge">
+                    <span class="badge" x-text="badge"></span>
+                  </template>
+                </div>
+              </div>
+
+              <dl class="unit-stats nested-stats">
+                <div>
+                  <dt>Count</dt>
+                  <dd x-text="leaf.state?.count ?? '-' "></dd>
+                </div>
+                <div>
+                  <dt>Last Note</dt>
+                  <dd x-text="leaf.state?.lastNote || 'None'"></dd>
+                </div>
+                <div>
+                  <dt>Stage</dt>
+                  <dd x-text="leaf.context?.stage || 'n/a'"></dd>
+                </div>
+              </dl>
+
+              <pre class="json-mini" x-text="pretty({ derived: leaf.derived, context: leaf.context, meta: leaf.meta })"></pre>
+            </article>
+          </template>
+        </div>
+
+        <pre class="json-mini" x-text="pretty({ aggregate: child.aggregate, derived: child.derived, meta: child.meta })"></pre>
       </article>
     </template>
   </section>
