@@ -13,8 +13,8 @@ pills:
 Extract Modal logic (Client selection, Quotation search) into a modular controller.
 
 ## Context
-- Source: `apps/quotation/playground/mountQuotationFlow.js` (Modal and search-related methods)
-- Target: `packages/components/quotation/views/Modals.js`
+- Source: `gas/scripts/createQuotationFlowComponent.js` (Modal and search-related methods)
+- Target: `src/components/quotation/views/Modals.js`
 
 ## Requirements
 1. Inherit from `UIContainerBase`.

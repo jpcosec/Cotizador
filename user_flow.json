@@ -53,23 +53,35 @@
     {
       "id": "09_go_validation",
       "action": "click",
-      "selector": "button:has-text('Validate')",
+      "selector": ".workspace .settings-actions button:has-text('Validate')",
       "description": "Advance to validation"
     },
     {
-      "id": "10_save_quotation",
+      "id": "10_wait_validation",
+      "action": "wait",
+      "selector": ".validation-panel h2",
+      "description": "Wait for validation screen"
+    },
+    {
+      "id": "11_export_to_excel",
       "action": "click",
-      "selector": "button:has-text('Confirm & Save')",
+      "selector": ".validation-panel .validation-actions button:has-text('Export to Excel')",
+      "description": "Export validation rows to csv"
+    },
+    {
+      "id": "12_save_quotation",
+      "action": "click",
+      "selector": ".validation-panel .validation-actions button:has-text('Confirm & Save')",
       "description": "Save quotation"
     },
     {
-      "id": "11_verify_saved",
+      "id": "13_verify_saved",
       "action": "wait",
-      "selector": "h2:has-text('Quotation Saved')",
+      "selector": ".validation-panel h2:has-text('Quotation Saved')",
       "description": "Verify save"
     },
     {
-      "id": "12_edit_pack_db",
+      "id": "14_edit_pack_db",
       "action": "goto",
       "url": "/playground/routes/pack-editor.html",
       "description": "Open pack editor database flow"

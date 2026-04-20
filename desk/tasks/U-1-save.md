@@ -38,12 +38,12 @@ Enable `Confirm` to persist quotation data end-to-end in rebuild, while preservi
 
 | Artifact | Location |
 |----------|----------|
-| Save contract + legacy mapping | `packages/database/src/persistence/SavePayload.md` |
-| Serializer | `packages/database/src/persistence/serializeQuotation.js` |
-| Persistence boundary | `packages/database/src/persistence/PersistencePort.js` |
-| Local adapter | `packages/database/src/persistence/LocalPersistenceAdapter.js` |
-| Runtime wiring | `apps/quotation/state/createPersistedQuotationRuntime.js` |
-| UI wiring | `apps/quotation/playground/QuotationFlowInternal.html` |
+| Save contract + legacy mapping | `src/database/src/persistence/SavePayload.md` |
+| Serializer | `src/database/src/persistence/serializeQuotation.js` |
+| Persistence boundary | `src/database/src/persistence/PersistencePort.js` |
+| Local adapter | `src/database/src/persistence/LocalPersistenceAdapter.js` |
+| Runtime wiring | `src/state/createPersistedQuotationRuntime.js` |
+| UI wiring | `playground/routes/step-04-quotation/index.html` |
 
 ---
 
@@ -61,9 +61,9 @@ Enable `Confirm` to persist quotation data end-to-end in rebuild, while preservi
 
 ### Outputs
 
-- `packages/database/src/persistence/SavePayload.md`
-- `packages/database/src/persistence/serializeQuotation.js`
-- `packages/database/src/persistence/serializeQuotation.test.js`
+- `src/database/src/persistence/SavePayload.md`
+- `src/database/src/persistence/serializeQuotation.js`
+- `src/database/src/persistence/serializeQuotation.test.js`
 
 ### Acceptance
 
@@ -94,9 +94,9 @@ Enable `Confirm` to persist quotation data end-to-end in rebuild, while preservi
 
 ### Outputs
 
-- `packages/database/src/persistence/PersistencePort.js`
-- `packages/database/src/persistence/LocalPersistenceAdapter.js`
-- `packages/database/src/persistence/LocalPersistenceAdapter.test.js`
+- `src/database/src/persistence/PersistencePort.js`
+- `src/database/src/persistence/LocalPersistenceAdapter.js`
+- `src/database/src/persistence/LocalPersistenceAdapter.test.js`
 
 ### Acceptance
 
@@ -127,9 +127,9 @@ Enable `Confirm` to persist quotation data end-to-end in rebuild, while preservi
 
 ### Outputs
 
-- `apps/quotation/state/createPersistedQuotationRuntime.js`
-- `apps/quotation/state/createQuotationInternalRuntime.js`
-- `apps/quotation/playground/QuotationFlowInternal.html`
+- `src/state/createPersistedQuotationRuntime.js`
+- `src/state/createQuotationInternalRuntime.js`
+- `playground/routes/step-04-quotation/index.html`
 - `bundling/createQuotationFlowComponent.js`
 
 ### Acceptance

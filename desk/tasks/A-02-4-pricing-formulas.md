@@ -15,7 +15,7 @@ pills:
 Extract core pricing calculation formulas.
 
 ## Context
-- Monster: `packages/pricing/src/ItemLogic.js`
+- Monster: `src/pricing/src/ItemLogic.js`
 - Target: `Formulas.js`
 
 ## Requirements

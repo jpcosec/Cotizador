@@ -15,7 +15,7 @@ pills:
 Thin down `Item.js` into a lightweight orchestrator/factory.
 
 ## Context
-- Monster: `packages/components/item/Item.js`
+- Monster: `src/components/item/Item.js`
 
 ## Requirements
 1. Use `ItemState` and `ItemProjections` via composition.

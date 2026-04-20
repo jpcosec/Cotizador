@@ -13,8 +13,8 @@ pills:
 Extract the Timeline logic into a modular controller.
 
 ## Context
-- Source: `apps/quotation/playground/mountQuotationFlow.js` (The large `x-data` object in the main section)
-- Target: `packages/components/quotation/views/Timeline.js`
+- Source: `gas/scripts/createQuotationFlowComponent.js` (The large `x-data` object in the main section)
+- Target: `src/components/quotation/views/Timeline.js`
 
 ## Requirements
 1. Inherit from `UIContainerBase`.

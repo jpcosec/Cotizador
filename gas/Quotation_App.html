@@ -1,4 +1,4 @@
-<section class="quotation-shell" x-data="{ mainTab: 'timeline' }">
+<section class="quotation-shell">
   <template x-if="stage === 'browse' || stage === 'client'">
     <section class="panel home-panel">
       <h2>Quotation Flow</h2>
@@ -66,7 +66,28 @@
             <template x-for="row in validation.rows" :key="row.entryId">
               <tr>
                 <td x-text="'Dia ' + row.dayIndex"></td>
-                <td x-text="row.name"></td>
+                <td class="validation-item-cell">
+                  <div class="validation-item-trigger">
+                    <span x-text="row.name"></span>
+                    <span class="validation-rule-count" x-show="(row.activeRules || []).length > 0" x-text="(row.activeRules || []).length"></span>
+                    <div class="validation-hover-card">
+                      <p class="validation-hover-title" x-text="row.name"></p>
+                      <p class="validation-hover-description" x-text="row.description || 'Sin descripcion disponible.'"></p>
+                      <div class="validation-hover-rules">
+                        <p class="validation-hover-label">Active rules</p>
+                        <template x-if="(row.activeRules || []).length === 0">
+                          <p class="validation-hover-empty">No active rules for this line.</p>
+                        </template>
+                        <template x-for="rule in (row.activeRules || [])" :key="rule.id">
+                          <div class="validation-hover-rule" :class="rule.type === 'ERROR' ? 'is-error' : 'is-warning'">
+                            <strong x-text="rule.type"></strong>
+                            <span x-text="rule.message"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </td>
                 <td x-text="row.pax"></td>
                 <td x-text="row.unidades"></td>
                 <td x-text="row.hora"></td>

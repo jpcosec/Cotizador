@@ -14,11 +14,11 @@ pills:
 Replace the hardcoded Sidebar in the orchestrators with the modular component.
 
 ## Context
-- App Orchestrator (GAS): `apps/gas/Quotation_App_Source.html`
-- Playground Orchestrator: `apps/quotation/playground/QuotationFlowInternal.html`
+- App Orchestrator (GAS): `gas/scripts/createQuotationFlowComponent.js`
+- Playground Orchestrator: `playground/routes/step-04-quotation/index.html`
 
 ## Requirements
-1. Update `apps/quotation/playground/mountQuotationFlow.js` to use `createSidebar` and mount it.
+1. Update `gas/scripts/createQuotationFlowComponent.js` to use `createSidebar` and mount it.
 2. Replace the `<aside class="sidebar">` block in both HTML files with a marker or the component include.
 3. Ensure the `SidebarController` is correctly initialized with the runtime.
 

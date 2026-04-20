@@ -3,17 +3,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  basketRuntimeHtml,
-  catalogRuntimeHtml,
-} from '../packages/components/item/ui/playgroundItemSections.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', '..');
 const gasDir = path.join(root, 'gas');
-const gasSourceDir = path.join(root, 'apps', 'gas');
-const gasManifest = path.join(gasSourceDir, 'appsscript.json');
-const quotationTemplatePath = path.join(gasSourceDir, 'Quotation_App_Source.html');
+const gasManifest = path.join(gasDir, 'appsscript.json');
+const quotationTemplatePath = path.join(gasDir, 'Quotation_App.html');
+const sidebarTemplatePath = path.join(root, 'src', 'components', 'quotation', 'ui', 'Sidebar.html');
+const timelineTemplatePath = path.join(root, 'src', 'components', 'quotation', 'ui', 'Timeline.html');
+const itemListTemplatePath = path.join(root, 'src', 'components', 'quotation', 'ui', 'ItemList.html');
+const modalsTemplatePath = path.join(root, 'src', 'components', 'quotation', 'ui', 'Modals.html');
+const catalogRuntimePath = path.join(root, 'src', 'components', 'item', 'ui', 'CatalogRuntime.html');
+const basketRuntimePath = path.join(root, 'src', 'components', 'item', 'ui', 'BasketRuntime.html');
+const themePath = path.join(root, 'src', 'components', 'common', 'styles', 'theme-quotation.css');
+const legacyThemePath = path.join(root, 'src', 'components', 'quotation', 'ui', 'theme.css');
 
 function ensureFile(filePath, label) {
   if (!fs.existsSync(filePath)) {
@@ -21,47 +24,57 @@ function ensureFile(filePath, label) {
   }
 }
 
-function copyStaticTemplates() {
-  const entries = fs.readdirSync(gasSourceDir, { withFileTypes: true });
-  const htmlFiles = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.html'))
-    .filter((entry) => entry.name !== 'Quotation_App_Source.html')
-    .map((entry) => entry.name)
-    .sort();
-
-  for (const htmlFile of htmlFiles) {
-    const src = path.join(gasSourceDir, htmlFile);
-    const dst = path.join(gasDir, htmlFile);
-    fs.copyFileSync(src, dst);
-  }
-
-  return htmlFiles;
+function read(filePath) {
+  return fs.readFileSync(filePath, 'utf8');
 }
 
-function generateQuotationTemplate() {
-  const rawTemplate = fs.readFileSync(quotationTemplatePath, 'utf8');
-  const processed = rawTemplate
-    .replace('<!-- CATALOG_RUNTIME -->', () => catalogRuntimeHtml)
-    .replace('<!-- BASKET_RUNTIME -->', () => basketRuntimeHtml);
+function write(fileName, contents) {
+  fs.writeFileSync(path.join(gasDir, fileName), contents, 'utf8');
+}
 
-  fs.writeFileSync(path.join(gasDir, 'Quotation_App.html'), processed, 'utf8');
+function replaceRuntimeMarkers(template, catalogRuntimeHtml, basketRuntimeHtml) {
+  return template
+    .replace('<!-- CATALOG_RUNTIME -->', catalogRuntimeHtml)
+    .replace('<!-- BASKET_RUNTIME -->', basketRuntimeHtml);
+}
+
+function extractPrintStyles(source) {
+  const match = source.match(/@media print\s*\{[\s\S]*\}\s*$/);
+  if (!match) {
+    throw new Error('print styles block not found in src/components/quotation/ui/theme.css');
+  }
+  return match[0].trim();
 }
 
 try {
   ensureFile(gasManifest, 'GAS manifest');
   ensureFile(quotationTemplatePath, 'Quotation template');
+  ensureFile(sidebarTemplatePath, 'Sidebar template');
+  ensureFile(timelineTemplatePath, 'Timeline template');
+  ensureFile(itemListTemplatePath, 'Item list template');
+  ensureFile(modalsTemplatePath, 'Modals template');
+  ensureFile(catalogRuntimePath, 'Catalog runtime template');
+  ensureFile(basketRuntimePath, 'Basket runtime template');
+  ensureFile(themePath, 'Quotation theme css');
+  ensureFile(legacyThemePath, 'Legacy quotation theme css');
 
-  fs.rmSync(gasDir, { recursive: true, force: true });
   fs.mkdirSync(gasDir, { recursive: true });
 
-  const copiedHtml = copyStaticTemplates();
-  generateQuotationTemplate();
-  fs.copyFileSync(gasManifest, path.join(gasDir, 'appsscript.json'));
+  const catalogRuntimeHtml = read(catalogRuntimePath);
+  const basketRuntimeHtml = read(basketRuntimePath);
+  const generatedTemplates = {
+    'Sidebar.html': replaceRuntimeMarkers(read(sidebarTemplatePath), catalogRuntimeHtml, basketRuntimeHtml),
+    'Timeline.html': replaceRuntimeMarkers(read(timelineTemplatePath), catalogRuntimeHtml, basketRuntimeHtml),
+    'ItemList.html': replaceRuntimeMarkers(read(itemListTemplatePath), catalogRuntimeHtml, basketRuntimeHtml),
+    'Modals.html': read(modalsTemplatePath),
+    'theme-quotation.html': `<style>\n${read(themePath)}\n</style>\n`,
+    'QuotationPrintStyles.html': `<style>\n${extractPrintStyles(read(legacyThemePath))}\n</style>\n`,
+  };
+
+  Object.entries(generatedTemplates).forEach(([fileName, contents]) => write(fileName, contents));
 
   console.log(`Regenerated GAS workspace: ${gasDir}`);
-  console.log(`Copied static GAS templates: ${copiedHtml.length}`);
-  console.log('Generated template: Quotation_App.html');
-  console.log('Copied manifest: appsscript.json');
+  console.log(`Generated templates: ${Object.keys(generatedTemplates).join(', ')}`);
 } catch (error) {
   console.error('Failed to reset GAS workspace:', error.message);
   process.exit(1);

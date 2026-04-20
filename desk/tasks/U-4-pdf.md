@@ -33,8 +33,8 @@ Deliver production-ready PDF export from saved quotations using save-first patte
 |----------|----------|
 | GAS PDF server | `gas/Code.gs` |
 | PDF strategy doc | `docs/.../pdf-generation.md` |
-| Runtime wiring | `apps/quotation/state/createQuotationInternalRuntime.js` |
-| UI wiring | `apps/quotation/playground/QuotationFlowInternal.html` |
+| Runtime wiring | `src/state/createQuotationInternalRuntime.js` |
+| UI wiring | `playground/routes/step-04-quotation/index.html` |
 
 ---
 

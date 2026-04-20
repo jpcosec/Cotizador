@@ -1,0 +1,50 @@
+@startuml
+title Cotizador Lodge - High Level Architecture
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "Source of Truth" {
+  component "Core Source\n`src/`\nstate + components + database + pricing + services" as Src
+}
+
+package "Runtime Surfaces" {
+  component "Playground\n`playground/`\ncomponent testing" as Playground
+  component "Integrated App\n`gas/`\nlocal + GAS shell" as GasApp
+  component "External Bundle\n`dist/quotation-engine.iife.js`" as Dist
+}
+
+package "Data" {
+  database "Seed Data\n`data/init/*.csv`" as SeedData
+  database "Local Persistence\n`data/db.json`" as LocalDb
+  database "Google Sheets\nvia `gas/Code.gs`" as Sheets
+}
+
+package "Tooling" {
+  component "Build Scripts\n`gas/scripts/*.mjs`" as Build
+  component "E2E Runner\n`tools/userFlowRunner.mjs`" as E2E
+}
+
+Src --> Playground : ES modules
+Src --> GasApp : runtime + views + templates
+Src --> Dist : bundled API
+
+SeedData --> Src : resolver data / init tables
+GasApp --> LocalDb : local mode
+GasApp --> Sheets : GAS mode
+
+Build --> Dist : rollup bundle
+Build --> GasApp : generated templates + Code.gs
+Build --> SeedData : compile init tables
+
+E2E --> GasApp : browser flow validation
+
+note bottom of Src
+  Current architecture direction:
+  `src/` is the business-logic source of truth.
+  Other surfaces consume or package it.
+end note
+
+@enduml

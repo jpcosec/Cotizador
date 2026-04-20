@@ -95,6 +95,8 @@ function buildValidationProjection(client, settings, basketState) {
       entryId: entry.entryId,
       itemId: entry.itemId,
       name: entry.state?.definition?.name || entry.name || entry.itemId,
+      description: entry.state?.definition?.description || '',
+      activeRules: [...(entry.state?.ruleErrors || []), ...(entry.state?.ruleWarnings || [])],
       pax: Number(entry.state?.quantities?.pax || 0),
       unidades: Number(entry.state?.quantities?.cantidad || 0),
       total: Number(entry.total || 0),

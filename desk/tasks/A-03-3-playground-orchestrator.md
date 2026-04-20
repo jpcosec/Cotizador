@@ -2,7 +2,7 @@
 id: A-03-3
 name: "[Logic] Refactor Playground Orchestrator"
 domain: item
-status: open
+status: completed
 priority: p2
 depends_on: [A-03-2]
 pills:
@@ -14,7 +14,7 @@ pills:
 Clean the 861-line orchestrator into a thin mounting entry point.
 
 ## Context
-- Monster: `apps/sandbox/playground/item/mountItemPlayground.js`
+- Monster: `playground/playground/item/mountItemPlayground.js`
 
 ## Requirements
 1. Use `ItemPlaygroundController` via composition.

@@ -1,0 +1,129 @@
+@startuml
+title Cotizador Lodge - Current Architecture
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+legend left
+  == Runtime targets ==
+  - `playground/` : isolated dev playgrounds
+  - `gas/`        : integrated GAS/local app shell
+  - `dist/`       : external IIFE bundle
+
+  == Source of truth ==
+  - `src/` contains core business logic and runtime orchestration
+endlegend
+
+package "Runtime Targets" {
+  component "Playground Routes\n`playground/routes/*`" as PlaygroundRoutes
+  component "Local/GAS App Shell\n`gas/Index.html` + `gas/*.html`" as GasShell
+  component "External Embed\n`dist/quotation-engine.iife.js`" as ExternalBundle
+}
+
+package "App Composition" {
+  component "Quotation Flow Component\n`gas/scripts/createQuotationFlowComponent.js`" as FlowComponent
+  component "Sidebar Controller\n`src/components/quotation/views/sidebar/Sidebar.js`" as Sidebar
+  component "Timeline Controller\n`src/components/quotation/views/timeline/Timeline.js`" as Timeline
+  component "Item List Controller\n`src/components/quotation/views/ItemList.js`" as ItemList
+  component "Modals Controller\n`src/components/quotation/views/Modals.js`" as Modals
+  component "Excel Export Service\n`src/services/excelService.js`" as ExcelService
+}
+
+package "Application Runtime" {
+  component "Persisted Quotation Runtime\n`src/state/createPersistedQuotationRuntime.js`" as PersistedRuntime
+  component "Internal Quotation Runtime\n`src/state/createQuotationInternalRuntime.js`" as InternalRuntime
+  component "Flow State Machine\nXState save/load stages" as FlowMachine
+}
+
+package "Domain Components" {
+  component "Catalog / Category Runtime\n`src/components/category/machine/categoryMachine.js`" as CategoryMachine
+  component "Basket Day Runtime\n`src/components/basket-day/machine/basketDayMachine.js`" as BasketDayMachine
+  component "Item Runtime\n`src/components/item/*`" as ItemRuntime
+  component "Pricing Logic\n`src/pricing/src/*`" as Pricing
+  component "Rules Engine\n`src/components/item/domain/rulesEngine/*`" as RulesEngine
+}
+
+package "Data + Persistence" {
+  component "Resolver + Seed Adapters\n`src/database/src/*`" as DatabaseLayer
+  component "Persistence Port\nlocal / GAS adapters" as PersistencePort
+  database "Local Seed / Local DB\n`data/init/*.csv`, `data/db.json`" as LocalData
+  database "Google Sheets via Apps Script\n`gas/Code.gs`" as GasSheets
+}
+
+package "Build + Tooling" {
+  component "Bundle Entry\n`gas/scripts/entry.js`" as BundleEntry
+  component "Build Scripts\n`gas/scripts/*.mjs`" as BuildScripts
+  component "User Flow Runner\n`tools/userFlowRunner.mjs`" as UserFlowRunner
+}
+
+package "Playground Slice" {
+  component "Item Playground Mount\n`playground/playground/item/mountItemPlayground.js`" as ItemPlaygroundMount
+  component "Item Playground Controller\n`playground/playground/item/ItemPlaygroundController.js`" as ItemPlaygroundController
+  component "Item Playground HTML\n`playground/playground/item/ui/ItemPlayground.html`" as ItemPlaygroundHtml
+}
+
+PlaygroundRoutes --> ItemPlaygroundMount : loads
+ItemPlaygroundMount --> ItemPlaygroundController : creates
+ItemPlaygroundMount --> ItemPlaygroundHtml : fetches layout
+ItemPlaygroundController --> DatabaseLayer : resolve item defs / load seed
+ItemPlaygroundController --> ItemRuntime : create item actors
+
+GasShell --> FlowComponent : Alpine root
+ExternalBundle --> FlowComponent : exposes `createQuotationFlowComponent()`
+BundleEntry --> FlowComponent
+BundleEntry --> PersistedRuntime
+
+FlowComponent --> Sidebar : compose view controller
+FlowComponent --> Timeline : compose view controller
+FlowComponent --> ItemList : compose view controller
+FlowComponent --> Modals : compose view controller
+FlowComponent --> ExcelService : export CSV
+FlowComponent --> PersistedRuntime : runtime API
+
+PersistedRuntime --> InternalRuntime : wraps editable runtime
+PersistedRuntime --> FlowMachine : governs stages
+PersistedRuntime --> PersistencePort : save/load quotations
+PersistedRuntime --> DatabaseLayer : serialize / hydrate quotations
+
+InternalRuntime --> CategoryMachine : catalog state
+InternalRuntime --> BasketDayMachine : basket/day state
+InternalRuntime --> DatabaseLayer : resolve definitions / seed adapters
+
+CategoryMachine --> ItemRuntime : catalog item actors
+BasketDayMachine --> ItemRuntime : basket item actors
+ItemRuntime --> Pricing
+ItemRuntime --> RulesEngine
+ItemRuntime --> DatabaseLayer : resolved definitions / kit composition
+
+PersistencePort --> LocalData : local mode
+PersistencePort --> GasSheets : production GAS mode
+
+BuildScripts --> BundleEntry : rollup input
+BuildScripts --> GasShell : generate GAS templates / includes
+BuildScripts --> ExternalBundle : build IIFE
+BuildScripts --> LocalData : generate `gas/output/localInitTables.js`
+
+UserFlowRunner --> GasShell : browser E2E against local app
+
+note right of PersistedRuntime
+  Public runtime used by the UI.
+  Adds persistence orchestration on top of
+  the internal quotation runtime.
+end note
+
+note bottom of InternalRuntime
+  Owns editable quotation behavior:
+  browse -> client -> basket -> validation.
+  Produces snapshots consumed by view controllers.
+end note
+
+note bottom of DatabaseLayer
+  Current repo direction:
+  `src/` = source logic
+  `playground/` = isolated testing
+  `gas/` = integrated app + deployment artifacts
+end note
+
+@enduml

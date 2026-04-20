@@ -20,7 +20,7 @@ Advanced form for creating complex business rules.
 ## What This Produces
 | Artifact | Location |
 |----------|----------|
-| UI Component | `apps/sandbox/routes/rule-creator.html` |
+| UI Component | `playground/routes/rule-creator.html` |
 | E2E Step | `user_flow.json` |
 
 ## Phase 01: Form Design

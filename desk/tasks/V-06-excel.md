@@ -20,8 +20,8 @@ Export quotation data with calculations to an Excel file.
 ## What This Produces
 | Artifact | Location |
 |----------|----------|
-| Service update | `apps/quotation/services/exportService.js` |
-| UI Component | `apps/quotation/playground/QuotationFlowInternal.html` |
+| Service update | `src/services/exportService.js` |
+| UI Component | `playground/routes/step-04-quotation/index.html` |
 | E2E Step | `user_flow.json` |
 
 ## Phase 01: Core Logic

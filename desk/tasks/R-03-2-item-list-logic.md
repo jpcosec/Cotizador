@@ -13,8 +13,8 @@ pills:
 Extract Item List (Basket) logic into a modular controller.
 
 ## Context
-- Source: `apps/quotation/playground/mountQuotationFlow.js` (Basket-related methods)
-- Target: `packages/components/quotation/views/ItemList.js`
+- Source: `gas/scripts/createQuotationFlowComponent.js` (Basket-related methods)
+- Target: `src/components/quotation/views/ItemList.js`
 
 ## Requirements
 1. Inherit from `UIContainerBase`.

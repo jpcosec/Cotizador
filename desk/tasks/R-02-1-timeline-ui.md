@@ -14,8 +14,8 @@ pills:
 Extract the Timeline UI from the monolithic orchestrator.
 
 ## Context
-- Source: `apps/gas/Quotation_App_Source.html` (Lines 111-209)
-- Target: `packages/components/quotation/ui/Timeline.html`
+- Source: `gas/scripts/createQuotationFlowComponent.js` (Lines 111-209)
+- Target: `src/components/quotation/ui/Timeline.html`
 
 ## Requirements
 1. Extract the `<main class="main panel">` block (excluding the sidebar).
@@ -23,5 +23,5 @@ Extract the Timeline UI from the monolithic orchestrator.
 3. Preserve the Day Tabs and Timeline Controls sections.
 
 ## Validation
-- File `packages/components/quotation/ui/Timeline.html` created.
+- File `src/components/quotation/ui/Timeline.html` created.
 - Structure matches the original block.

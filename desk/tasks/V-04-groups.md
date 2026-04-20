@@ -21,8 +21,8 @@ Support "kits" or grouped items that move and are priced together.
 ## What This Produces
 | Artifact | Location |
 |----------|----------|
-| State update | `apps/quotation/state/createQuotationInternalRuntime.js` |
-| UI Component | `packages/components/item/ui/playgroundItemSections.js` |
+| State update | `src/state/createQuotationInternalRuntime.js` |
+| UI Component | `src/components/item/ui/playgroundItemSections.js` |
 | E2E Step | `user_flow.json` |
 
 ## Phase 01: State Support

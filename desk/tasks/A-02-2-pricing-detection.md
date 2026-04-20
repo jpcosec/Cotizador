@@ -15,7 +15,7 @@ pills:
 Extract logic that detects pricing kinds and initialization modes.
 
 ## Context
-- Monster: `packages/pricing/src/ItemLogic.js`
+- Monster: `src/pricing/src/ItemLogic.js`
 - Target: `PricingDetection.js`
 
 ## Requirements

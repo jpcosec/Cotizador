@@ -10,11 +10,11 @@ pills:
 ---
 
 ## Goal
-Implement `packages/components/quotation/views/Sidebar.js` to handle all sidebar interactions.
+Implement `src/components/quotation/views/Sidebar.js` to handle all sidebar interactions.
 
 ## Context
-- Source Logic: `apps/quotation/playground/mountQuotationFlow.js` (look for sidebar-related methods like `openClientModal`, `setSetting`, `setCatalogSearch`, etc.)
-- Target: `packages/components/quotation/views/Sidebar.js`
+- Source Logic: `gas/scripts/createQuotationFlowComponent.js` (look for sidebar-related methods like `openClientModal`, `setSetting`, `setCatalogSearch`, etc.)
+- Target: `src/components/quotation/views/Sidebar.js`
 
 ## Requirements
 1. Inherit from `UIContainerBase`.
@@ -23,4 +23,4 @@ Implement `packages/components/quotation/views/Sidebar.js` to handle all sidebar
 
 ## Validation
 - `Sidebar.js` exports a `SidebarController` class.
-- Unit test `packages/components/quotation/views/sidebar.test.js` passes.
+- Unit test `src/components/quotation/views/sidebar.test.js` passes.

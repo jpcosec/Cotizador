@@ -80,15 +80,15 @@
           <div class="line-price-box" x-show="!entry.state.isAbsorbido">
             <div class="line-price-row" x-show="Number(entry.state.lineRateValue || 0) > 0">
               <span x-text="entry.state.lineRateLabel || 'Fijo'"></span>
-              <strong x-text="'$' + formatMoney(entry.state.lineRateValue)"></strong>
+              <strong>$<span x-text="formatMoney(entry.state.lineRateValue)"></span></strong>
             </div>
             <div class="line-price-row" x-show="(entry.state.lineBaseValue || 0) > 0">
               <span>Base fija</span>
-              <strong x-text="'$' + formatMoney(entry.state.lineBaseValue)"></strong>
+              <strong>$<span x-text="formatMoney(entry.state.lineBaseValue)"></span></strong>
             </div>
             <div class="line-price-row total-row">
               <span>Total</span>
-              <strong x-text="'$' + formatMoney(entry.state.total)"></strong>
+              <strong>$<span x-text="formatMoney(entry.state.total)"></span></strong>
             </div>
           </div>
           <div class="line-price-box-absorbido" x-show="entry.state.isAbsorbido" style="font-size: 0.75rem; color: #64748b; font-style: italic; padding: 8px;">

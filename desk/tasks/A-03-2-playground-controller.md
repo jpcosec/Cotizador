@@ -2,7 +2,7 @@
 id: A-03-2
 name: "[Logic] Extract Playground Controller"
 domain: item
-status: open
+status: completed
 priority: p2
 depends_on: [A-03-1]
 pills:
@@ -14,8 +14,8 @@ pills:
 Move inline Alpine.js controller logic to its own file.
 
 ## Context
-- Monster: `apps/sandbox/playground/item/mountItemPlayground.js`
-- Target: `packages/components/item/views/ItemPlaygroundController.js`
+- Monster: `playground/playground/item/mountItemPlayground.js`
+- Target: `playground/playground/item/ItemPlaygroundController.js`
 
 ## Requirements
 1. Extract `x-data` object definitions into a structured class/controller.

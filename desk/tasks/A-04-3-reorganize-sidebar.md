@@ -10,11 +10,11 @@ pills:
 ---
 
 ## Goal
-Subdivide `packages/components/quotation/views/` into dedicated folders.
+Subdivide `src/components/quotation/views/` into dedicated folders.
 
 ## Context
-- Folder: `packages/components/quotation/views/`
-- Target: `packages/components/quotation/views/sidebar/`
+- Folder: `src/components/quotation/views/`
+- Target: `src/components/quotation/views/sidebar/`
 
 ## Requirements
 1. Move all sidebar-related files (`Sidebar.js`, `SidebarCatalog.js`, `Sidebar.test.js`, `SidebarCatalog.test.js`) to the new folder.

@@ -3,9 +3,9 @@
 </template>
 <template x-for="entry in catalogEntries" :key="entry.id">
   <article class="mini-card entity-wrap"
-           :class="isDraggingCatalogItem(entry.id) ? 'is-dragging' : ''"
+           :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''"
            draggable="true"
-           @dragstart="startCatalogDrag(entry.id, $event)"
+           @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)"
            @dragend="endCatalogDrag()"
            x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
@@ -59,7 +59,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.id)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>

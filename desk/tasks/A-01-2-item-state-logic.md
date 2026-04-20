@@ -15,7 +15,7 @@ pills:
 Extract state management and render projections from the 667-line `Item.js`.
 
 ## Context
-- Monster: `packages/components/item/Item.js`
+- Monster: `src/components/item/Item.js`
 - Targets: `ItemState.js`, `ItemProjections.js`
 
 ## Requirements

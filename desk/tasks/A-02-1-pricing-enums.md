@@ -14,7 +14,7 @@ pills:
 Extract enums and helpers from the 825-line `ItemLogic.js`.
 
 ## Context
-- Monster: `packages/pricing/src/ItemLogic.js`
+- Monster: `src/pricing/src/ItemLogic.js`
 - Targets: `Enums.js`, `Helpers.js`
 
 ## Requirements

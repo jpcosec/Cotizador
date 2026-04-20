@@ -14,8 +14,8 @@ pills:
 Extract legacy HTML templates from `playgroundItemSections.js` into dedicated `.html` files.
 
 ## Context
-- Source: `packages/components/item/ui/playgroundItemSections.js`
-- Target Folder: `packages/components/item/ui/`
+- Source: `src/components/item/ui/playgroundItemSections.js`
+- Target Folder: `src/components/item/ui/`
 
 ## Requirements
 1. Extract `catalogRuntimeHtml` to `ItemCatalog.html`.

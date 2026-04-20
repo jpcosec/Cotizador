@@ -2,7 +2,7 @@
 id: A-03-1
 name: "[UI] Extract Playground Templates"
 domain: item
-status: open
+status: completed
 priority: p2
 depends_on: [A-00]
 pills:
@@ -14,8 +14,8 @@ pills:
 Extract legacy HTML templates from the 861-line orchestrator.
 
 ## Context
-- Monster: `apps/sandbox/playground/item/mountItemPlayground.js`
-- Target Folder: `apps/sandbox/playground/item/ui/`
+- Monster: `playground/playground/item/mountItemPlayground.js`
+- Target Folder: `playground/playground/item/ui/`
 
 ## Requirements
 1. Extract any inline template strings to dedicated `.html` files.

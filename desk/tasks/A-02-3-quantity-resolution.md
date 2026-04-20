@@ -15,7 +15,7 @@ pills:
 Extract logic that resolves initial and basket quantities.
 
 ## Context
-- Monster: `packages/pricing/src/ItemLogic.js`
+- Monster: `src/pricing/src/ItemLogic.js`
 - Target: `QuantityResolution.js`
 
 ## Requirements

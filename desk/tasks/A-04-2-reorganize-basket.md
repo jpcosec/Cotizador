@@ -10,11 +10,11 @@ pills:
 ---
 
 ## Goal
-Subdivide `packages/components/quotation/views/` into dedicated folders.
+Subdivide `src/components/quotation/views/` into dedicated folders.
 
 ## Context
-- Folder: `packages/components/quotation/views/`
-- Target: `packages/components/quotation/views/basket/`
+- Folder: `src/components/quotation/views/`
+- Target: `src/components/quotation/views/basket/`
 
 ## Requirements
 1. Move all basket-related files (`Basket.js`, `BasketDay.js`, `Basket.test.js`, `BasketDay.test.js`) to the new folder.

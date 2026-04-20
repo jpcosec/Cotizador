@@ -13,7 +13,7 @@ pills:
 Replace the hardcoded Timeline in the orchestrators with the modular component.
 
 ## Context
-- App Orchestrator (GAS): `apps/gas/Quotation_App_Source.html`
+- App Orchestrator (GAS): `gas/scripts/createQuotationFlowComponent.js`
 
 ## Requirements
 1. Replace the `<div class="timeline">` block with a marker or include.

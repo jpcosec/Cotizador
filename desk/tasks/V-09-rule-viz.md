@@ -20,7 +20,7 @@ Price graphs and rule logic visualization in the resolver.
 ## What This Produces
 | Artifact | Location |
 |----------|----------|
-| UI Component | `packages/pricing/ui/RuleVisualizer.js` |
+| UI Component | `src/pricing/ui/RuleVisualizer.js` |
 | E2E Step | `user_flow.json` |
 
 ## Phase 01: Visualization

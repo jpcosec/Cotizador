@@ -151,6 +151,30 @@ describe('createPersistedQuotationRuntime', () => {
     runtime.stop();
   });
 
+  it('builds validation rows with hover details metadata', async () => {
+    const { clients, runtime } = buildRuntime({
+      persistencePort: {
+        async save() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+        async load() {
+          return { ok: false, error: { message: 'not used' } };
+        },
+      },
+    });
+
+    runtime.selectClient(clients[0].id);
+    runtime.startQuotation();
+    runtime.shipItemToSelectedDay('ITEM-001');
+    runtime.advanceToValidation();
+
+    const row = runtime.getSnapshot().validation.rows[0];
+    expect(row.description).toBeTypeOf('string');
+    expect(Array.isArray(row.activeRules)).toBe(true);
+
+    runtime.stop();
+  });
+
   it('loads quotation and hydrates basket + client through runtime API', async () => {
     const { clients, runtime } = buildRuntime({
       persistencePort: {

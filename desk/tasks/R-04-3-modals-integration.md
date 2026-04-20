@@ -13,7 +13,7 @@ pills:
 Replace the hardcoded Modals in the orchestrators with modular components.
 
 ## Context
-- App Orchestrator (GAS): `apps/gas/Quotation_App_Source.html`
+- App Orchestrator (GAS): `gas/scripts/createQuotationFlowComponent.js`
 
 ## Requirements
 1. Replace Client Selection and other modals with modular includes.

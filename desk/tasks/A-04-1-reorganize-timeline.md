@@ -10,11 +10,11 @@ pills:
 ---
 
 ## Goal
-Subdivide `packages/components/quotation/views/` into dedicated folders.
+Subdivide `src/components/quotation/views/` into dedicated folders.
 
 ## Context
-- Folder: `packages/components/quotation/views/`
-- Target: `packages/components/quotation/views/timeline/`
+- Folder: `src/components/quotation/views/`
+- Target: `src/components/quotation/views/timeline/`
 
 ## Requirements
 1. Move all timeline-related files (`Timeline.js`, `TimelineEntry.js`, `Timeline.test.js`, `TimelineEntry.test.js`) to the new folder.

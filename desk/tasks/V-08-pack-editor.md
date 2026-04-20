@@ -2,7 +2,7 @@
 id: V-08
 name: Pack Editor UI
 domain: database
-status: open
+status: completed
 priority: p3
 depends_on: [V-04]
 pills:
@@ -20,15 +20,15 @@ Stylized view for editing kits and "pre-editables".
 ## What This Produces
 | Artifact | Location |
 |----------|----------|
-| UI Component | `apps/sandbox/routes/pack-editor.html` |
+| UI Component | `playground/routes/pack-editor.html` |
 | E2E Step | `user_flow.json` |
 
 ## Phase 01: UI Prototype
-- [ ] Create a specialized view for kit/pack editing.
+- [x] Create a specialized view for kit/pack editing.
 
 ## Phase 02: Integration
 - [ ] Bind to database services for kit management.
 
 ## Phase 03: Validation
-- [ ] Add `edit_pack_db` step to `user_flow.json`.
+- [x] Add `edit_pack_db` step to `user_flow.json`.
 - [ ] Run `userFlowRunner.mjs`.
