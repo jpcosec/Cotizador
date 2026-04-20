@@ -1,0 +1,26 @@
+@startuml
+title Timing Diagram Example
+
+robust "Quotation stage" as Stage
+concise "UI" as UI
+
+@0
+Stage is browse
+UI is idle
+
+@10
+Stage is client
+UI is selecting_client
+
+@20
+Stage is basket
+UI is editing
+
+@30
+Stage is validation
+UI is reviewing
+
+@40
+Stage is completed
+UI is success
+@enduml

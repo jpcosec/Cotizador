@@ -1,107 +1,134 @@
 {
   "name": "Full Quotation Lifecycle",
-  "startTime": "2026-04-18T14:07:18.190Z",
+  "startTime": "2026-04-20T12:50:12.215Z",
   "steps": [
     {
       "id": "01_open_app",
       "action": "goto",
       "url": "/",
       "description": "Open the GAS application",
-      "startTime": "2026-04-18T14:07:18.191Z",
+      "startTime": "2026-04-20T12:50:12.216Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:19.200Z"
+      "endTime": "2026-04-20T12:50:13.393Z"
     },
     {
       "id": "02_select_client",
       "action": "click",
       "selector": "button:has-text('Select Client')",
       "description": "Open client selection modal",
-      "startTime": "2026-04-18T14:07:20.007Z",
+      "startTime": "2026-04-20T12:50:14.226Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:20.855Z"
+      "endTime": "2026-04-20T12:50:15.077Z"
     },
     {
       "id": "03_pick_client",
       "action": "click",
       "selector": ".client-item:has-text('test1')",
       "description": "Pick 'test1' client",
-      "startTime": "2026-04-18T14:07:20.936Z",
+      "startTime": "2026-04-20T12:50:15.210Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:21.790Z"
+      "endTime": "2026-04-20T12:50:16.191Z"
     },
     {
       "id": "04_wait_workspace",
       "action": "wait",
       "selector": ".workspace",
       "description": "Wait for workspace",
-      "startTime": "2026-04-18T14:07:21.914Z",
+      "startTime": "2026-04-20T12:50:16.328Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:22.742Z"
+      "endTime": "2026-04-20T12:50:17.170Z"
     },
     {
       "id": "05_expand_category",
       "action": "click",
       "selector": ".category-head >> nth=0",
       "description": "Expand first category",
-      "startTime": "2026-04-18T14:07:22.862Z",
+      "startTime": "2026-04-20T12:50:17.305Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:23.724Z"
+      "endTime": "2026-04-20T12:50:18.277Z"
     },
     {
       "id": "06_wait_items",
       "action": "wait_fixed",
       "value": 3000,
       "description": "Wait for catalog items",
-      "startTime": "2026-04-18T14:07:23.930Z",
+      "startTime": "2026-04-20T12:50:18.458Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:27.779Z"
+      "endTime": "2026-04-20T12:50:22.352Z"
     },
     {
       "id": "07_add_item",
       "action": "click",
       "selector": "button[aria-label='Ship to basket'] >> nth=0",
       "description": "Add item",
-      "startTime": "2026-04-18T14:07:27.971Z",
+      "startTime": "2026-04-20T12:50:22.490Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:28.817Z"
+      "endTime": "2026-04-20T12:50:23.409Z"
     },
     {
       "id": "08_wait_basket_sync",
       "action": "wait_fixed",
       "value": 3000,
       "description": "Wait for basket sync",
-      "startTime": "2026-04-18T14:07:28.995Z",
+      "startTime": "2026-04-20T12:50:23.561Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:32.851Z"
+      "endTime": "2026-04-20T12:50:27.436Z"
     },
     {
       "id": "09_go_validation",
       "action": "click",
-      "selector": "button:has-text('Validate')",
+      "selector": ".workspace .settings-actions button:has-text('Validate')",
       "description": "Advance to validation",
-      "startTime": "2026-04-18T14:07:33.020Z",
+      "startTime": "2026-04-20T12:50:27.584Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:33.881Z"
+      "endTime": "2026-04-20T12:50:28.568Z"
     },
     {
-      "id": "10_save_quotation",
-      "action": "click",
-      "selector": "button:has-text('Confirm & Save')",
-      "description": "Save quotation",
-      "startTime": "2026-04-18T14:07:33.941Z",
-      "success": true,
-      "endTime": "2026-04-18T14:07:34.776Z"
-    },
-    {
-      "id": "11_verify_saved",
+      "id": "10_wait_validation",
       "action": "wait",
-      "selector": "h2:has-text('Quotation Saved')",
-      "description": "Verify save",
-      "startTime": "2026-04-18T14:07:34.838Z",
+      "selector": ".validation-panel h2",
+      "description": "Wait for validation screen",
+      "startTime": "2026-04-20T12:50:28.700Z",
       "success": true,
-      "endTime": "2026-04-18T14:07:35.682Z"
+      "endTime": "2026-04-20T12:50:29.579Z"
+    },
+    {
+      "id": "11_export_to_excel",
+      "action": "click",
+      "selector": ".validation-panel .validation-actions button:has-text('Export to Excel')",
+      "description": "Export validation rows to csv",
+      "startTime": "2026-04-20T12:50:29.682Z",
+      "success": true,
+      "endTime": "2026-04-20T12:50:30.564Z"
+    },
+    {
+      "id": "12_save_quotation",
+      "action": "click",
+      "selector": ".validation-panel .validation-actions button:has-text('Confirm & Save')",
+      "description": "Save quotation",
+      "startTime": "2026-04-20T12:50:30.675Z",
+      "success": true,
+      "endTime": "2026-04-20T12:50:31.556Z"
+    },
+    {
+      "id": "13_verify_saved",
+      "action": "wait",
+      "selector": ".validation-panel h2:has-text('Quotation Saved')",
+      "description": "Verify save",
+      "startTime": "2026-04-20T12:50:31.718Z",
+      "success": true,
+      "endTime": "2026-04-20T12:50:32.593Z"
+    },
+    {
+      "id": "14_edit_pack_db",
+      "action": "goto",
+      "url": "/playground/routes/pack-editor.html",
+      "description": "Open pack editor database flow",
+      "startTime": "2026-04-20T12:50:32.705Z",
+      "success": true,
+      "endTime": "2026-04-20T12:50:33.623Z"
     }
   ],
   "success": true,
-  "endTime": "2026-04-18T14:07:35.749Z"
+  "endTime": "2026-04-20T12:50:33.767Z"
 }

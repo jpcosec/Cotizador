@@ -1,0 +1,96 @@
+@startuml
+title Quotation Flow - Stage Composition Map
+
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam state {
+  FontColor #1F2937
+  BorderColor #94A3B8
+  BackgroundColor white
+}
+
+legend left
+  Horizontal axis = quotation lifecycle views.
+  Each outer state is one app-view/time-step.
+  Inner boxes are the conceptual units alive in that stage.
+  Inner arrows show the important relationships in that stage.
+
+  Colors:
+  - violet: outer quotation state / app view
+  - amber: core app units
+  - blue: data / persistence boundaries
+  - pink: pricing / rule engine
+endlegend
+
+[*] --> browse
+
+state "browse" as browse #EDE9FE {
+  state "QuotationFlow" as browse_qf #FEF3C7
+  state "Persistence" as browse_persistence #DBEAFE
+
+  browse_qf --> browse_persistence : load / search entrypoints
+}
+
+state "client" as client #EDE9FE {
+  state "QuotationFlow" as client_qf #FEF3C7
+  state "ClientSelection" as client_selection #FEF3C7
+  state "Store" as client_store #DBEAFE
+
+  client_qf --> client_selection : open / confirm selection
+  client_selection --> client_store : query clients
+  client_selection --> client_qf : selected client
+}
+
+state "basket" as basket #EDE9FE {
+  state "QuotationFlow" as basket_qf #FEF3C7
+  state "Catalog" as basket_catalog #FEF3C7
+  state "Category" as basket_category #FEF3C7
+  state "Item\n(catalog mode)" as basket_catalog_item #FEF3C7
+  state "Basket" as basket_basket #FEF3C7
+  state "BasketDay" as basket_day #FEF3C7
+  state "Item\n(basket mode)" as basket_item #FEF3C7
+  state "PricingEngine" as basket_pricing #FCE7F3
+  state "Store" as basket_store #DBEAFE
+
+  basket_qf --> basket_catalog : browse / search catalog
+  basket_catalog --> basket_category : group by family
+  basket_category --> basket_catalog_item : expose sellable units
+  basket_catalog_item --> basket_basket : ship item intent
+  basket_basket --> basket_day : organize by day
+  basket_day --> basket_item : schedule / override entries
+  basket_item --> basket_pricing : compute totals / rules
+  basket_catalog --> basket_store : query families / items
+  basket_item --> basket_store : resolve definitions / composition
+}
+
+state "validation" as validation #EDE9FE {
+  state "QuotationFlow" as validation_qf #FEF3C7
+  state "ValidationSummary" as validation_summary #FEF3C7
+  state "Basket\n(review state)" as validation_basket #FEF3C7
+  state "PricingEngine" as validation_pricing #FCE7F3
+  state "Persistence" as validation_persistence #DBEAFE
+  state "Export" as validation_export #DBEAFE
+
+  validation_qf --> validation_summary : enter review stage
+  validation_basket --> validation_summary : rows / totals source
+  validation_pricing --> validation_summary : aggregated totals / active rules
+  validation_summary --> validation_export : CSV / print surface
+  validation_summary --> validation_persistence : confirm save
+}
+
+state "completed" as completed #EDE9FE {
+  state "QuotationFlow" as completed_qf #FEF3C7
+  state "Persistence" as completed_persistence #DBEAFE
+
+  completed_persistence --> completed_qf : saved quotation id / success
+}
+
+browse --> client : start quotation
+client --> basket : client selected
+basket --> validation : validate quotation
+validation --> basket : back to edit
+validation --> completed : confirm save
+completed --> browse : new quotation / reset
+
+@enduml

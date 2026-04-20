@@ -1,0 +1,24 @@
+@startgantt
+title Gantt Diagram Example
+
+Project starts 2026-04-20
+
+[Stabilize runtime] lasts 3 days
+[Fix validation flow] lasts 2 days
+[Stabilize runtime] -> [Fix validation flow]
+
+[Audit active tasks] lasts 2 days
+[Fix validation flow] -> [Audit active tasks]
+
+[Refine unit architecture docs] lasts 2 days
+[Audit active tasks] -> [Refine unit architecture docs]
+
+[Implement remaining p1 units] lasts 5 days
+[Audit active tasks] -> [Implement remaining p1 units]
+
+[E2E verification] lasts 2 days
+[Implement remaining p1 units] -> [E2E verification]
+
+[Prepare release candidate] lasts 1 days
+[E2E verification] -> [Prepare release candidate]
+@endgantt

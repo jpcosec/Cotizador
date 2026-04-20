@@ -1,0 +1,78 @@
+@startuml
+title Quotation Flow - Horizontal View States
+
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam state {
+  FontColor #1F2937
+  BorderColor #94A3B8
+  BackgroundColor #EDE9FE
+}
+skinparam note {
+  FontColor #1F2937
+  BorderColor #94A3B8
+  BackgroundColor #FEF3C7
+}
+
+legend left
+  Quotation lifecycle states are rendered horizontally.
+  Each state represents one outer app view.
+  Notes list the conceptual units active in that stage.
+endlegend
+
+[*] --> browse : open app
+
+state browse
+note bottom of browse
+  Active units:
+  - QuotationFlow
+  - Persistence
+end note
+
+state client
+note bottom of client
+  Active units:
+  - QuotationFlow
+  - ClientSelection
+  - Store
+end note
+
+state basket
+note bottom of basket
+  Active units:
+  - QuotationFlow
+  - Catalog
+  - Category
+  - Item (catalog mode)
+  - Basket
+  - BasketDay
+  - Item (basket mode)
+  - PricingEngine
+  - Store
+end note
+
+state validation
+note bottom of validation
+  Active units:
+  - QuotationFlow
+  - ValidationSummary
+  - Persistence
+  - Export
+end note
+
+state completed
+note bottom of completed
+  Active units:
+  - QuotationFlow
+  - Persistence
+end note
+
+browse --> client : start quotation
+client --> basket : client selected
+basket --> validation : validate quotation
+validation --> basket : back to edit
+validation --> completed : confirm save
+completed --> browse : new quotation / reset
+
+@enduml

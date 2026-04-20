@@ -1,0 +1,42 @@
+@startuml
+title Class Diagram Example
+
+class QuotationFlow {
+  +stage: string
+  +startQuotation()
+  +goValidation()
+  +saveQuotation()
+}
+
+class Basket {
+  +selectedDayIndex: number
+  +shipItem(itemId)
+}
+
+class BasketDay {
+  +dayIndex: number
+  +addEntry(item)
+}
+
+class Item {
+  +itemId: string
+  +total: number
+  +setOverride(key, value)
+}
+
+class PricingEngine {
+  +calculate(item, context)
+}
+
+class Store {
+  +getItem(id)
+  +getFamily(id)
+  +saveQuotation(data)
+}
+
+QuotationFlow --> Basket
+Basket *-- BasketDay
+BasketDay *-- Item
+Item ..> PricingEngine
+QuotationFlow ..> Store
+@enduml

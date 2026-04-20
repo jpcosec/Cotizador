@@ -1,0 +1,14 @@
+@startuml
+title Component Diagram Example
+
+component "Alpine UI" as Alpine
+component "QuotationFlow Runtime" as Runtime
+component "Pricing Engine" as Pricing
+component "Store" as Store
+database "Sheets / Local DB" as DB
+
+Alpine --> Runtime
+Runtime --> Pricing
+Runtime --> Store
+Store --> DB
+@enduml

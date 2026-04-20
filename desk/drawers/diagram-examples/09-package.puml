@@ -1,0 +1,28 @@
+@startuml
+title Package Diagram Example
+
+package "src/components" {
+  [item]
+  [category]
+  [basket]
+  [quotation]
+}
+
+package "src/state" {
+  [quotation runtime]
+}
+
+package "src/pricing" {
+  [pricing engine]
+}
+
+package "src/database" {
+  [resolver]
+  [persistence]
+}
+
+[quotation runtime] --> [item]
+[quotation runtime] --> [basket]
+[item] --> [pricing engine]
+[quotation runtime] --> [resolver]
+@enduml

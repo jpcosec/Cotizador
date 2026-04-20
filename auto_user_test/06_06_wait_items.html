@@ -7,8 +7,8 @@
   <script defer="" src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 </head>
 <body>
-  <div x-data="quotationFlowComponent()" x-init="init()">
-    <section class="quotation-shell" x-data="{ mainTab: 'timeline' }">
+  <div x-data="quotationFlowComponent()" x-init="init()" @quote-go-validation.window="goValidation()" @quote-save.window="saveQuotation()" @quote-copy-day.window="copyDayToNextDay()">
+    <section class="quotation-shell">
   <template x-if="stage === 'browse' || stage === 'client'">
     <section class="panel home-panel">
       <h2>Quotation Flow</h2>
@@ -37,7 +37,7 @@
 
   <template x-if="stage === 'basket'">
     <section class="workspace">
-      <aside class="sidebar panel" x-data="sidebar">
+      <aside class="sidebar panel">
   <section class="global-context-panel" x-data="{ open: true }">
     <button class="global-context-head" @click="open = !open">
       <span class="global-context-title" x-text="selectedClient?.nombre || 'No client selected'"></span>
@@ -100,7 +100,7 @@
   <p class="empty">No catalog entities yet</p>
 </template>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -147,7 +147,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -160,7 +160,102 @@
   </section>
 </aside>
 
-      <main class="main panel" x-data="timeline" @mousemove.window="doResize($event)" @mouseup.window="endResize()" :class="{ 'is-resizing': !!resizeId }">
+      
+<main class="main panel" x-data="{
+  HOUR_H: 64,
+  N_HOURS: 16,
+  START_H: 8,
+  hours: Array.from({ length: 16 }, (_, i) =&gt; `${String(i + 8).padStart(2, '0')}:00`),
+  dropIndicatorY: null,
+  dropIndicatorTime: '',
+  movingId: null,
+  dragOffsetMin: 0,
+  resizeId: null,
+  resizeStartY: 0,
+  resizeOrigDur: 0,
+  yToStartMin(relY, offsetMin = 0) {
+    const raw = (relY / this.HOUR_H) * 60 + (this.START_H * 60) - offsetMin;
+    const snapped = Math.round(raw / 15) * 15;
+    const minStart = this.START_H * 60;
+    const maxStart = (this.START_H + this.N_HOURS) * 60 - 15;
+    return Math.max(minStart, Math.min(maxStart, snapped));
+  },
+  minuteToY(m) {
+    const startH = this.START_H || 8;
+    return ((m - (startH * 60)) / 60) * this.HOUR_H;
+  },
+  fmtMin(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  },
+  onGridDragOver(event) {
+    if (!draggingCatalogItemId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    this.dropIndicatorY = this.minuteToY(startMin);
+    this.dropIndicatorTime = this.fmtMin(startMin);
+  },
+  onGridDragLeave(event) {
+    if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+      this.dropIndicatorY = null;
+      this.dropIndicatorTime = '';
+    }
+  },
+  onGridDrop(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    const time = this.fmtMin(startMin);
+
+    if (this.movingId) {
+      setBasketOverride(this.movingId, 'hora', time);
+    } else {
+      const itemId = draggedItemId(event);
+      if (itemId) shipCatalogEntry(itemId, { hora: time });
+    }
+
+    this.endDrag();
+    this.dropIndicatorY = null;
+    this.dropIndicatorTime = '';
+  },
+  blockStyle(entry) {
+    const startH = this.START_H || 8;
+    const hora = entry.hora || '09:00';
+    const [h, m] = hora.split(':').map(Number);
+    const startMin = h * 60 + m;
+    const top = this.minuteToY(startMin);
+    const dur = Number(entry.duracionMin || entry.state?.quantities?.duracionMin || 60);
+    const height = (dur / 60) * this.HOUR_H;
+    return `top:${top}px; height:${Math.max(48, height)}px; left: 70px; right: 8px;`;
+  },
+  startMovePlaced(entry, event) {
+    this.movingId = entry.entryId;
+    this.dragOffsetMin = (event.offsetY / this.HOUR_H) * 60;
+    startCatalogDrag(entry.itemId, event);
+  },
+  startResize(entry, event) {
+    this.resizeId = entry.entryId;
+    this.resizeStartY = event.clientY;
+    this.resizeOrigDur = entry.duracionMin;
+  },
+  doResize(event) {
+    if (!this.resizeId) return;
+    const deltaY = event.clientY - this.resizeStartY;
+    const deltaMins = (deltaY / this.HOUR_H) * 60;
+    const newDuration = Math.max(15, Math.round((this.resizeOrigDur + deltaMins) / 15) * 15);
+    setBasketOverride(this.resizeId, 'duracionMin', newDuration);
+  },
+  endResize() {
+    this.resizeId = null;
+  },
+  endDrag() {
+    endCatalogDrag();
+    this.movingId = null;
+    this.dragOffsetMin = 0;
+  }
+}" @mousemove.window="doResize($event)" @mouseup.window="endResize()" :class="{ 'is-resizing': !!resizeId }">
   <header class="timeline-header">
     <span class="timeline-title">
       <i class="fa-regular fa-calendar"></i>
@@ -210,7 +305,7 @@
   </nav>
 
   <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
-    <div class="tl-grid" :style="{ height: (N_HOURS * HOUR_H) + 'px' }" @dragover.prevent="onGridDragOver($event, draggingCatalogItemId)" @dragleave="onGridDragLeave($event)" @drop.prevent="onGridDrop($event, draggingCatalogItemId)">
+    <div class="tl-grid" :style="{ height: (N_HOURS * HOUR_H) + 'px' }" @dragover.prevent="onGridDragOver($event)" @dragleave="onGridDragLeave($event)" @drop.prevent="onGridDrop($event)">
 
       <!-- Hour rows (decorative) -->
       <template x-for="(h, i) in hours" :key="h">
@@ -246,8 +341,8 @@
     </div>
   </div>
 
-  <section class="basket-list" id="basket-details" x-data="itemList" x-show="mainTab === 'list'" style="margin-top: 0; border-top: none; border-radius: 0 0 10px 10px;">
-  <template x-if="basketEntries.length === 0">
+  <section class="basket-list" id="basket-details" x-show="mainTab === 'list'" x-data="{ get basketEntries() { return basket.basketEntries || []; } }" style="margin-top: 0; border-top: none; border-radius: 0 0 10px 10px;">
+    <template x-if="basketEntries.length === 0">
   <p class="empty">No basket entities yet</p>
 </template>
 <template x-for="entry in basketEntries" :key="entry.id">
@@ -298,12 +393,61 @@
         <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
       </div>
     </div>
-    <!-- ITEM_BASKET_BODY -->
+
+    <div class="accordion-body" x-show="expanded">
+      <div class="accordion-layout">
+        <div class="accordion-col-left">
+          <div class="control-group" x-show="entry.state.showPaxControl" :class="entry.state.isUserSetPax ? 'field-user-set' : ''">
+            <label>Pax <span class="manual-badge" x-show="entry.state.isUserSetPax">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.pax || 0" @change="setBasketOverride(entry.id, 'pax', $event.target.value)" min="0" :disabled="entry.parentId">
+          </div>
+          <div class="control-group" x-show="entry.state.showUnitsControl" :class="entry.state.isUserSetCantidad ? 'field-user-set' : ''">
+            <label>Unidades <span class="manual-badge" x-show="entry.state.isUserSetCantidad">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.cantidad || 0" @change="setBasketOverride(entry.id, 'cantidad', $event.target.value)" min="0" :disabled="entry.parentId">
+          </div>
+          <div class="control-group" x-show="entry.state.showTimeControl" :class="entry.state.isUserSetDuracion ? 'field-user-set' : ''">
+            <label>Duracion (min) <span class="manual-badge" x-show="entry.state.isUserSetDuracion">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setItemDuration(entry.id, $event.target.value)" min="0" step="15" :disabled="entry.parentId">
+          </div>
+
+          <div class="line-price-box" x-show="!entry.state.isAbsorbido">
+            <div class="line-price-row" x-show="Number(entry.state.lineRateValue || 0) &gt; 0">
+              <span x-text="entry.state.lineRateLabel || 'Fijo'"></span>
+              <strong>$<span x-text="formatMoney(entry.state.lineRateValue)"></span></strong>
+            </div>
+            <div class="line-price-row" x-show="(entry.state.lineBaseValue || 0) &gt; 0">
+              <span>Base fija</span>
+              <strong>$<span x-text="formatMoney(entry.state.lineBaseValue)"></span></strong>
+            </div>
+            <div class="line-price-row total-row">
+              <span>Total</span>
+              <strong>$<span x-text="formatMoney(entry.state.total)"></span></strong>
+            </div>
+          </div>
+          <div class="line-price-box-absorbido" x-show="entry.state.isAbsorbido" style="font-size: 0.75rem; color: #64748b; font-style: italic; padding: 8px;">
+            Precio absorbido por el pack padre.
+          </div>
+        </div>
+
+        <div class="accordion-col-middle">
+          <div class="field">
+            <label>Comentario</label>
+            <textarea rows="5" :value="('comentarios' in (entry.state.overrides || {})) ? entry.state.overrides.comentarios : (entry.state.definition?.description || '')" @change="setItemComment(entry.id, $event.target.value)" placeholder="Comentario de la linea..."></textarea>
+          </div>
+        </div>
+
+        <div class="accordion-col-actions">
+          <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' &amp;&amp; copyBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-forward-step"></i></button>
+          <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' &amp;&amp; duplicateBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-copy"></i></button>
+          <button class="icon-action danger" title="Remove" aria-label="Remove" @click="destroyRuntimeEntry('basket', entry.id)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
   </article>
 </template>
 
-</section>
-
+  </section>
 
   <footer class="summary-row">
     <div>
@@ -318,7 +462,7 @@
 
     </section>
   </template><section class="workspace">
-      <aside class="sidebar panel" x-data="sidebar">
+      <aside class="sidebar panel">
   <section class="global-context-panel" x-data="{ open: true }">
     <button class="global-context-head" @click="open = !open">
       <span class="global-context-title" x-text="selectedClient?.nombre || 'No client selected'">test1</span>
@@ -385,7 +529,7 @@
   <p class="empty">No catalog entities yet</p>
 </template>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -432,7 +576,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -454,7 +598,7 @@
   <p class="empty">No catalog entities yet</p>
 </template>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -501,10 +645,10 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
-</template><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+</template><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -551,9 +695,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -600,9 +744,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -649,9 +793,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -698,9 +842,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -747,9 +891,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -796,9 +940,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -845,9 +989,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -912,9 +1056,9 @@
             </div>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -961,9 +1105,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1010,9 +1154,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1059,9 +1203,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1108,9 +1252,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1157,9 +1301,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1206,9 +1350,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1255,9 +1399,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1304,9 +1448,9 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
-  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  </article><article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'">Actividades</span>
@@ -1353,7 +1497,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 
@@ -1373,7 +1517,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1420,7 +1564,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1441,7 +1585,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1488,7 +1632,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1509,7 +1653,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1556,7 +1700,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1577,7 +1721,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1624,7 +1768,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1645,7 +1789,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1692,7 +1836,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1713,7 +1857,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1760,7 +1904,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1781,7 +1925,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1828,7 +1972,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1849,7 +1993,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1896,7 +2040,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1917,7 +2061,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -1964,7 +2108,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -1985,7 +2129,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -2032,7 +2176,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -2053,7 +2197,7 @@
   <p class="empty">No catalog entities yet</p>
 </template><p class="empty">No catalog entities yet</p>
 <template x-for="entry in catalogEntries" :key="entry.id">
-  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
+  <article class="mini-card entity-wrap" :class="isDraggingCatalogItem(entry.itemId || entry.id) ? 'is-dragging' : ''" draggable="true" @dragstart="startCatalogDrag(entry.itemId || entry.id, $event)" @dragend="endCatalogDrag()" x-data="{ showGlosa: false, rulesHover: false }">
     <div class="mini-main" @mouseenter="showGlosa = true" @mouseleave="showGlosa = false">
       <div class="mini-main">
         <span class="category-badge" x-text="entry.state.definition?.category || 'Sin categoria'"></span>
@@ -2100,7 +2244,7 @@
           </template>
         </div>
       </div>
-      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId)"><i class="fa-solid fa-plus"></i></button>
+      <button class="icon-action" aria-label="Ship to basket" @click="shipCatalogEntry(entry.itemId || entry.id)"><i class="fa-solid fa-plus"></i></button>
     </div>
   </article>
 </template>
@@ -2112,12 +2256,107 @@
   </section>
 </aside>
 
-      <main class="main panel" x-data="timeline" @mousemove.window="doResize($event)" @mouseup.window="endResize()" :class="{ 'is-resizing': !!resizeId }">
+      
+<main class="main panel" x-data="{
+  HOUR_H: 64,
+  N_HOURS: 16,
+  START_H: 8,
+  hours: Array.from({ length: 16 }, (_, i) =&gt; `${String(i + 8).padStart(2, '0')}:00`),
+  dropIndicatorY: null,
+  dropIndicatorTime: '',
+  movingId: null,
+  dragOffsetMin: 0,
+  resizeId: null,
+  resizeStartY: 0,
+  resizeOrigDur: 0,
+  yToStartMin(relY, offsetMin = 0) {
+    const raw = (relY / this.HOUR_H) * 60 + (this.START_H * 60) - offsetMin;
+    const snapped = Math.round(raw / 15) * 15;
+    const minStart = this.START_H * 60;
+    const maxStart = (this.START_H + this.N_HOURS) * 60 - 15;
+    return Math.max(minStart, Math.min(maxStart, snapped));
+  },
+  minuteToY(m) {
+    const startH = this.START_H || 8;
+    return ((m - (startH * 60)) / 60) * this.HOUR_H;
+  },
+  fmtMin(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  },
+  onGridDragOver(event) {
+    if (!draggingCatalogItemId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    this.dropIndicatorY = this.minuteToY(startMin);
+    this.dropIndicatorTime = this.fmtMin(startMin);
+  },
+  onGridDragLeave(event) {
+    if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+      this.dropIndicatorY = null;
+      this.dropIndicatorTime = '';
+    }
+  },
+  onGridDrop(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relY = event.clientY - rect.top;
+    const startMin = this.yToStartMin(relY, this.dragOffsetMin);
+    const time = this.fmtMin(startMin);
+
+    if (this.movingId) {
+      setBasketOverride(this.movingId, 'hora', time);
+    } else {
+      const itemId = draggedItemId(event);
+      if (itemId) shipCatalogEntry(itemId, { hora: time });
+    }
+
+    this.endDrag();
+    this.dropIndicatorY = null;
+    this.dropIndicatorTime = '';
+  },
+  blockStyle(entry) {
+    const startH = this.START_H || 8;
+    const hora = entry.hora || '09:00';
+    const [h, m] = hora.split(':').map(Number);
+    const startMin = h * 60 + m;
+    const top = this.minuteToY(startMin);
+    const dur = Number(entry.duracionMin || entry.state?.quantities?.duracionMin || 60);
+    const height = (dur / 60) * this.HOUR_H;
+    return `top:${top}px; height:${Math.max(48, height)}px; left: 70px; right: 8px;`;
+  },
+  startMovePlaced(entry, event) {
+    this.movingId = entry.entryId;
+    this.dragOffsetMin = (event.offsetY / this.HOUR_H) * 60;
+    startCatalogDrag(entry.itemId, event);
+  },
+  startResize(entry, event) {
+    this.resizeId = entry.entryId;
+    this.resizeStartY = event.clientY;
+    this.resizeOrigDur = entry.duracionMin;
+  },
+  doResize(event) {
+    if (!this.resizeId) return;
+    const deltaY = event.clientY - this.resizeStartY;
+    const deltaMins = (deltaY / this.HOUR_H) * 60;
+    const newDuration = Math.max(15, Math.round((this.resizeOrigDur + deltaMins) / 15) * 15);
+    setBasketOverride(this.resizeId, 'duracionMin', newDuration);
+  },
+  endResize() {
+    this.resizeId = null;
+  },
+  endDrag() {
+    endCatalogDrag();
+    this.movingId = null;
+    this.dragOffsetMin = 0;
+  }
+}" @mousemove.window="doResize($event)" @mouseup.window="endResize()" :class="{ 'is-resizing': !!resizeId }">
   <header class="timeline-header">
     <span class="timeline-title">
       <i class="fa-regular fa-calendar"></i>
       Day <span x-text="basket.selectedDayIndex">1</span>
-      <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio">2026-04-18</span></span>
+      <span x-show="settings.fechaInicio">· <span x-text="settings.fechaInicio">2026-04-20</span></span>
     </span>
     <span class="timeline-hint" x-show="!draggingCatalogItemId &amp;&amp; basket.basketEntries.length === 0">
       Drag items from catalog into this timeline
@@ -2168,7 +2407,7 @@
   </nav>
 
   <div class="timeline-scroll-container" x-show="mainTab === 'timeline'">
-    <div class="tl-grid" :style="{ height: (N_HOURS * HOUR_H) + 'px' }" @dragover.prevent="onGridDragOver($event, draggingCatalogItemId)" @dragleave="onGridDragLeave($event)" @drop.prevent="onGridDrop($event, draggingCatalogItemId)" style="height: 1024px;">
+    <div class="tl-grid" :style="{ height: (N_HOURS * HOUR_H) + 'px' }" @dragover.prevent="onGridDragOver($event)" @dragleave="onGridDragLeave($event)" @drop.prevent="onGridDrop($event)" style="height: 1024px;">
 
       <!-- Hour rows (decorative) -->
       <template x-for="(h, i) in hours" :key="h">
@@ -2236,8 +2475,8 @@
     </div>
   </div>
 
-  <section class="basket-list" id="basket-details" x-data="itemList" x-show="mainTab === 'list'" style="margin-top: 0px; border-top: none; border-radius: 0px 0px 10px 10px; display: none;">
-  <template x-if="basketEntries.length === 0">
+  <section class="basket-list" id="basket-details" x-show="mainTab === 'list'" x-data="{ get basketEntries() { return basket.basketEntries || []; } }" style="margin-top: 0px; border-top: none; border-radius: 0px 0px 10px 10px; display: none;">
+    <template x-if="basketEntries.length === 0">
   <p class="empty">No basket entities yet</p>
 </template><p class="empty">No basket entities yet</p>
 <template x-for="entry in basketEntries" :key="entry.id">
@@ -2288,12 +2527,61 @@
         <i class="fa-solid" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
       </div>
     </div>
-    <!-- ITEM_BASKET_BODY -->
+
+    <div class="accordion-body" x-show="expanded">
+      <div class="accordion-layout">
+        <div class="accordion-col-left">
+          <div class="control-group" x-show="entry.state.showPaxControl" :class="entry.state.isUserSetPax ? 'field-user-set' : ''">
+            <label>Pax <span class="manual-badge" x-show="entry.state.isUserSetPax">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.pax || 0" @change="setBasketOverride(entry.id, 'pax', $event.target.value)" min="0" :disabled="entry.parentId">
+          </div>
+          <div class="control-group" x-show="entry.state.showUnitsControl" :class="entry.state.isUserSetCantidad ? 'field-user-set' : ''">
+            <label>Unidades <span class="manual-badge" x-show="entry.state.isUserSetCantidad">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.cantidad || 0" @change="setBasketOverride(entry.id, 'cantidad', $event.target.value)" min="0" :disabled="entry.parentId">
+          </div>
+          <div class="control-group" x-show="entry.state.showTimeControl" :class="entry.state.isUserSetDuracion ? 'field-user-set' : ''">
+            <label>Duracion (min) <span class="manual-badge" x-show="entry.state.isUserSetDuracion">manual</span></label>
+            <input type="number" :value="entry.state.quantities?.duracionMin || 0" @change="setItemDuration(entry.id, $event.target.value)" min="0" step="15" :disabled="entry.parentId">
+          </div>
+
+          <div class="line-price-box" x-show="!entry.state.isAbsorbido">
+            <div class="line-price-row" x-show="Number(entry.state.lineRateValue || 0) &gt; 0">
+              <span x-text="entry.state.lineRateLabel || 'Fijo'"></span>
+              <strong>$<span x-text="formatMoney(entry.state.lineRateValue)"></span></strong>
+            </div>
+            <div class="line-price-row" x-show="(entry.state.lineBaseValue || 0) &gt; 0">
+              <span>Base fija</span>
+              <strong>$<span x-text="formatMoney(entry.state.lineBaseValue)"></span></strong>
+            </div>
+            <div class="line-price-row total-row">
+              <span>Total</span>
+              <strong>$<span x-text="formatMoney(entry.state.total)"></span></strong>
+            </div>
+          </div>
+          <div class="line-price-box-absorbido" x-show="entry.state.isAbsorbido" style="font-size: 0.75rem; color: #64748b; font-style: italic; padding: 8px;">
+            Precio absorbido por el pack padre.
+          </div>
+        </div>
+
+        <div class="accordion-col-middle">
+          <div class="field">
+            <label>Comentario</label>
+            <textarea rows="5" :value="('comentarios' in (entry.state.overrides || {})) ? entry.state.overrides.comentarios : (entry.state.definition?.description || '')" @change="setItemComment(entry.id, $event.target.value)" placeholder="Comentario de la linea..."></textarea>
+          </div>
+        </div>
+
+        <div class="accordion-col-actions">
+          <button class="icon-action" title="Reset overrides" aria-label="Reset overrides" @click="resetBasketOverrides(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="icon-action" title="Copy" @click="typeof copyBasketEntry === 'function' &amp;&amp; copyBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-forward-step"></i></button>
+          <button class="icon-action" title="Duplicate" @click="typeof duplicateBasketEntry === 'function' &amp;&amp; duplicateBasketEntry(entry.id)" :disabled="entry.parentId"><i class="fa-solid fa-copy"></i></button>
+          <button class="icon-action danger" title="Remove" aria-label="Remove" @click="destroyRuntimeEntry('basket', entry.id)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
   </article>
 </template>
 
-</section>
-
+  </section>
 
   <footer class="summary-row">
     <div>
@@ -2333,7 +2621,28 @@
             <template x-for="row in validation.rows" :key="row.entryId">
               <tr>
                 <td x-text="'Dia ' + row.dayIndex"></td>
-                <td x-text="row.name"></td>
+                <td class="validation-item-cell">
+                  <div class="validation-item-trigger">
+                    <span x-text="row.name"></span>
+                    <span class="validation-rule-count" x-show="(row.activeRules || []).length &gt; 0" x-text="(row.activeRules || []).length"></span>
+                    <div class="validation-hover-card">
+                      <p class="validation-hover-title" x-text="row.name"></p>
+                      <p class="validation-hover-description" x-text="row.description || 'Sin descripcion disponible.'"></p>
+                      <div class="validation-hover-rules">
+                        <p class="validation-hover-label">Active rules</p>
+                        <template x-if="(row.activeRules || []).length === 0">
+                          <p class="validation-hover-empty">No active rules for this line.</p>
+                        </template>
+                        <template x-for="rule in (row.activeRules || [])" :key="rule.id">
+                          <div class="validation-hover-rule" :class="rule.type === 'ERROR' ? 'is-error' : 'is-warning'">
+                            <strong x-text="rule.type"></strong>
+                            <span x-text="rule.message"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </td>
                 <td x-text="row.pax"></td>
                 <td x-text="row.unidades"></td>
                 <td x-text="row.hora"></td>
@@ -2380,72 +2689,604 @@
     </section>
   </template>
 
-  <div x-data="modals">
-  <div class="modal-overlay" x-show="clientModalOpen" style="display: none;">
-    <div class="modal panel" @click.away="closeClientModal()">
-      <div class="modal-head">
-        <h3>Select Client</h3>
-        <button class="btn btn-small btn-secondary" @click="closeClientModal()">Close</button>
-      </div>
-      <input type="text" placeholder="Search by name/rut/email" :value="clientSearchTerm" @input="setClientSearch($event.target.value)" style="">
-      <div class="client-list">
-        <template x-for="client in filteredClients()" :key="client.id">
-          <button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre"></strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')"></small>
-          </button>
-        </template><button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre">test1</strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">18123123-5 · empresa@asda.cl</small>
-          </button><button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre">pedro palotes</strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">12345678-9 · wea@a.cl</small>
-          </button><button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre">Aventuta*/r</strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">76666800-3 · carmen@sflodge.cl</small>
-          </button><button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre">Ruth Stollsteimer</strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">11111111-1 · ruth.stollsteimer@gmail.com</small>
-          </button><button class="client-item" @click="selectClient(client.id)">
-            <strong x-text="client.nombre">La corralera spa</strong>
-            <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">25870262-K · taydecorrales@gmail.com</small>
-          </button>
-      </div>
+  <!-- Client Selection Modal -->
+<div class="modal-overlay" x-show="clientModalOpen" style="display: none;">
+  <div class="modal panel" @click.away="closeClientModal()">
+    <div class="modal-head">
+      <h3>Select Client</h3>
+      <button class="btn btn-small btn-secondary" @click="closeClientModal()">Close</button>
     </div>
-  </div>
-
-  <div class="modal-overlay" x-show="quotationSearchModalOpen" style="display: none;">
-    <div class="modal panel" @click.away="closeQuotationSearchModal()">
-      <div class="modal-head">
-        <h3>Buscar cotizacion</h3>
-        <button class="btn btn-small btn-secondary" @click="closeQuotationSearchModal()">Close</button>
-      </div>
-      <input type="text" placeholder="Buscar por cliente, fecha o ID" :value="quotationSearchTerm" @input="setQuotationSearch($event.target.value)" style="">
-      <p class="muted" x-show="quotationSearchLoading" style="display: none;">Cargando cotizaciones...</p>
-      <p class="error-text" x-show="quotationSearchError" x-text="quotationSearchError" style="display: none;"></p>
-      <div class="client-list quotation-list" x-show="!quotationSearchLoading">
-        <template x-for="quotation in filteredQuotations()" :key="quotation.quotationId">
-          <button class="client-item quotation-item" @click="selectQuotationResult(quotation.quotationId)">
-            <strong x-text="quotation.clientName"></strong>
-            <small>
-              <span x-text="'Pax ' + (quotation.pax || 0)"></span>
-              <span x-text="' · ' + (quotation.quotationDate || '-')"></span>
-              <span x-text="' · ' + (quotation.quotationId || '-')"></span>
-            </small>
-          </button>
-        </template>
-        <p class="muted" x-show="filteredQuotations().length === 0 &amp;&amp; !quotationSearchError">
-          No hay cotizaciones para mostrar.
-        </p>
-      </div>
+    <input type="text" placeholder="Search by name/rut/email" :value="clientSearchTerm" @input="setClientSearch($event.target.value)" style="">
+    <div class="client-list">
+      <template x-for="client in filteredClients()" :key="client.id">
+        <button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre"></strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')"></small>
+        </button>
+      </template><button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre">test1</strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">18123123-5 · empresa@asda.cl</small>
+        </button><button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre">pedro palotes</strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">12345678-9 · wea@a.cl</small>
+        </button><button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre">Aventuta*/r</strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">76666800-3 · carmen@sflodge.cl</small>
+        </button><button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre">Ruth Stollsteimer</strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">11111111-1 · ruth.stollsteimer@gmail.com</small>
+        </button><button class="client-item" @click="selectClient(client.id)">
+          <strong x-text="client.nombre">La corralera spa</strong>
+          <small x-text="(client.rut || '-') + ' · ' + (client.email || '-')">25870262-K · taydecorrales@gmail.com</small>
+        </button>
     </div>
   </div>
 </div>
 
-  <!-- missing include: QuotationPrintStyles -->
+<!-- Quotation Search Modal -->
+<div class="modal-overlay" x-show="quotationSearchModalOpen" style="display: none;">
+  <div class="modal panel" @click.away="closeQuotationSearchModal()">
+    <div class="modal-head">
+      <h3>Buscar cotizacion</h3>
+      <button class="btn btn-small btn-secondary" @click="closeQuotationSearchModal()">Close</button>
+    </div>
+    <input type="text" placeholder="Buscar por cliente, fecha o ID" :value="quotationSearchTerm" @input="setQuotationSearch($event.target.value)" style="">
+    <p class="muted" x-show="quotationSearchLoading" style="display: none;">Cargando cotizaciones...</p>
+    <p class="error-text" x-show="quotationSearchError" x-text="quotationSearchError" style="display: none;"></p>
+    <div class="client-list quotation-list" x-show="!quotationSearchLoading">
+      <template x-for="quotation in filteredQuotations()" :key="quotation.quotationId">
+        <button class="client-item quotation-item" @click="selectQuotationResult(quotation.quotationId)">
+          <strong x-text="quotation.clientName"></strong>
+          <small>
+            <span x-text="'Pax ' + (quotation.pax || 0)"></span>
+            <span x-text="' · ' + (quotation.quotationDate || '-')"></span>
+            <span x-text="' · ' + (quotation.quotationId || '-')"></span>
+          </small>
+        </button>
+      </template>
+      <p class="muted" x-show="filteredQuotations().length === 0 &amp;&amp; !quotationSearchError">
+        No hay cotizaciones para mostrar.
+      </p>
+    </div>
+  </div>
+</div>
+
+  <style>
+@media print {
+  /* Hide non-printable elements */
+  .sidebar,
+  .timeline-header,
+  .day-tabs,
+  .timeline-controls,
+  .timeline-scroll-container,
+  .basket-list,
+  .summary-row,
+  .home-panel,
+  .validation-actions,
+  .home-actions,
+  .load-actions,
+  .modal-overlay,
+  .icon-action,
+  .tl-block-close,
+  .tl-resize,
+  .view-tabs,
+  button,
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  /* Reset shell padding and layout */
+  .quotation-shell {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+  }
+
+  .workspace {
+    display: block !important;
+  }
+
+  .main {
+    border: none !important;
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .panel {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Format validation table for print */
+  .validation-panel {
+    display: block !important;
+    max-width: none !important;
+  }
+
+  .validation-panel h2 {
+    font-size: 24px !important;
+    margin-bottom: 20px !important;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+  }
+
+  .table-wrap {
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+    color: #000 !important;
+  }
+
+  th {
+    background: #f2f2f2 !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .validation-totals {
+    margin-top: 30px !important;
+    font-size: 16px !important;
+  }
+
+  .validation-totals p {
+    margin: 5px 0 !important;
+  }
+
+  /* Page settings */
+  @page {
+    size: auto;
+    margin: 20mm;
+  }
+
+  /* Force background colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+</style>
+
 </section>
 
-<!-- missing include: theme-quotation -->
+<style>
+:root {
+  --primary: #2d5a27;
+  --primary-mid: #3d7a35;
+  --primary-bg: #edf5eb;
+  --border: #e2e8f0;
+  --border-dark: #cbd5e1;
+  --bg: #f8fafc;
+  --bg-cell: #ffffff;
+  --bg-row-alt: #f8fafc;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+[x-cloak] { display: none !important; }
+
+.quotation-shell {
+  padding: 14px;
+  max-width: 1500px;
+  margin: 0 auto;
+  font-family: var(--sans);
+  font-size: 14px;
+}
+.panel { background: var(--bg-cell); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.muted { color: var(--text-muted); font-size: 0.81rem; }
+h2, h3 { margin: 0 0 10px; color: var(--text); font-size: 1rem; }
+
+.home-panel { max-width: 720px; margin: 30px auto; display: grid; gap: 10px; }
+.home-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.load-actions { display: flex; gap: 8px; align-items: center; }
+.load-actions input { flex: 1; }
+.error-text {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; }
+.sidebar {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.global-context-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.global-context-head {
+  width: 100%;
+  border: 0;
+  background: var(--bg-row-alt);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+.global-context-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.global-context-head i {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.global-context-head i.open { transform: rotate(180deg); }
+.global-context-body {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+.client-row { display: flex; justify-content: space-between; align-items: center; }
+.client-name { margin: 0; font-weight: 700; color: var(--text); font-size: 0.92rem; }
+
+.catalog-panel { min-height: 0; display: grid; gap: 8px; }
+.catalog-header h3 {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+.catalog-header input {
+  width: 100%;
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 0.82rem;
+  background: var(--bg-cell);
+  color: var(--text);
+}
+.catalog-hint {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  font-style: italic;
+  font-family: var(--mono);
+}
+.categories-list { display: grid; gap: 8px; }
+.category-card { border: 1px solid var(--border); border-radius: 8px; overflow: visible; }
+.category-head { width: 100%; border: 0; background: var(--bg-row-alt); display: flex; justify-content: space-between; padding: 8px 10px; cursor: pointer; }
+.category-name { font-weight: 700; color: var(--text); font-size: 0.8rem; }
+.category-head i { transition: transform 0.2s; }
+.category-head i.open { transform: rotate(180deg); }
+.category-body { padding: 8px; border-top: 1px solid var(--border); }
+
+
+.main {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  max-height: calc(100vh - 120px);
+  overflow: hidden;
+}
+.timeline-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 200px;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: var(--bg);
+}
+.tl-grid { position: relative; user-select: none; min-height: 100%; }
+.tl-hour { position: absolute; width: 100%; border-bottom: 1px solid var(--border); pointer-events: none; display: flex; }
+.tl-hour-label { width: 62px; flex-shrink: 0; padding: 5px 10px 0 0; text-align: right; font-family: var(--mono); font-size: 0.65rem; color: var(--text-faint); position: relative; }
+.tl-hour-label::after { content: ''; position: absolute; right: -4px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--border-dark); }
+.tl-drop-line { position: absolute; left: 62px; right: 0; height: 2px; background: var(--primary); border-radius: 1px; pointer-events: none; z-index: 10; }
+.tl-drop-line::before { content: ''; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.tl-drop-label { position: absolute; right: 8px; top: -11px; font-family: var(--mono); font-size: 0.6rem; color: var(--primary); background: var(--primary-bg); border: 1px solid var(--primary-mid); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+.tl-block { position: absolute; border-radius: 6px; background: var(--primary-bg); border: 1.5px solid #a3c89d; padding: 5px 26px 14px 8px; cursor: grab; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 3; transition: box-shadow 0.12s, border-color 0.12s; }
+.tl-block:hover { box-shadow: 0 2px 8px rgba(45,90,39,0.2); border-color: var(--primary-mid); }
+.tl-block.is-moving { opacity: 0.25; cursor: grabbing; }
+.tl-block-title { font-family: var(--sans); font-size: 0.74rem; font-weight: 600; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-block-meta { font-family: var(--mono); font-size: 0.58rem; color: var(--primary-mid); margin-top: 2px; white-space: nowrap; }
+.tl-block-close { position: absolute; top: 3px; right: 5px; background: none; border: none; color: var(--primary); cursor: pointer; opacity: 0; font-size: 0.8rem; padding: 0 2px; line-height: 1; transition: opacity 0.1s; }
+.tl-block:hover .tl-block-close { opacity: 0.45; }
+.tl-block-close:hover { opacity: 1 !important; }
+.tl-resize { position: absolute; bottom: 0; left: 0; right: 0; height: 12px; cursor: s-resize; background: linear-gradient(transparent, rgba(45,90,39,0.1)); border-radius: 0 0 6px 6px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; }
+.tl-resize::after { content: ''; width: 30px; height: 2px; background: var(--primary-mid); border-radius: 1px; opacity: 0.35; }
+.tl-resize:hover::after { opacity: 0.85; }
+
+body.is-resizing,
+body.is-resizing * { cursor: s-resize !important; user-select: none !important; }
+
+.view-tabs .tab-active {
+  background: #fff !important;
+  border-bottom: 2px solid #fff !important;
+  color: var(--primary) !important;
+  z-index: 2;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  background: var(--bg-cell);
+  flex-shrink: 0;
+}
+.timeline-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.timeline-hint {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.config-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.config-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.66rem;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+input, select, textarea {
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg-cell);
+}
+.timeline-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+}
+.timeline-controls-summary {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.timeline-controls-summary strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.day-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.day-tab {
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  background: var(--bg-row-alt);
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-family: var(--mono);
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+.day-tab.active {
+  border-color: var(--primary-mid);
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+.day-tab:hover {
+  border-color: var(--primary-mid);
+}
+
+.basket-list {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+  padding: 8px;
+  background: var(--bg);
+  transition: border-color 0.15s, background 0.15s;
+  overflow-y: auto;
+}
+.basket-list.drop-active {
+  border-color: var(--primary-mid);
+  background: #e8f2e6;
+}
+
+.summary-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-dark); padding-top: 8px; }
+.total { margin: 0; font-size: 1rem; font-weight: 700; color: var(--primary); font-family: var(--mono); }
+
+.validation-panel { max-width: 1100px; margin: 0 auto; display: grid; gap: 12px; }
+.table-wrap { overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; border-bottom: 1px solid #e2e8f0; padding: 8px 10px; font-size: 0.85rem; }
+th { background: #f8fafc; color: #334155; font-weight: 700; }
+.validation-item-cell { position: relative; }
+.validation-item-trigger { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.validation-rule-count { min-width: 18px; height: 18px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 0.68rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.validation-hover-card {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: min(320px, 60vw);
+  display: none;
+  background: #fff;
+  border: 1px solid var(--border-dark);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  padding: 10px 12px;
+}
+.validation-item-trigger:hover .validation-hover-card { display: block; }
+.validation-hover-title { margin: 0 0 6px; font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.validation-hover-description { margin: 0 0 10px; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4; }
+.validation-hover-label { margin: 0 0 6px; font-size: 0.68rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+.validation-hover-empty { margin: 0; font-size: 0.74rem; color: var(--text-muted); }
+.validation-hover-rules { display: grid; gap: 6px; }
+.validation-hover-rule { display: grid; gap: 2px; padding: 7px 8px; border-radius: 8px; font-size: 0.74rem; }
+.validation-hover-rule strong { font-size: 0.66rem; letter-spacing: 0.05em; }
+.validation-hover-rule.is-error { background: #fef2f2; color: #991b1b; }
+.validation-hover-rule.is-warning { background: #fffbeb; color: #92400e; }
+.validation-totals { display: flex; gap: 20px; justify-content: flex-end; }
+.validation-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 12px;
+}
+.modal { width: min(640px, 100%); display: grid; gap: 10px; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; }
+.client-list { max-height: 320px; overflow-y: auto; display: grid; gap: 6px; }
+.client-item { border: 1px solid var(--border); border-radius: 8px; background: #fff; text-align: left; padding: 8px 10px; cursor: pointer; }
+.client-item:hover { background: var(--bg); }
+.client-item strong { display: block; color: var(--text); font-size: 0.84rem; }
+.client-item small { color: var(--text-muted); font-size: 0.75rem; }
+
+.entity-wrap { margin-bottom: 8px; position: relative; }
+.entity-wrap:hover { z-index: 20; }
+.runtime-card { border-left: 5px solid var(--primary-mid); }
+.mini-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px;
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  background: #fff;
+  cursor: grab;
+  transition: box-shadow 0.12s, border-color 0.12s;
+}
+.mini-card:hover {
+  box-shadow: 0 2px 8px rgba(45, 90, 39, 0.16);
+  border-color: var(--primary-mid);
+}
+.mini-card.is-dragging {
+  opacity: 0.35;
+  cursor: grabbing;
+}
+.mini-card h5 { margin: 0; font-size: 0.84rem; line-height: 1.25; }
+.mini-main { min-width: 0; }
+.category-badge {
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-size: 0.64rem;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: inline-block;
+}
+.catalog-formula { margin: 5px 0 0; color: var(--text-muted); font-size: 0.74rem; font-family: var(--mono); }
+.card-actions { display: flex; align-items: flex-start; gap: 8px; margin-left: 8px; }
+
+.rules-indicator { position: relative; z-index: 26; }
+.rules-dot { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; border: 1px solid transparent; }
+.dot-ok { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.dot-warn { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+.dot-error { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.rules-popover { position: absolute; top: 30px; left: 0; z-index: 30; width: 250px; max-height: 280px; overflow-y: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15); }
+.rules-popover-right { left: auto; right: 0; }
+.popover-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: #94a3b8; background: #f8fafc; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+.popover-empty { font-size: 0.76rem; color: #94a3b8; padding: 10px; }
+.popover-rule-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #334155; padding: 8px 10px; border-top: 1px solid #f1f5f9; }
+.popover-rule-row.row-error { background: #fef2f2; color: #991b1b; }
+.popover-rule-row.row-warn { background: #fffbeb; color: #92400e; }
+
+.acc-total-pill { display: inline-flex; align-items: center; padding: 3px 11px; background: #e8f2ec; color: #1a3d2b; border-radius: 20px; font-size: 0.74rem; font-weight: 700; font-family: var(--mono); }
+.accordion-item {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 8px 8px 0;
+  overflow: visible;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+}
+.accordion-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; background: #fff; }
+.accordion-body { border-top: 1px solid var(--border); background: #fafafa; padding: 12px; }
+.accordion-layout { display: grid; grid-template-columns: 200px minmax(180px, 1fr) 40px; gap: 12px; }
+.control-group label { font-size: 0.75rem; color: #475569; font-weight: 600; display: flex; gap: 6px; margin-bottom: 4px; }
+.control-group input { width: 100%; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px 8px; font-size: 0.85rem; background: #fff; }
+.field-user-set input { border-color: #f97316; background: #fff7ed; }
+.manual-badge { background: #f97316; color: #fff; font-size: 0.62rem; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; font-weight: 700; }
+.line-price-box { margin-top: 6px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.line-price-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #334155; margin-bottom: 4px; }
+.line-price-row.total-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; font-weight: 700; }
+.accordion-col-middle textarea { width: 100%; resize: vertical; min-height: 92px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font: inherit; font-size: 0.82rem; background: #fff; }
+.accordion-col-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.icon-action { width: 30px; height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #64748b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.icon-action.danger { color: #b91c1c; border-color: #fecaca; }
+.glosa-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 32;
+  min-width: 220px;
+  max-width: 300px;
+  font-size: 0.74rem;
+  line-height: 1.35; color: #334155; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15); padding: 8px 10px; pointer-events: none; }
+
+</style>
+
 
   </div>
 
@@ -9244,6 +10085,8 @@ ${item.derived.catalogDisaggregated}`,
         entryId: entry.entryId,
         itemId: entry.itemId,
         name: entry.state?.definition?.name || entry.name || entry.itemId,
+        description: entry.state?.definition?.description || '',
+        activeRules: [...(entry.state?.ruleErrors || []), ...(entry.state?.ruleWarnings || [])],
         pax: Number(entry.state?.quantities?.pax || 0),
         unidades: Number(entry.state?.quantities?.cantidad || 0),
         total: Number(entry.total || 0),
@@ -11622,7 +12465,7 @@ ${item.derived.catalogDisaggregated}`,
     }
   }
 
-  // AUTO-GENERATED by tools/generate_local_init_tables.mjs
+  // AUTO-GENERATED by gas/scripts/generate_local_init_tables.mjs
   // Source of truth: data/init/*.csv
 
   const LOCAL_INIT_TABLES = {
@@ -11828,7 +12671,24 @@ ${item.derived.catalogDisaggregated}`,
         "Updated_At": "2026-02-19T16:42:08.795Z"
       }
     ],
-    "COMPOSICION_KIT": [],
+    "COMPOSICION_KIT": [
+      {
+        "ID_Composicion": "KIT_COFFEE_BASICO_TAPADITO",
+        "ID_Item_Padre": "ITEM_COFFEE_BASICO",
+        "ID_Item_Hijo": "ITEM_1_TAPADITO",
+        "Cantidad": 1,
+        "Tipo_Precio": "ABSORBIDO",
+        "Updated_At": "2026-04-20T00:00:00.000Z"
+      },
+      {
+        "ID_Composicion": "KIT_COFFEE_BASICO_MEDIALUNA",
+        "ID_Item_Padre": "ITEM_COFFEE_BASICO",
+        "ID_Item_Hijo": "ITEM_1_MEDIALUNA",
+        "Cantidad": 1,
+        "Tipo_Precio": "ABSORBIDO",
+        "Updated_At": "2026-04-20T00:00:00.000Z"
+      }
+    ],
     "COTIZACIONES": [],
     "HISTORIAL_COTIZACION": [],
     "ITEM_CATALOGO": [
@@ -16970,7 +17830,13 @@ ${item.derived.catalogDisaggregated}`,
      * Returns the state required by the Timeline UI.
      */
     toDisplayObject() {
-      const snapshot = this.runtime.getSnapshot();
+      const snapshot = this.runtime?.getSnapshot?.() || {
+        settings: this.settings,
+        basket: this.basket,
+        selectedClient: this.selectedClient,
+        validation: this.validation,
+        draggingCatalogItemId: this.draggingCatalogItemId,
+      };
       return {
         HOUR_H: this.HOUR_H,
         N_HOURS: this.N_HOURS,

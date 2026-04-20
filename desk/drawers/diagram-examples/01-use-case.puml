@@ -1,0 +1,26 @@
+@startuml
+left to right direction
+title Use Case Example
+
+actor User
+actor Admin
+
+rectangle QuotationApp {
+  usecase "Start Quotation" as UC1
+  usecase "Select Client" as UC2
+  usecase "Build Basket" as UC3
+  usecase "Validate Quotation" as UC4
+  usecase "Save Quotation" as UC5
+  usecase "Edit Pack DB" as UC6
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+Admin --> UC6
+
+UC3 ..> UC2 : <<include>>
+UC5 ..> UC4 : <<include>>
+@enduml

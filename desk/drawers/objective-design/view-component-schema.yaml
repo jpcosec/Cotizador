@@ -1,0 +1,92 @@
+title: View Component Schema
+description: >-
+  Canonical schema for a reusable View composition component.
+  A View models an outer-layer product surface with ordered internal stages,
+  visible units, and transition/navigation capabilities.
+view_schema:
+  required:
+    - id
+    - label
+    - stages
+  fields:
+    id:
+      type: string
+      description: Stable identifier for the view.
+      example: editor_cotizacion
+    label:
+      type: string
+      description: Human-readable display name.
+      example: Editor Cotizacion
+    purpose:
+      type: string
+      description: Short statement of what the view exists to do.
+    entry_signals:
+      type: array[string]
+      description: Signals that can enter or open the view.
+    exit_signals:
+      type: array[string]
+      description: Signals that can leave or close the view.
+    capabilities:
+      type: array[string]
+      description: Optional feature flags or exposed actions.
+    boundaries:
+      type: array[string]
+      description: Boundaries injected into the view, such as persistence/export/store.
+    stages:
+      type: array[stage]
+      description: Ordered internal stages of the view.
+
+stage_schema:
+  required:
+    - id
+    - label
+  fields:
+    id:
+      type: string
+      description: Stable identifier for the stage.
+    label:
+      type: string
+      description: Human-readable stage label.
+    purpose:
+      type: string
+      description: Short statement of what this stage enables.
+    units:
+      type: array[string]
+      description: Conceptual units active in this stage.
+    containers:
+      type: array[string]
+      description: Container units active in this stage, if distinguished from generic units.
+    transitions:
+      type: array[transition]
+      description: Allowed transitions from this stage.
+
+transition_schema:
+  required:
+    - on
+    - to
+  fields:
+    on:
+      type: string
+      description: Signal or action that triggers the transition.
+      example: validate_quotation
+    to:
+      type: string
+      description: Destination stage id.
+      example: validation
+    kind:
+      type: string
+      description: Optional transition classification.
+      allowed: [forward, back, modal, external]
+
+rules:
+  - View owns stage progression, not business truth.
+  - View lists visible units, but does not replace them.
+  - View is the first orchestration layer above containers.
+  - Business logic remains in domain/runtime units.
+  - Pricing, Store, and Persistence stay outside View internals except as visible units or capabilities.
+  - A stage can contain multiple units.
+  - A unit can appear in multiple consecutive stages.
+  - A container may contain items and/or other containers.
+  - Containers receive mutations from View and propagate them to Items.
+  - Items compute pricing locally from quantities.
+  - Quantities and rules can flow both downward and upward.

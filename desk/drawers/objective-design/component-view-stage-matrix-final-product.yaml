@@ -1,0 +1,263 @@
+title: Component x View-Stage Matrix - Final Product (Regrouping Reach)
+description: >-
+  Final-product target constrained to what can plausibly be achieved by regrouping
+  current elements, views, and boundaries rather than inventing entirely new domain
+  subsystems. Top-level columns follow the future view map from Vistas.md.
+views:
+  - id: home
+    label: Home
+    stages:
+      - id: nueva_cotizacion
+        label: nueva cotizacion
+      - id: buscar_cotizacion
+        label: buscar cotizacion
+      - id: editores
+        label: editores
+  - id: nueva_cotizacion
+    label: Nueva Cotizacion
+    stages:
+      - id: cliente
+        label: buscar/editar cliente
+      - id: globales
+        label: campos globales
+      - id: siguiente
+        label: siguiente
+  - id: editor_cotizacion
+    label: Editor Cotizacion
+    stages:
+      - id: sidebar_catalogo
+        label: sidebar/catalogo
+      - id: selector_dia
+        label: selector dia
+      - id: editor_tiempo
+        label: editor tiempo
+      - id: editor_canasta
+        label: editor canasta
+      - id: acciones_item
+        label: acciones item/grupo
+  - id: validador
+    label: Validador
+    stages:
+      - id: tabla_detalle
+        label: tabla detalle
+      - id: hover_detalles
+        label: detalles hover
+      - id: exportar_pdf
+        label: exportar pdf
+      - id: exportar_excel
+        label: exportar excel
+      - id: guardar
+        label: guardar
+  - id: formulario_generico_db
+    label: Formulario Generico DB
+    stages:
+      - id: tabla
+        label: tabla
+      - id: editar_row
+        label: editar row
+      - id: nueva_row
+        label: nueva row
+  - id: formulario_especifico_db
+    label: Formulario Especifico DB
+    stages:
+      - id: cliente_estilizado
+        label: cliente
+      - id: pack_estilizado
+        label: pack
+      - id: resolver
+        label: resolver
+      - id: reglas
+        label: creador reglas
+      - id: categorias
+        label: creador categorias
+      - id: precios
+        label: creador precios
+      - id: buscador_cotizaciones
+        label: buscador cotizaciones
+component_types:
+  core:
+    label: Core unit
+    color: "#f59e0b"
+  boundary:
+    label: Boundary unit
+    color: "#60a5fa"
+  engine:
+    label: Decision engine
+    color: "#ec4899"
+  meta:
+    label: Meta/navigation unit
+    color: "#8b5cf6"
+components:
+  - name: AppShell
+    type: meta
+    status: target
+    stages:
+      home: [nueva_cotizacion, buscar_cotizacion, editores]
+      nueva_cotizacion: [cliente, globales, siguiente]
+      editor_cotizacion: [sidebar_catalogo, selector_dia, editor_tiempo, editor_canasta, acciones_item]
+      validador: [tabla_detalle, hover_detalles, exportar_pdf, exportar_excel, guardar]
+      formulario_generico_db: [tabla, editar_row, nueva_row]
+      formulario_especifico_db: [cliente_estilizado, pack_estilizado, resolver, reglas, categorias, precios, buscador_cotizaciones]
+    children:
+      - name: View
+        type: meta
+        status: target
+        stages:
+          home: [nueva_cotizacion, buscar_cotizacion, editores]
+          nueva_cotizacion: [cliente, globales, siguiente]
+          editor_cotizacion: [sidebar_catalogo, selector_dia, editor_tiempo, editor_canasta, acciones_item]
+          validador: [tabla_detalle, hover_detalles, exportar_pdf, exportar_excel, guardar]
+          formulario_generico_db: [tabla, editar_row, nueva_row]
+          formulario_especifico_db: [cliente_estilizado, pack_estilizado, resolver, reglas, categorias, precios, buscador_cotizaciones]
+      - name: QuotationFlow
+        type: core
+        status: target
+        stages:
+          home: [nueva_cotizacion, buscar_cotizacion]
+          nueva_cotizacion: [cliente, globales, siguiente]
+          editor_cotizacion: [sidebar_catalogo, selector_dia, editor_tiempo, editor_canasta, acciones_item]
+          validador: [tabla_detalle, hover_detalles, exportar_pdf, exportar_excel, guardar]
+        children:
+          - name: ClientSelection
+            type: core
+            status: target
+            stages:
+              home: [nueva_cotizacion]
+              nueva_cotizacion: [cliente]
+              formulario_especifico_db: [cliente_estilizado]
+          - name: GlobalContext
+            type: core
+            status: target
+            stages:
+              nueva_cotizacion: [globales, siguiente]
+              editor_cotizacion: [sidebar_catalogo]
+          - name: Catalog
+            type: core
+            status: target
+            stages:
+              editor_cotizacion: [sidebar_catalogo]
+            children:
+              - name: Category
+                type: core
+                status: target
+                stages:
+                  editor_cotizacion: [sidebar_catalogo]
+                children:
+                  - name: Item
+                    mode: catalog
+                    type: core
+                    status: target
+                    stages:
+                      editor_cotizacion: [sidebar_catalogo]
+          - name: DaySelector
+            type: core
+            status: regrouped
+            stages:
+              editor_cotizacion: [selector_dia]
+          - name: TimelineEditor
+            type: core
+            status: regrouped
+            stages:
+              editor_cotizacion: [editor_tiempo, acciones_item]
+          - name: Basket
+            type: core
+            status: target
+            stages:
+              editor_cotizacion: [editor_tiempo, editor_canasta, acciones_item]
+              validador: [tabla_detalle, hover_detalles]
+            children:
+              - name: BasketDay
+                type: core
+                status: target
+                stages:
+                  editor_cotizacion: [editor_tiempo, editor_canasta, acciones_item]
+                  validador: [tabla_detalle, hover_detalles]
+                children:
+                  - name: Item
+                    mode: basket
+                    type: core
+                    status: target
+                    stages:
+                      editor_cotizacion: [editor_tiempo, editor_canasta, acciones_item]
+                      validador: [tabla_detalle, hover_detalles]
+          - name: ValidationSummary
+            type: core
+            status: target
+            stages:
+              validador: [tabla_detalle, hover_detalles, guardar]
+          - name: Export
+            type: boundary
+            status: target
+            stages:
+              validador: [exportar_pdf, exportar_excel]
+          - name: Persistence
+            type: boundary
+            status: target
+            stages:
+              home: [buscar_cotizacion]
+              validador: [guardar]
+      - name: GenericDBForm
+        type: core
+        status: regrouped
+        stages:
+          formulario_generico_db: [tabla, editar_row, nueva_row]
+      - name: SpecificDBForm
+        type: core
+        status: regrouped
+        stages:
+          formulario_especifico_db: [cliente_estilizado, pack_estilizado, resolver, reglas, categorias, precios, buscador_cotizaciones]
+        children:
+          - name: PackEditor
+            type: core
+            status: regrouped
+            stages:
+              formulario_especifico_db: [pack_estilizado]
+          - name: ResolverView
+            type: core
+            status: regrouped
+            stages:
+              formulario_especifico_db: [resolver]
+          - name: RuleWorkbench
+            type: core
+            status: regrouped
+            stages:
+              formulario_especifico_db: [reglas]
+          - name: CategoryEditor
+            type: core
+            status: regrouped
+            stages:
+              formulario_especifico_db: [categorias]
+          - name: PriceEditor
+            type: core
+            status: regrouped
+            stages:
+              formulario_especifico_db: [precios]
+          - name: QuotationSearch
+            type: core
+            status: regrouped
+            stages:
+              home: [buscar_cotizacion]
+              formulario_especifico_db: [buscador_cotizaciones]
+      - name: Store
+        type: boundary
+        status: target
+        stages:
+          home: [buscar_cotizacion, editores]
+          nueva_cotizacion: [cliente]
+          editor_cotizacion: [sidebar_catalogo, editor_tiempo, editor_canasta]
+          formulario_generico_db: [tabla, editar_row, nueva_row]
+          formulario_especifico_db: [cliente_estilizado, pack_estilizado, resolver, reglas, categorias, precios, buscador_cotizaciones]
+      - name: PricingEngine
+        type: engine
+        status: target
+        stages:
+          editor_cotizacion: [editor_tiempo, editor_canasta, acciones_item]
+          validador: [tabla_detalle, hover_detalles, exportar_excel]
+          formulario_especifico_db: [resolver, reglas, precios]
+      - name: RulesEngine
+        type: engine
+        status: target
+        stages:
+          editor_cotizacion: [editor_tiempo, editor_canasta, acciones_item]
+          validador: [tabla_detalle, hover_detalles]
+          formulario_especifico_db: [resolver, reglas]

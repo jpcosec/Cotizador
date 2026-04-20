@@ -5,41 +5,60 @@ skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 skinparam shadowing false
 skinparam linetype ortho
+skinparam component {
+  FontColor #1F2937
+  BorderColor #94A3B8
+}
+skinparam database {
+  FontColor #1F2937
+  BorderColor #94A3B8
+}
 
 package "Source of Truth" {
-  component "Core Source\n`src/`\nstate + components + database + pricing + services" as Src
+  component "Core Source\n`src/`\nstate + components + database + pricing + services" as Src #DCFCE7
 }
 
 package "Runtime Surfaces" {
-  component "Playground\n`playground/`\ncomponent testing" as Playground
-  component "Integrated App\n`gas/`\nlocal + GAS shell" as GasApp
-  component "External Bundle\n`dist/quotation-engine.iife.js`" as Dist
+  component "Playground\n`playground/`\ncomponent testing" as Playground #DBEAFE
+  component "Integrated App\n`gas/`\nlocal + GAS shell" as GasApp #DBEAFE
+  component "External Bundle\n`dist/quotation-engine.iife.js`" as Dist #DBEAFE
 }
 
 package "Data" {
-  database "Seed Data\n`data/init/*.csv`" as SeedData
-  database "Local Persistence\n`data/db.json`" as LocalDb
-  database "Google Sheets\nvia `gas/Code.gs`" as Sheets
+  database "Seed Data\n`data/init/*.csv`" as SeedData #DCFCE7
+  database "Local Persistence\n`data/db.json`" as LocalDb #FEE2E2
+  database "Google Sheets\nvia `gas/Code.gs`" as Sheets #FEE2E2
 }
 
 package "Tooling" {
-  component "Build Scripts\n`gas/scripts/*.mjs`" as Build
-  component "E2E Runner\n`tools/userFlowRunner.mjs`" as E2E
+  component "Build Scripts\n`gas/scripts/*.mjs`" as Build #FED7AA
+  component "E2E Runner\n`tools/userFlowRunner.mjs`" as E2E #CCFBF1
 }
 
-Src --> Playground : ES modules
-Src --> GasApp : runtime + views + templates
-Src --> Dist : bundled API
+legend left
+|= Type |= Meaning |= Color |
+|<back:#DCFCE7> Source/runtime | Source of truth and core logic | green |
+|<back:#DBEAFE> Runtime surface | Playable/consumable app surfaces | blue |
+|<back:#FED7AA> Build/tooling | Build and generation pipeline | orange |
+|<back:#FEE2E2> Persistence | Storage targets | red |
+|<back:#CCFBF1> Verification | E2E validation tooling | teal |
 
-SeedData --> Src : resolver data / init tables
-GasApp --> LocalDb : local mode
-GasApp --> Sheets : GAS mode
+  Edge colors mirror the same type families.
+endlegend
 
-Build --> Dist : rollup bundle
-Build --> GasApp : generated templates + Code.gs
-Build --> SeedData : compile init tables
+Src -[#4C78A8]-> Playground : ES modules
+Src -[#4C78A8]-> GasApp : runtime + views + templates
+Src -[#4C78A8]-> Dist : bundled API
 
-E2E --> GasApp : browser flow validation
+SeedData -[#54A24B]-> Src : resolver data / init tables
+GasApp -[#E45756]-> LocalDb : local mode
+GasApp -[#E45756]-> Sheets : GAS mode
+
+Build -[#F58518]-> Dist : rollup bundle
+Build -[#F58518]-> GasApp : generated templates + Code.gs
+Build -[#F58518]-> SeedData : compile init tables
+
+E2E -[#72B7B2]-> GasApp : browser flow validation
 
 note bottom of Src
   Current architecture direction:

@@ -5,107 +5,116 @@ skinparam componentStyle rectangle
 skinparam packageStyle rectangle
 skinparam shadowing false
 skinparam linetype ortho
+skinparam component {
+  FontColor #1F2937
+  BorderColor #94A3B8
+}
+skinparam database {
+  FontColor #1F2937
+  BorderColor #94A3B8
+}
 
 legend left
-  == Runtime targets ==
-  - `playground/` : isolated dev playgrounds
-  - `gas/`        : integrated GAS/local app shell
-  - `dist/`       : external IIFE bundle
+|= Type |= Meaning |= Color |
+|<back:#DBEAFE> Runtime surface | User-facing runtime targets | blue |
+|<back:#DCFCE7> Source/runtime | Core logic and runtime data flow | green |
+|<back:#FED7AA> Build/tooling | Generation, bundling, verification | orange |
+|<back:#FEE2E2> Persistence | Storage and backend persistence | red |
+|<back:#CCFBF1> Verification | E2E/observability tooling | teal |
 
-  == Source of truth ==
-  - `src/` contains core business logic and runtime orchestration
+  Edge colors use the same family as the node group they primarily represent.
 endlegend
 
 package "Runtime Targets" {
-  component "Playground Routes\n`playground/routes/*`" as PlaygroundRoutes
-  component "Local/GAS App Shell\n`gas/Index.html` + `gas/*.html`" as GasShell
-  component "External Embed\n`dist/quotation-engine.iife.js`" as ExternalBundle
+  component "Playground Routes\n`playground/routes/*`" as PlaygroundRoutes #DBEAFE
+  component "Local/GAS App Shell\n`gas/Index.html` + `gas/*.html`" as GasShell #DBEAFE
+  component "External Embed\n`dist/quotation-engine.iife.js`" as ExternalBundle #DBEAFE
 }
 
 package "App Composition" {
-  component "Quotation Flow Component\n`gas/scripts/createQuotationFlowComponent.js`" as FlowComponent
-  component "Sidebar Controller\n`src/components/quotation/views/sidebar/Sidebar.js`" as Sidebar
-  component "Timeline Controller\n`src/components/quotation/views/timeline/Timeline.js`" as Timeline
-  component "Item List Controller\n`src/components/quotation/views/ItemList.js`" as ItemList
-  component "Modals Controller\n`src/components/quotation/views/Modals.js`" as Modals
-  component "Excel Export Service\n`src/services/excelService.js`" as ExcelService
+  component "Quotation Flow Component\n`gas/scripts/createQuotationFlowComponent.js`" as FlowComponent #DCFCE7
+  component "Sidebar Controller\n`src/components/quotation/views/sidebar/Sidebar.js`" as Sidebar #DCFCE7
+  component "Timeline Controller\n`src/components/quotation/views/timeline/Timeline.js`" as Timeline #DCFCE7
+  component "Item List Controller\n`src/components/quotation/views/ItemList.js`" as ItemList #DCFCE7
+  component "Modals Controller\n`src/components/quotation/views/Modals.js`" as Modals #DCFCE7
+  component "Excel Export Service\n`src/services/excelService.js`" as ExcelService #DCFCE7
 }
 
 package "Application Runtime" {
-  component "Persisted Quotation Runtime\n`src/state/createPersistedQuotationRuntime.js`" as PersistedRuntime
-  component "Internal Quotation Runtime\n`src/state/createQuotationInternalRuntime.js`" as InternalRuntime
-  component "Flow State Machine\nXState save/load stages" as FlowMachine
+  component "Persisted Quotation Runtime\n`src/state/createPersistedQuotationRuntime.js`" as PersistedRuntime #DCFCE7
+  component "Internal Quotation Runtime\n`src/state/createQuotationInternalRuntime.js`" as InternalRuntime #DCFCE7
+  component "Flow State Machine\nXState save/load stages" as FlowMachine #DCFCE7
 }
 
 package "Domain Components" {
-  component "Catalog / Category Runtime\n`src/components/category/machine/categoryMachine.js`" as CategoryMachine
-  component "Basket Day Runtime\n`src/components/basket-day/machine/basketDayMachine.js`" as BasketDayMachine
-  component "Item Runtime\n`src/components/item/*`" as ItemRuntime
-  component "Pricing Logic\n`src/pricing/src/*`" as Pricing
-  component "Rules Engine\n`src/components/item/domain/rulesEngine/*`" as RulesEngine
+  component "Catalog / Category Runtime\n`src/components/category/machine/categoryMachine.js`" as CategoryMachine #DCFCE7
+  component "Basket Day Runtime\n`src/components/basket-day/machine/basketDayMachine.js`" as BasketDayMachine #DCFCE7
+  component "Item Runtime\n`src/components/item/*`" as ItemRuntime #DCFCE7
+  component "Pricing Logic\n`src/pricing/src/*`" as Pricing #DCFCE7
+  component "Rules Engine\n`src/components/item/domain/rulesEngine/*`" as RulesEngine #DCFCE7
 }
 
 package "Data + Persistence" {
-  component "Resolver + Seed Adapters\n`src/database/src/*`" as DatabaseLayer
-  component "Persistence Port\nlocal / GAS adapters" as PersistencePort
-  database "Local Seed / Local DB\n`data/init/*.csv`, `data/db.json`" as LocalData
-  database "Google Sheets via Apps Script\n`gas/Code.gs`" as GasSheets
+  component "Resolver + Seed Adapters\n`src/database/src/*`" as DatabaseLayer #DCFCE7
+  component "Persistence Port\nlocal / GAS adapters" as PersistencePort #FEE2E2
+  database "Local Seed / Local DB\n`data/init/*.csv`, `data/db.json`" as LocalData #FEE2E2
+  database "Google Sheets via Apps Script\n`gas/Code.gs`" as GasSheets #FEE2E2
 }
 
 package "Build + Tooling" {
-  component "Bundle Entry\n`gas/scripts/entry.js`" as BundleEntry
-  component "Build Scripts\n`gas/scripts/*.mjs`" as BuildScripts
-  component "User Flow Runner\n`tools/userFlowRunner.mjs`" as UserFlowRunner
+  component "Bundle Entry\n`gas/scripts/entry.js`" as BundleEntry #FED7AA
+  component "Build Scripts\n`gas/scripts/*.mjs`" as BuildScripts #FED7AA
+  component "User Flow Runner\n`tools/userFlowRunner.mjs`" as UserFlowRunner #CCFBF1
 }
 
 package "Playground Slice" {
-  component "Item Playground Mount\n`playground/playground/item/mountItemPlayground.js`" as ItemPlaygroundMount
-  component "Item Playground Controller\n`playground/playground/item/ItemPlaygroundController.js`" as ItemPlaygroundController
-  component "Item Playground HTML\n`playground/playground/item/ui/ItemPlayground.html`" as ItemPlaygroundHtml
+  component "Item Playground Mount\n`playground/playground/item/mountItemPlayground.js`" as ItemPlaygroundMount #DBEAFE
+  component "Item Playground Controller\n`playground/playground/item/ItemPlaygroundController.js`" as ItemPlaygroundController #DCFCE7
+  component "Item Playground HTML\n`playground/playground/item/ui/ItemPlayground.html`" as ItemPlaygroundHtml #DBEAFE
 }
 
-PlaygroundRoutes --> ItemPlaygroundMount : loads
-ItemPlaygroundMount --> ItemPlaygroundController : creates
-ItemPlaygroundMount --> ItemPlaygroundHtml : fetches layout
-ItemPlaygroundController --> DatabaseLayer : resolve item defs / load seed
-ItemPlaygroundController --> ItemRuntime : create item actors
+PlaygroundRoutes -[#4C78A8]-> ItemPlaygroundMount : loads
+ItemPlaygroundMount -[#4C78A8]-> ItemPlaygroundController : creates
+ItemPlaygroundMount -[#4C78A8]-> ItemPlaygroundHtml : fetches layout
+ItemPlaygroundController -[#54A24B]-> DatabaseLayer : resolve item defs / load seed
+ItemPlaygroundController -[#54A24B]-> ItemRuntime : create item actors
 
-GasShell --> FlowComponent : Alpine root
-ExternalBundle --> FlowComponent : exposes `createQuotationFlowComponent()`
-BundleEntry --> FlowComponent
-BundleEntry --> PersistedRuntime
+GasShell -[#4C78A8]-> FlowComponent : Alpine root
+ExternalBundle -[#4C78A8]-> FlowComponent : exposes `createQuotationFlowComponent()`
+BundleEntry -[#F58518]-> FlowComponent
+BundleEntry -[#F58518]-> PersistedRuntime
 
-FlowComponent --> Sidebar : compose view controller
-FlowComponent --> Timeline : compose view controller
-FlowComponent --> ItemList : compose view controller
-FlowComponent --> Modals : compose view controller
-FlowComponent --> ExcelService : export CSV
-FlowComponent --> PersistedRuntime : runtime API
+FlowComponent -[#4C78A8]-> Sidebar : compose view controller
+FlowComponent -[#4C78A8]-> Timeline : compose view controller
+FlowComponent -[#4C78A8]-> ItemList : compose view controller
+FlowComponent -[#4C78A8]-> Modals : compose view controller
+FlowComponent -[#54A24B]-> ExcelService : export CSV
+FlowComponent -[#54A24B]-> PersistedRuntime : runtime API
 
-PersistedRuntime --> InternalRuntime : wraps editable runtime
-PersistedRuntime --> FlowMachine : governs stages
-PersistedRuntime --> PersistencePort : save/load quotations
-PersistedRuntime --> DatabaseLayer : serialize / hydrate quotations
+PersistedRuntime -[#54A24B]-> InternalRuntime : wraps editable runtime
+PersistedRuntime -[#54A24B]-> FlowMachine : governs stages
+PersistedRuntime -[#E45756]-> PersistencePort : save/load quotations
+PersistedRuntime -[#54A24B]-> DatabaseLayer : serialize / hydrate quotations
 
-InternalRuntime --> CategoryMachine : catalog state
-InternalRuntime --> BasketDayMachine : basket/day state
-InternalRuntime --> DatabaseLayer : resolve definitions / seed adapters
+InternalRuntime -[#54A24B]-> CategoryMachine : catalog state
+InternalRuntime -[#54A24B]-> BasketDayMachine : basket/day state
+InternalRuntime -[#54A24B]-> DatabaseLayer : resolve definitions / seed adapters
 
-CategoryMachine --> ItemRuntime : catalog item actors
-BasketDayMachine --> ItemRuntime : basket item actors
-ItemRuntime --> Pricing
-ItemRuntime --> RulesEngine
-ItemRuntime --> DatabaseLayer : resolved definitions / kit composition
+CategoryMachine -[#54A24B]-> ItemRuntime : catalog item actors
+BasketDayMachine -[#54A24B]-> ItemRuntime : basket item actors
+ItemRuntime -[#54A24B]-> Pricing
+ItemRuntime -[#54A24B]-> RulesEngine
+ItemRuntime -[#54A24B]-> DatabaseLayer : resolved definitions / kit composition
 
-PersistencePort --> LocalData : local mode
-PersistencePort --> GasSheets : production GAS mode
+PersistencePort -[#E45756]-> LocalData : local mode
+PersistencePort -[#E45756]-> GasSheets : production GAS mode
 
-BuildScripts --> BundleEntry : rollup input
-BuildScripts --> GasShell : generate GAS templates / includes
-BuildScripts --> ExternalBundle : build IIFE
-BuildScripts --> LocalData : generate `gas/output/localInitTables.js`
+BuildScripts -[#F58518]-> BundleEntry : rollup input
+BuildScripts -[#F58518]-> GasShell : generate GAS templates / includes
+BuildScripts -[#F58518]-> ExternalBundle : build IIFE
+BuildScripts -[#F58518]-> LocalData : generate `gas/output/localInitTables.js`
 
-UserFlowRunner --> GasShell : browser E2E against local app
+UserFlowRunner -[#72B7B2]-> GasShell : browser E2E against local app
 
 note right of PersistedRuntime
   Public runtime used by the UI.

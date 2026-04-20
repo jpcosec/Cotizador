@@ -1,0 +1,137 @@
+title: Component x View-Stage Matrix - Desired Architecture
+description: >-
+  Desired bi-hierarchical component/view-stage matrix.
+  Rows are component hierarchy. Columns are views and ordered stages.
+  Filled cells indicate that a component participates in a stage.
+views:
+  - id: quotation
+    label: Quotation View
+    stages:
+      - id: browse
+        label: browse
+      - id: client
+        label: client
+      - id: basket
+        label: basket
+      - id: validation
+        label: validation
+      - id: completed
+        label: completed
+  - id: admin
+    label: Admin View
+    stages:
+      - id: list
+        label: list
+      - id: edit
+        label: edit
+      - id: audit
+        label: audit
+component_types:
+  core:
+    label: Core unit
+    color: "#f59e0b"
+  boundary:
+    label: Boundary unit
+    color: "#60a5fa"
+  engine:
+    label: Decision engine
+    color: "#ec4899"
+  admin:
+    label: Admin unit
+    color: "#14b8a6"
+components:
+  - name: QuotationFlow
+    type: core
+    status: target
+    stages:
+      quotation: [browse, client, basket, validation, completed]
+    children:
+      - name: Persistence
+        type: boundary
+        status: target
+        stages:
+          quotation: [browse, validation, completed]
+          admin: [list, edit, audit]
+      - name: Store
+        type: boundary
+        status: target
+        stages:
+          quotation: [browse, client, basket]
+          admin: [list, edit, audit]
+      - name: ClientSelection
+        type: core
+        status: target
+        stages:
+          quotation: [client]
+      - name: Catalog
+        type: core
+        status: target
+        stages:
+          quotation: [basket]
+        children:
+          - name: Category
+            type: core
+            status: target
+            stages:
+              quotation: [basket]
+            children:
+              - name: Item
+                mode: catalog
+                type: core
+                status: target
+                stages:
+                  quotation: [basket]
+      - name: Basket
+        type: core
+        status: target
+        stages:
+          quotation: [basket, validation]
+        children:
+          - name: BasketDay
+            type: core
+            status: target
+            stages:
+              quotation: [basket, validation]
+            children:
+              - name: Item
+                mode: basket
+                type: core
+                status: target
+                stages:
+                  quotation: [basket, validation]
+      - name: ValidationSummary
+        type: core
+        status: target
+        stages:
+          quotation: [validation]
+      - name: Export
+        type: boundary
+        status: target
+        stages:
+          quotation: [validation]
+      - name: PricingEngine
+        type: engine
+        status: target
+        stages:
+          quotation: [basket, validation]
+      - name: RulesEngine
+        type: engine
+        status: target
+        stages:
+          quotation: [basket, validation]
+  - name: AdminPanel
+    type: admin
+    status: target
+    stages:
+      admin: [list, edit, audit]
+    children:
+      - name: PackEditor
+        type: admin
+        status: target
+        stages:
+          admin: [edit]
+      - name: AuditLog
+        type: admin
+        status: target
+        stages:
+          admin: [audit]
