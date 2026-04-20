@@ -1,0 +1,133 @@
+<section class="generic-lab" x-data="genericUnitPlayground()" x-init="init()">
+  <header class="lab-hero">
+    <div>
+      <p class="lab-kicker">Architecture Spike</p>
+      <h1 x-text="projection.ui.title"></h1>
+      <p class="lab-copy" x-text="projection.ui.subtitle"></p>
+    </div>
+    <div class="lab-actions">
+      <button class="lab-btn ghost" @click="previousStage()">Previous</button>
+      <button class="lab-btn primary" @click="nextStage()">Next</button>
+      <button class="lab-btn ghost" @click="toggleDebug()" x-text="debugOpen ? 'Hide debug' : 'Show debug'"></button>
+    </div>
+  </header>
+
+  <section class="lab-grid">
+    <article class="lab-panel stage-panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-label">View</p>
+          <h2 x-text="projection.viewId"></h2>
+        </div>
+        <span class="panel-chip" x-text="projection.stage"></span>
+      </div>
+
+      <div class="stage-strip">
+        <template x-for="stage in projection.stages" :key="stage.id">
+          <button
+            class="stage-pill"
+            :class="stage.isActive ? 'is-active' : ''"
+            @click="goToStage(stage.id)"
+            x-text="stage.label"
+          ></button>
+        </template>
+      </div>
+
+      <div class="scenario-actions">
+        <button class="lab-btn primary" @click="boostStatusUnit()">Mutate child state</button>
+        <button class="lab-btn ghost" @click="sendSiblingSignal()">Signal sibling</button>
+        <button class="lab-btn ghost" @click="mirrorViewStage()">Mirror stage to child</button>
+        <button class="lab-btn ghost" @click="requestSave()">Save snapshot</button>
+        <button class="lab-btn ghost" @click="requestExport()">Export projection</button>
+        <button class="lab-btn ghost" @click="requestPricing()">Run pricing</button>
+        <button class="lab-btn ghost" @click="requestRules()">Run rules</button>
+      </div>
+    </article>
+
+    <article class="lab-panel summary-panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-label">Projection</p>
+          <h2>Visible Units</h2>
+        </div>
+        <span class="panel-chip" x-text="projection.derived.visibleChildCount"></span>
+      </div>
+
+      <div class="unit-summary">
+        <template x-for="unit in projection.visibleUnits" :key="unit.id">
+          <div class="summary-row">
+            <strong x-text="unit.title"></strong>
+            <span x-text="unit.id"></span>
+          </div>
+        </template>
+      </div>
+
+      <div class="boundary-summary">
+        <template x-for="entry in Object.entries(projection.boundaryStatus)" :key="entry[0]">
+          <div class="summary-row boundary-row">
+            <strong x-text="entry[0]"></strong>
+            <span :class="`status-${entry[1].status}`" x-text="entry[1].status"></span>
+          </div>
+        </template>
+      </div>
+    </article>
+  </section>
+
+  <section class="unit-grid">
+    <template x-for="child in projection.children" :key="child.id">
+      <article class="unit-card" :data-variant="child.ui.variant || 'default'">
+        <div class="panel-head">
+          <div>
+            <p class="panel-label" x-text="child.type"></p>
+            <h3 x-text="child.ui.title"></h3>
+            <p class="lab-copy small" x-text="child.ui.subtitle"></p>
+          </div>
+          <div class="unit-badges">
+            <template x-for="badge in child.ui.badges || []" :key="badge">
+              <span class="badge" x-text="badge"></span>
+            </template>
+          </div>
+        </div>
+
+        <dl class="unit-stats">
+          <div>
+            <dt>Count</dt>
+            <dd x-text="child.state?.count ?? '-' "></dd>
+          </div>
+          <div>
+            <dt>Last Note</dt>
+            <dd x-text="child.state?.lastNote || 'None'"></dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd x-text="child.status"></dd>
+          </div>
+        </dl>
+
+        <pre class="json-mini" x-text="pretty({ derived: child.derived, meta: child.meta })"></pre>
+      </article>
+    </template>
+  </section>
+
+  <section class="lab-grid" x-show="debugOpen">
+    <article class="lab-panel debug-panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-label">Signals</p>
+          <h2>Recent traffic</h2>
+        </div>
+      </div>
+      <pre class="json-viewer" x-text="pretty(signalLog)"></pre>
+    </article>
+
+    <article class="lab-panel debug-panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-label">Snapshot</p>
+          <h2>Serializable runtime state</h2>
+        </div>
+      </div>
+      <pre class="json-viewer" x-text="pretty(snapshot)"></pre>
+    </article>
+  </section>
+</section>
