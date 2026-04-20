@@ -121,10 +121,10 @@
   </div>
 
   <script type="module">
-    import { loadSeedFromCsvUrl } from '../../../packages/database/src/csvSeed.browser.js';
-    import { createDatabase } from '../../../packages/database/src/createDatabase.js';
-    import { LocalPersistenceAdapter } from '../../../packages/database/src/persistence/LocalPersistenceAdapter.js';
-    import { RemotePersistenceAdapter } from '../../../packages/database/src/persistence/RemotePersistenceAdapter.js';
+    import { loadSeedFromCsvUrl } from '../../../src/database/src/csvSeed.browser.js';
+    import { createDatabase } from '../../../src/database/src/createDatabase.js';
+    import { LocalPersistenceAdapter } from '../../../src/database/src/persistence/LocalPersistenceAdapter.js';
+    import { RemotePersistenceAdapter } from '../../../src/database/src/persistence/RemotePersistenceAdapter.js';
 
     function isLocalDevHost(hostname) {
       return hostname === 'localhost' || hostname === '127.0.0.1';

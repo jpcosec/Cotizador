@@ -67,6 +67,12 @@
       "action": "wait",
       "selector": "h2:has-text('Quotation Saved')",
       "description": "Verify save"
+    },
+    {
+      "id": "12_edit_pack_db",
+      "action": "goto",
+      "url": "/playground/routes/pack-editor.html",
+      "description": "Open pack editor database flow"
     }
   ]
 }

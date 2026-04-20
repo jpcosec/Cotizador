@@ -146,7 +146,13 @@ export class TimelineController extends UIContainerBase {
    * Returns the state required by the Timeline UI.
    */
   toDisplayObject() {
-    const snapshot = this.runtime.getSnapshot();
+    const snapshot = this.runtime?.getSnapshot?.() || {
+      settings: this.settings,
+      basket: this.basket,
+      selectedClient: this.selectedClient,
+      validation: this.validation,
+      draggingCatalogItemId: this.draggingCatalogItemId,
+    };
     return {
       HOUR_H: this.HOUR_H,
       N_HOURS: this.N_HOURS,

@@ -1,9 +1,9 @@
 import { createQuotationRuntime } from './createQuotationRuntime.js';
-import { exportQuotationToCsv } from '../src/services/excelService.js';
-import { createSidebar } from '../src/components/quotation/views/sidebar/Sidebar.js';
-import { createTimeline } from '../src/components/quotation/views/timeline/Timeline.js';
-import { createItemList } from '../src/components/quotation/views/ItemList.js';
-import { createModals } from '../src/components/quotation/views/Modals.js';
+import { exportQuotationToCsv } from '../../src/services/excelService.js';
+import { createSidebar } from '../../src/components/quotation/views/sidebar/Sidebar.js';
+import { createTimeline } from '../../src/components/quotation/views/timeline/Timeline.js';
+import { createItemList } from '../../src/components/quotation/views/ItemList.js';
+import { createModals } from '../../src/components/quotation/views/Modals.js';
 
 function toNumberValue(value, fallback = 0) {
   const parsed = Number(value);
