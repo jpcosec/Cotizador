@@ -1,36 +1,85 @@
 <section class="quotation-shell">
   <template x-if="stage === 'browse' || stage === 'client'">
-    <section class="panel home-panel">
-      <h2>Quotation Flow</h2>
-      <p class="muted">Full GAS app runtime: select client, configure quotation, build basket by days.</p>
-      <div class="home-actions">
+    <section class="panel home-panel home-stage">
+      <div class="home-hero">
+        <div class="home-hero-copy">
+          <p class="home-eyebrow">SF Lodge quotation workspace</p>
+          <h1 class="home-title">Start a new quotation or reopen an existing one with a cleaner front door.</h1>
+          <p class="home-lead">Use the client browser to begin a fresh flow, or jump into the quotation browser to continue previous work.</p>
+        </div>
+
+        <div class="home-meta-grid">
+          <div class="home-meta-card">
+            <span class="home-meta-label">Runtime</span>
+            <strong x-text="runtimeMode === 'gas' ? 'GAS Preview' : 'Sandbox'"></strong>
+          </div>
+          <div class="home-meta-card">
+            <span class="home-meta-label">Flow</span>
+            <strong>Client -> Basket -> Validation</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-action-grid">
+        <button class="home-action-card home-action-card-primary" type="button" @click="startQuotation()">
+          <span class="home-action-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="home-action-body">
+            <strong>Start Quotation</strong>
+            <span>Create a new quotation and move directly into the working flow.</span>
+          </span>
+        </button>
+
+        <button class="home-action-card" type="button" @click="openClientModal()">
+          <span class="home-action-icon"><i class="fa-solid fa-user-group"></i></span>
+          <span class="home-action-body">
+            <strong>Select Client</strong>
+            <span>Open the client browser to choose who this quotation belongs to.</span>
+          </span>
+        </button>
+
+        <button class="home-action-card" type="button" @click="openQuotationSearchModal()">
+          <span class="home-action-icon"><i class="fa-solid fa-folder-open"></i></span>
+          <span class="home-action-body">
+            <strong>Buscar cotizacion</strong>
+            <span>Open the quotation browser and continue work that already exists.</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="home-utility-row" x-show="databaseEditorEnabled">
+        <div>
+          <p class="home-section-label">Admin utility</p>
+          <p class="muted home-utility-copy">Open the database editor when you need to review or adjust source data.</p>
+        </div>
         <button class="btn btn-small btn-secondary"
-                x-show="databaseEditorEnabled"
+                type="button"
                 @click="openDatabaseEditor()"
                 :disabled="!databaseEditorUrl"
                 :title="databaseEditorUrl ? 'Open database editor' : 'Database editor is unavailable in this runtime'">
           Edit Database
         </button>
-        <button class="btn btn-small btn-primary" @click="startQuotation()">Start Quotation</button>
-        <button class="btn btn-small btn-secondary" @click="openClientModal()">Select Client</button>
-        <button class="btn btn-small btn-secondary" @click="openQuotationSearchModal()">Buscar cotizacion</button>
       </div>
-      <div class="load-actions" x-show="capabilities.manualLoadById">
-        <input
-          type="text"
-          placeholder="Quotation ID (ex: COT-0001)"
-          x-model="loadQuotationId"
-          @keydown.enter.prevent="loadQuotationById()"
-        />
-        <button class="btn btn-small btn-secondary" @click="loadQuotationById()" :disabled="persistence.isLoading">
-          <span x-show="!persistence.isLoading">Load Quotation</span>
-          <span x-show="persistence.isLoading">Loading...</span>
-        </button>
+
+      <div class="home-status-grid">
+        <div class="home-status-card" x-show="selectedClient">
+          <p class="home-section-label">Selected client</p>
+          <strong class="home-status-title" x-text="selectedClient?.nombre"></strong>
+          <p class="muted home-status-copy">You can start immediately or switch clients before entering the basket.</p>
+        </div>
+
+        <div class="home-status-card" x-show="!selectedClient">
+          <p class="home-section-label">Suggested next step</p>
+          <strong class="home-status-title">Choose a client first</strong>
+          <p class="muted home-status-copy">The client browser gives the flow a clear owner before you build the quotation.</p>
+        </div>
+
+        <div class="home-status-card home-status-card-muted">
+          <p class="home-section-label">What this screen does</p>
+          <p class="muted home-status-copy">This home is intentionally limited to entry actions: create, select client, reopen quotation, and admin access.</p>
+        </div>
       </div>
+
       <p class="error-text" x-show="persistence.error" x-text="persistence.error"></p>
-      <p class="muted" x-show="selectedClient">
-        Selected client: <strong x-text="selectedClient?.nombre"></strong>
-      </p>
     </section>
   </template>
 

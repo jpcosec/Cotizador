@@ -5,6 +5,8 @@
 ## Active (status=open|in_progress)
 | ID | Domain | Task | Priority | Depends On | Pills |
 |----|--------|------|----------|------------|-------|
+| T-001 | quotation/runtime | Plan incremental migration of the quotation UI to `GenericViewBase` and define shell/child migration order | high | none | `desk/drawers/objective-design/generic-unit-base-component-plan.md`, `desk/drawers/objective-design/current-code-contract-audit.md` |
+| T-002 | quotation/ui | Plan a quick beautification pass for the quotation home view without changing flow behavior | medium | none | none |
 
 ## Blocked (status=blocked)
 | ID | Domain | Blocker | Gate |
