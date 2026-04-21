@@ -26,7 +26,7 @@ Legacy behavior is recovered by preserving contracts (inputs, outputs, side effe
 - Backend/service behavior: migration-first.
 - UI implementation: rebuild-native.
 
-See `docs/ARCHITECTURE/legacy-ui-recovery.md`.
+See `docs/ARCHITECTURE/current-architecture.md`.
 
 ### 3) Single Mutation Boundary
 
@@ -51,13 +51,13 @@ Persistence and service operations are accessed through interfaces/ports.
 - Local and GAS adapters must conform to the same contract.
 - UI is unaware of transport/backend specifics.
 
-### 6) Component Contract Consistency
+### 6) Runtime Contract Consistency
 
-All components follow the standard package structure and behavior contracts:
+Core runtime units follow explicit behavior contracts:
 
-- class + machine + logic + domain + UI + tests + `STATE_CONTRACT.md`
-- public methods are explicit and stable
-- `toDisplayObject()` is the UI snapshot boundary
+- initialization, mutation, projection, snapshot, and signal boundaries are explicit
+- public methods are stable and predictable
+- `getProjection()` and `getSnapshot()` are the runtime/UI boundary
 
 ### 7) Screen/State/Event Discipline
 
@@ -106,8 +106,6 @@ When two approaches compete, choose the option that:
 
 ## Related Docs
 
-- `docs/ARCHITECTURE/component-architecture.md`
-- `docs/ARCHITECTURE/legacy-ui-recovery.md`
-- `docs/ARCHITECTURE/app-flow-state-screen-foundation.md`
-- `docs/ARCHITECTURE/app-flow-screen-by-screen-spec.md`
+- `docs/ARCHITECTURE/current-architecture.md`
+- `docs/DEPLOYMENT/Gas_workflow.md`
 - `plan/README.md`

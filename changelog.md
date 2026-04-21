@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-04-21 (docs refresh for GAS workflow and current architecture)
+- Added `docs/DEPLOYMENT/Gas_workflow.md` with the full GAS build, preview, validation, and deployment workflow.
+- Added `docs/ARCHITECTURE/current-architecture.md` as the current runtime-first architecture reference.
+- Added `docs/ARCHITECTURE/generic-unit.md` documenting the shared runtime contract and specialization boundaries.
+- Added runtime/ops follow-up docs for the quotation runtime bridge, runtime signals, persistence boundary, deploy checklist, and `user_flow.json` runner usage.
+- Removed stale docs that still described superseded `packages/`, `apps/`, mixin migration, and legacy recovery structures.
+- Updated `docs/README.md`, `docs/ARCHITECTURE/design-principles.md`, and `docs/GUIDES/creating-a-component.md` to point at the new current references.
+
 ### 2026-04-21 (runtime redesign desk reset and validation gate)
 - Added the runtime redesign task track to `desk/tasks/` around `GenericUnit`/`View`/`Container`/`Item` adoption.
 - Cleared obsolete desk task files that no longer match the runtime-first migration path.

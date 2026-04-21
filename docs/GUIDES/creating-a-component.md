@@ -6,7 +6,7 @@ Step-by-step guide to build a new component following the rebuild patterns.
 
 ## Prerequisites
 
-- Understand [component-architecture.md](../ARCHITECTURE/component-architecture.md)
+- Understand [current-architecture.md](../ARCHITECTURE/current-architecture.md)
 - Familiar with XState basics
 - Know JavaScript (ES2020+) and Alpine.js
 - Can write and run Vitest tests
@@ -781,7 +781,7 @@ const { max = 100 } = definition;
 
 ## Next Steps
 
-- Review [`../ARCHITECTURE/component-architecture.md`](../ARCHITECTURE/component-architecture.md)
+- Review [`../ARCHITECTURE/current-architecture.md`](../ARCHITECTURE/current-architecture.md)
 - Check existing components: `counter-basic/`, `item/`
 - Run: `npm test` to see tests in action
 - Deploy to sandbox: `npm run serve:sandbox`
