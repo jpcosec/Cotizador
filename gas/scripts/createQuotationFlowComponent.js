@@ -151,7 +151,6 @@ export function createQuotationFlowComponent(options = {}) {
     draggingCatalogItemId: null,
     databaseEditorUrl: resolveDatabaseEditorUrl(),
     mainTab: 'timeline',
-    runtimeView,
     runtimeProjection: runtimeView.getProjection(),
     sidebar: createSidebar(runtime),
     timeline: createTimeline(runtime),
@@ -161,13 +160,21 @@ export function createQuotationFlowComponent(options = {}) {
     async init() {
       const sync = (snapshot) => {
         runtimeView.receiveRuntimeSnapshot(snapshot);
-        this.runtimeProjection = runtimeView.getProjection();
+        const runtimeProjection = runtimeView.getProjection();
+        this.runtimeProjection = {
+          ...runtimeProjection,
+          stage: snapshot.stage ?? runtimeProjection.stage,
+          shell: {
+            ...(runtimeProjection.shell || {}),
+            persistence: snapshot.persistence || runtimeProjection.shell?.persistence || null,
+          },
+        };
         const shell = this.runtimeProjection.shell || {};
         this.sidebar.onActorUpdate(snapshot);
         this.timeline.onActorUpdate(snapshot);
         this.itemList.onActorUpdate(snapshot);
         this.modals.onActorUpdate(snapshot);
-        this.stage = this.runtimeProjection.stage;
+        this.stage = snapshot.stage ?? this.runtimeProjection.stage;
         this.clientModalOpen = shell.clientModalOpen ?? snapshot.clientModalOpen;
         this.selectedClient = shell.selectedClient ?? snapshot.selectedClient;
         this.settings = { ...(shell.settings || snapshot.settings) };

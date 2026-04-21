@@ -206,6 +206,14 @@ export const LOCAL_INIT_TABLES = {
   ],
   "COMPOSICION_KIT": [
     {
+      "ID_Composicion": "KIT_SALON_CHINOOK_TECNICA",
+      "ID_Item_Padre": "ITEM_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+      "ID_Item_Hijo": "ITEM_TECNICA_PARA_SALONES_USO_DIURNO",
+      "Cantidad": 1,
+      "Tipo_Precio": "ABSORBIDO",
+      "Updated_At": "2026-04-20T00:00:00.000Z"
+    },
+    {
       "ID_Composicion": "KIT_COFFEE_BASICO_TAPADITO",
       "ID_Item_Padre": "ITEM_COFFEE_BASICO",
       "ID_Item_Hijo": "ITEM_1_TAPADITO",

@@ -396,7 +396,14 @@ export function createPersistedQuotationRuntime({
   function attachRuntime(nextRuntime) {
     runtime = nextRuntime;
     runtimeSubscription = runtime.subscribe((snapshot) => {
-      if (isManagedStage(currentFlowStage()) && isManagedStage(snapshot.stage)) {
+      const flowStage = currentFlowStage();
+      if (
+        flowStage !== 'saving'
+        && flowStage !== 'loadingQuotation'
+        && flowStage !== 'completed'
+        && isManagedStage(flowStage)
+        && isManagedStage(snapshot.stage)
+      ) {
         flowActor.send({ type: 'RUNTIME_SET_STAGE', stage: snapshot.stage });
       }
       notify();

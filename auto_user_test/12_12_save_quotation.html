@@ -558,7 +558,7 @@
       <h2>Quotation Saved</h2>
       <p class="muted">
         Quotation ID:
-        <strong x-text="persistence.quotationId || '-' ">COT-20260420125030689</strong>
+        <strong x-text="persistence.quotationId || '-' ">COT-20260421004402702</strong>
       </p>
       <div class="validation-actions">
         <button class="btn btn-small btn-secondary" @click="backToBasket()">Back To Basket</button>
@@ -1259,6 +1259,7 @@ var QuotationEngine = (function (exports) {
   const STATE_IDENTIFIER$1 = '#';
   const WILDCARD = '*';
   const XSTATE_INIT = 'xstate.init';
+  const XSTATE_ERROR = 'xstate.error';
   const XSTATE_STOP = 'xstate.stop';
 
   /**
@@ -4447,6 +4448,372 @@ var QuotationEngine = (function (exports) {
     }
   }
 
+  function resolveEmit(_, snapshot, args, actionParams, {
+    event: eventOrExpr
+  }) {
+    const resolvedEvent = typeof eventOrExpr === 'function' ? eventOrExpr(args, actionParams) : eventOrExpr;
+    return [snapshot, {
+      event: resolvedEvent
+    }, undefined];
+  }
+  function executeEmit(actorScope, {
+    event
+  }) {
+    actorScope.defer(() => actorScope.emit(event));
+  }
+  /**
+   * Emits an event to event handlers registered on the actor via `actor.on(event,
+   * handler)`.
+   *
+   * @example
+   *
+   * ```ts
+   * import { emit } from 'xstate';
+   *
+   * const machine = createMachine({
+   *   // ...
+   *   on: {
+   *     something: {
+   *       actions: emit({
+   *         type: 'emitted',
+   *         some: 'data'
+   *       })
+   *     }
+   *   }
+   *   // ...
+   * });
+   *
+   * const actor = createActor(machine).start();
+   *
+   * actor.on('emitted', (event) => {
+   *   console.log(event);
+   * });
+   *
+   * actor.send({ type: 'something' });
+   * // logs:
+   * // {
+   * //   type: 'emitted',
+   * //   some: 'data'
+   * // }
+   * ```
+   */
+  function emit(/** The event to emit, or an expression that returns an event to emit. */
+  eventOrExpr) {
+    function emit(_args, _params) {
+    }
+    emit.type = 'xstate.emit';
+    emit.event = eventOrExpr;
+    emit.resolve = resolveEmit;
+    emit.execute = executeEmit;
+    return emit;
+  }
+
+  // this is needed to make JSDoc `@link` work properly
+
+  /**
+   * @remarks
+   * `T | unknown` reduces to `unknown` and that can be problematic when it comes
+   * to contextual typing. It especially is a problem when the union has a
+   * function member, like here:
+   *
+   * ```ts
+   * declare function test(
+   *   cbOrVal: ((arg: number) => unknown) | unknown
+   * ): void;
+   * test((arg) => {}); // oops, implicit any
+   * ```
+   *
+   * This type can be used to avoid this problem. This union represents the same
+   * value space as `unknown`.
+   */
+
+  // https://github.com/microsoft/TypeScript/issues/23182#issuecomment-379091887
+
+  // @TODO: we can't use native `NoInfer` as we need those:
+  // https://github.com/microsoft/TypeScript/pull/61092
+  // https://github.com/microsoft/TypeScript/pull/61077
+  // but even with those fixes native NoInfer still doesn't work - further issues have to be reproduced and fixed
+
+  /** @deprecated Use the built-in `NoInfer` type instead */
+
+  /** The full definition of an event, with a string `type`. */
+
+  /**
+   * The string or object representing the state value relative to the parent
+   * state node.
+   *
+   * @remarks
+   * - For a child atomic state node, this is a string, e.g., `"pending"`.
+   * - For complex state nodes, this is an object, e.g., `{ success:
+   *   "someChildState" }`.
+   */
+
+  /** @deprecated Use `AnyMachineSnapshot` instead */
+
+  // TODO: possibly refactor this somehow, use even a simpler type, and maybe even make `machine.options` private or something
+  /** @ignore */
+
+  let SpecialTargets = /*#__PURE__*/function (SpecialTargets) {
+    SpecialTargets["Parent"] = "#_parent";
+    SpecialTargets["Internal"] = "#_internal";
+    return SpecialTargets;
+  }({});
+
+  /** @deprecated Use `AnyActor` instead. */
+
+  // Based on RxJS types
+
+  // TODO: in v6, this should only accept AnyActorLogic, like ActorRefFromLogic
+
+  /** @deprecated Use `Actor<T>` instead. */
+
+  /**
+   * Represents logic which can be used by an actor.
+   *
+   * @template TSnapshot - The type of the snapshot.
+   * @template TEvent - The type of the event object.
+   * @template TInput - The type of the input.
+   * @template TSystem - The type of the actor system.
+   */
+
+  /** @deprecated */
+
+  // TODO: cover all that can be actually returned
+
+  function resolveSendTo(actorScope, snapshot, args, actionParams, {
+    to,
+    event: eventOrExpr,
+    id,
+    delay
+  }, extra) {
+    const delaysMap = snapshot.machine.implementations.delays;
+    if (typeof eventOrExpr === 'string') {
+      throw new Error(
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      `Only event objects may be used with sendTo; use sendTo({ type: "${eventOrExpr}" }) instead`);
+    }
+    const resolvedEvent = typeof eventOrExpr === 'function' ? eventOrExpr(args, actionParams) : eventOrExpr;
+    let resolvedDelay;
+    if (typeof delay === 'string') {
+      const configDelay = delaysMap && delaysMap[delay];
+      resolvedDelay = typeof configDelay === 'function' ? configDelay(args, actionParams) : configDelay;
+    } else {
+      resolvedDelay = typeof delay === 'function' ? delay(args, actionParams) : delay;
+    }
+    const resolvedTarget = typeof to === 'function' ? to(args, actionParams) : to;
+    let targetActorRef;
+    if (typeof resolvedTarget === 'string') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      if (resolvedTarget === SpecialTargets.Parent) {
+        targetActorRef = actorScope.self._parent;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+      else if (resolvedTarget === SpecialTargets.Internal) {
+        targetActorRef = actorScope.self;
+      } else if (resolvedTarget.startsWith('#_')) {
+        // SCXML compatibility: https://www.w3.org/TR/scxml/#SCXMLEventProcessor
+        // #_invokeid. If the target is the special term '#_invokeid', where invokeid is the invokeid of an SCXML session that the sending session has created by <invoke>, the Processor must add the event to the external queue of that session.
+        targetActorRef = snapshot.children[resolvedTarget.slice(2)];
+      } else {
+        targetActorRef = extra.deferredActorIds?.includes(resolvedTarget) ? resolvedTarget : snapshot.children[resolvedTarget];
+      }
+      if (!targetActorRef) {
+        throw new Error(`Unable to send event to actor '${resolvedTarget}' from machine '${snapshot.machine.id}'.`);
+      }
+    } else {
+      targetActorRef = resolvedTarget || actorScope.self;
+    }
+    return [snapshot, {
+      to: targetActorRef,
+      targetId: typeof resolvedTarget === 'string' ? resolvedTarget : undefined,
+      event: resolvedEvent,
+      id,
+      delay: resolvedDelay
+    }, undefined];
+  }
+  function retryResolveSendTo(_, snapshot, params) {
+    if (typeof params.to === 'string') {
+      params.to = snapshot.children[params.to];
+    }
+  }
+  function executeSendTo(actorScope, params) {
+    // this forms an outgoing events queue
+    // thanks to that the recipient actors are able to read the *updated* snapshot value of the sender
+    actorScope.defer(() => {
+      const {
+        to,
+        event,
+        delay,
+        id
+      } = params;
+      if (typeof delay === 'number') {
+        actorScope.system.scheduler.schedule(actorScope.self, to, event, delay, id);
+        return;
+      }
+      actorScope.system._relay(actorScope.self,
+      // at this point, in a deferred task, it should already be mutated by retryResolveSendTo
+      // if it initially started as a string
+      to, event.type === XSTATE_ERROR ? createErrorActorEvent(actorScope.self.id, event.data) : event);
+    });
+  }
+  /**
+   * Sends an event to an actor.
+   *
+   * @param actor The `ActorRef` to send the event to.
+   * @param event The event to send, or an expression that evaluates to the event
+   *   to send
+   * @param options Send action options
+   *
+   *   - `id` - The unique send event identifier (used with `cancel()`).
+   *   - `delay` - The number of milliseconds to delay the sending of the event.
+   */
+  function sendTo(to, eventOrExpr, options) {
+    function sendTo(_args, _params) {
+    }
+    sendTo.type = 'xstate.sendTo';
+    sendTo.to = to;
+    sendTo.event = eventOrExpr;
+    sendTo.id = options?.id;
+    sendTo.delay = options?.delay;
+    sendTo.resolve = resolveSendTo;
+    sendTo.retryResolve = retryResolveSendTo;
+    sendTo.execute = executeSendTo;
+    return sendTo;
+  }
+
+  /**
+   * Sends an event to this machine's parent.
+   *
+   * @param event The event to send to the parent machine.
+   * @param options Options to pass into the send event.
+   */
+  function sendParent(event, options) {
+    return sendTo(SpecialTargets.Parent, event, options);
+  }
+
+  function resolveEnqueueActions(actorScope, snapshot, args, actionParams, {
+    collect
+  }) {
+    const actions = [];
+    const enqueue = function enqueue(action) {
+      actions.push(action);
+    };
+    enqueue.assign = (...args) => {
+      actions.push(assign(...args));
+    };
+    enqueue.cancel = (...args) => {
+      actions.push(cancel(...args));
+    };
+    enqueue.raise = (...args) => {
+      // for some reason it fails to infer `TDelay` from `...args` here and picks its default (`never`)
+      // then it fails to typecheck that because `...args` use `string` in place of `TDelay`
+      actions.push(raise(...args));
+    };
+    enqueue.sendTo = (...args) => {
+      // for some reason it fails to infer `TDelay` from `...args` here and picks its default (`never`)
+      // then it fails to typecheck that because `...args` use `string` in place of `TDelay
+      actions.push(sendTo(...args));
+    };
+    enqueue.sendParent = (...args) => {
+      actions.push(sendParent(...args));
+    };
+    enqueue.spawnChild = (...args) => {
+      actions.push(spawnChild(...args));
+    };
+    enqueue.stopChild = (...args) => {
+      actions.push(stopChild(...args));
+    };
+    enqueue.emit = (...args) => {
+      actions.push(emit(...args));
+    };
+    collect({
+      context: args.context,
+      event: args.event,
+      enqueue,
+      check: guard => evaluateGuard(guard, snapshot.context, args.event, snapshot),
+      self: actorScope.self,
+      system: actorScope.system
+    }, actionParams);
+    return [snapshot, undefined, actions];
+  }
+  /**
+   * Creates an action object that will execute actions that are queued by the
+   * `enqueue(action)` function.
+   *
+   * @example
+   *
+   * ```ts
+   * import { createMachine, enqueueActions } from 'xstate';
+   *
+   * const machine = createMachine({
+   *   entry: enqueueActions(({ enqueue, check }) => {
+   *     enqueue.assign({ count: 0 });
+   *
+   *     if (check('someGuard')) {
+   *       enqueue.assign({ count: 1 });
+   *     }
+   *
+   *     enqueue('someAction');
+   *   })
+   * });
+   * ```
+   */
+  function enqueueActions(collect) {
+    function enqueueActions(_args, _params) {
+    }
+    enqueueActions.type = 'xstate.enqueueActions';
+    enqueueActions.collect = collect;
+    enqueueActions.resolve = resolveEnqueueActions;
+    return enqueueActions;
+  }
+
+  function resolveLog(_, snapshot, actionArgs, actionParams, {
+    value,
+    label
+  }) {
+    return [snapshot, {
+      value: typeof value === 'function' ? value(actionArgs, actionParams) : value,
+      label
+    }, undefined];
+  }
+  function executeLog({
+    logger
+  }, {
+    value,
+    label
+  }) {
+    if (label) {
+      logger(label, value);
+    } else {
+      logger(value);
+    }
+  }
+  /**
+   * @param expr The expression function to evaluate which will be logged. Takes
+   *   in 2 arguments:
+   *
+   *   - `ctx` - the current state context
+   *   - `event` - the event that caused this action to be executed.
+   *
+   * @param label The label to give to the logged expression.
+   */
+  function log(value = ({
+    context,
+    event
+  }) => ({
+    context,
+    event
+  }), label) {
+    function log(_args, _params) {
+    }
+    log.type = 'xstate.log';
+    log.value = value;
+    log.label = label;
+    log.resolve = resolveLog;
+    log.execute = executeLog;
+    return log;
+  }
+
   /**
    * Creates a state machine (statechart) with the given configuration.
    *
@@ -4491,6 +4858,59 @@ var QuotationEngine = (function (exports) {
    */
   function createMachine(config, implementations) {
     return new StateMachine(config, implementations);
+  }
+
+  // at the moment we allow extra actors - ones that are not specified by `children`
+  // this could be reconsidered in the future
+
+  // used to keep only StateSchema relevant keys
+  // this helps with type serialization as it makes the inferred type much shorter when dealing with huge configs
+
+  function setup({
+    schemas,
+    actors,
+    actions,
+    guards,
+    delays
+  }) {
+    return {
+      assign,
+      sendTo,
+      raise,
+      log,
+      cancel,
+      stopChild,
+      enqueueActions,
+      emit,
+      spawnChild,
+      createStateConfig: config => config,
+      createAction: fn => fn,
+      createMachine: config => createMachine({
+        ...config,
+        schemas
+      }, {
+        actors,
+        actions,
+        guards,
+        delays
+      }),
+      extend: extended => setup({
+        schemas,
+        actors,
+        actions: {
+          ...actions,
+          ...extended.actions
+        },
+        guards: {
+          ...guards,
+          ...extended.guards
+        },
+        delays: {
+          ...delays,
+          ...extended.delays
+        }
+      })
+    };
   }
 
   function getDefaultExportFromCjs (x) {
@@ -9037,7 +9457,14 @@ ${item.derived.catalogDisaggregated}`,
     function attachRuntime(nextRuntime) {
       runtime = nextRuntime;
       runtimeSubscription = runtime.subscribe((snapshot) => {
-        if (isManagedStage(currentFlowStage()) && isManagedStage(snapshot.stage)) {
+        const flowStage = currentFlowStage();
+        if (
+          flowStage !== 'saving'
+          && flowStage !== 'loadingQuotation'
+          && flowStage !== 'completed'
+          && isManagedStage(flowStage)
+          && isManagedStage(snapshot.stage)
+        ) {
           flowActor.send({ type: 'RUNTIME_SET_STAGE', stage: snapshot.stage });
         }
         notify();
@@ -10552,6 +10979,14 @@ ${item.derived.catalogDisaggregated}`,
       }
     ],
     "COMPOSICION_KIT": [
+      {
+        "ID_Composicion": "KIT_SALON_CHINOOK_TECNICA",
+        "ID_Item_Padre": "ITEM_SALON_CHINOOK_USO_DIURNO_HASTA_320_PERSONAS",
+        "ID_Item_Hijo": "ITEM_TECNICA_PARA_SALONES_USO_DIURNO",
+        "Cantidad": 1,
+        "Tipo_Precio": "ABSORBIDO",
+        "Updated_At": "2026-04-20T00:00:00.000Z"
+      },
       {
         "ID_Composicion": "KIT_COFFEE_BASICO_TAPADITO",
         "ID_Item_Padre": "ITEM_COFFEE_BASICO",
@@ -15941,6 +16376,1009 @@ ${item.derived.catalogDisaggregated}`,
     return new ModalsController(runtime);
   }
 
+  /* eslint-disable jsdoc/require-jsdoc */
+  const RuntimeSignal = Object.freeze({
+    initialize: 'INITIALIZE',
+    reset: 'RESET',
+    dispose: 'DISPOSE',
+    refreshProjection: 'REFRESH_PROJECTION',
+    requestSnapshot: 'REQUEST_SNAPSHOT',
+    applyMutation: 'APPLY_MUTATION',
+    setContext: 'SET_CONTEXT',
+    patchContext: 'PATCH_CONTEXT',
+    setUi: 'SET_UI',
+    setStatus: 'SET_STATUS',
+    registerUnit: 'REGISTER_UNIT',
+    unregisterUnit: 'UNREGISTER_UNIT',
+    childSignal: 'CHILD_SIGNAL',
+    childUpdated: 'CHILD_UPDATED',
+    snapshotUpdated: 'SNAPSHOT_UPDATED',
+    projectionUpdated: 'PROJECTION_UPDATED',
+    openView: 'OPEN_VIEW',
+    enterStage: 'ENTER_STAGE',
+    nextStage: 'NEXT_STAGE',
+    previousStage: 'PREVIOUS_STAGE',
+    requestSave: 'REQUEST_SAVE',
+    requestLoad: 'REQUEST_LOAD',
+    requestExport: 'REQUEST_EXPORT',
+    requestPricing: 'REQUEST_PRICING',
+    requestRules: 'REQUEST_RULES',
+    requestStore: 'REQUEST_STORE',
+    boundaryDone: 'BOUNDARY_DONE',
+    boundaryError: 'BOUNDARY_ERROR',
+    setOverride: 'SET_OVERRIDE',
+    clearOverride: 'CLEAR_OVERRIDE',
+    resetOverrides: 'RESET_OVERRIDES',
+    setProfileValue: 'SET_PROFILE_VALUE',
+    setDefaultQuantity: 'SET_DEFAULT_QUANTITY',
+    clearDefaultQuantity: 'CLEAR_DEFAULT_QUANTITY',
+    setMode: 'SET_MODE',
+  });
+
+  /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
+
+  const RuntimeUnitMixin = (Base) => Alpineable(Eventable(Actorlike(Base)));
+
+  function clonePlain$2(value) {
+    if (value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => clonePlain$2(entry));
+    }
+
+    const result = {};
+
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === 'function' || typeof entry === 'undefined') {
+        continue;
+      }
+
+      result[key] = clonePlain$2(entry);
+    }
+
+    return result;
+  }
+
+  function mergePlain$1(base = {}, patch = {}) {
+    return {
+      ...clonePlain$2(base),
+      ...clonePlain$2(patch),
+    };
+  }
+
+  class GenericUnitBase extends RuntimeUnitMixin(class {}) {
+    constructor(options = {}) {
+      super();
+      this.id = options.id ?? 'generic-unit';
+      this.type = options.type ?? 'generic-unit';
+      this.parent = null;
+      this.children = new Map();
+      this.boundaries = {};
+      this.context = {};
+      this.state = {};
+      this.ui = {
+        title: options.title ?? this.id,
+        subtitle: options.subtitle ?? '',
+        variant: options.variant ?? 'default',
+        badges: [],
+        panels: [],
+        fields: [],
+        actions: [],
+        classes: [],
+      };
+      this.status = 'idle';
+      this.visible = options.visible ?? true;
+      this.enabled = options.enabled ?? true;
+      this.stage = options.stage ?? null;
+      this.derived = {};
+      this.errors = [];
+      this.warnings = [];
+      this.meta = clonePlain$2(options.meta ?? {});
+      this.boundaryStatus = {};
+      this.lastSignal = null;
+      this.signalHistory = [];
+      this._unsubscribeActor = null;
+    }
+
+    initialize(context = {}, boundaries = {}, initialState = {}) {
+      this.context = clonePlain$2(context);
+      this.boundaries = { ...boundaries };
+      this.state = mergePlain$1(this.state, initialState);
+      this.status = 'ready';
+      this.refresh();
+      this.emit('UNIT_INITIALIZED', this.getSnapshot());
+      return this;
+    }
+
+    dispose() {
+      if (typeof this._unsubscribeActor === 'function') {
+        this._unsubscribeActor();
+        this._unsubscribeActor = null;
+      }
+
+      this.setActorRef(null);
+      this.status = 'disposed';
+      this.refresh();
+      return this;
+    }
+
+    attachActor(actorRef) {
+      if (typeof this._unsubscribeActor === 'function') {
+        this._unsubscribeActor();
+        this._unsubscribeActor = null;
+      }
+
+      this.setActorRef(actorRef ?? null);
+
+      if (actorRef && typeof actorRef.subscribe === 'function') {
+        const subscription = actorRef.subscribe((snapshot) => {
+          this.onActorUpdate(snapshot);
+        });
+
+        if (typeof subscription === 'function') {
+          this._unsubscribeActor = subscription;
+        } else if (subscription && typeof subscription.unsubscribe === 'function') {
+          this._unsubscribeActor = () => subscription.unsubscribe();
+        }
+      }
+
+      return this;
+    }
+
+    setParent(parent) {
+      this.parent = parent ?? null;
+      return this;
+    }
+
+    registerChild(unit, meta = {}) {
+      if (!unit || typeof unit.id !== 'string' || !unit.id.trim()) {
+        throw new Error('registerChild(unit, meta) requires a unit with a string id');
+      }
+
+      const childMeta = clonePlain$2(meta);
+      unit.setParent(this);
+
+      unit.on('PROJECTION_UPDATED', () => {
+        this.refresh();
+      });
+
+      unit.on('SNAPSHOT_UPDATED', () => {
+        this.refresh();
+      });
+
+      this.children.set(unit.id, { unit, meta: childMeta });
+      this.emit('CHILD_REGISTERED', { unitId: unit.id, meta: childMeta });
+      this.refresh();
+      return this;
+    }
+
+    unregisterChild(unitId) {
+      if (this.children.delete(unitId)) {
+        this.emit('CHILD_UNREGISTERED', { unitId });
+        this.refresh();
+      }
+
+      return this;
+    }
+
+    applyMutation(mutation = {}) {
+      const normalized = clonePlain$2(mutation);
+      const patch = normalized.patch ?? normalized.state ?? {};
+      const contextPatch = normalized.contextPatch ?? normalized.context ?? normalized.patchContext ?? {};
+
+      if (Object.keys(contextPatch).length > 0) {
+        this.context = mergePlain$1(this.context, contextPatch);
+      }
+
+      if (Object.keys(patch).length > 0) {
+        this.state = mergePlain$1(this.state, patch);
+      }
+
+      if (normalized.ui) {
+        this.ui = mergePlain$1(this.ui, normalized.ui);
+      }
+
+      if (normalized.derived) {
+        this.derived = mergePlain$1(this.derived, normalized.derived);
+      }
+
+      if (normalized.boundaryStatus) {
+        this.boundaryStatus = mergePlain$1(this.boundaryStatus, normalized.boundaryStatus);
+      }
+
+      if (Array.isArray(normalized.errors)) {
+        this.errors = clonePlain$2(normalized.errors);
+      }
+
+      if (Array.isArray(normalized.warnings)) {
+        this.warnings = clonePlain$2(normalized.warnings);
+      }
+
+      if (typeof normalized.status === 'string') {
+        this.status = normalized.status;
+      }
+
+      if (typeof normalized.visible === 'boolean') {
+        this.visible = normalized.visible;
+      }
+
+      if (typeof normalized.enabled === 'boolean') {
+        this.enabled = normalized.enabled;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(normalized, 'stage')) {
+        this.stage = normalized.stage ?? null;
+      }
+
+      this.lastSignal = {
+        type: normalized.type ?? 'APPLY_MUTATION',
+        unitId: this.id,
+      };
+      this.signalHistory.push(this.lastSignal);
+      this.signalHistory = this.signalHistory.slice(-20);
+      this.emit('STATE_MUTATED', { mutation: normalized, snapshot: this.getSnapshot() });
+      this.refresh();
+      return this;
+    }
+
+    receiveSignal(signal = {}) {
+      const envelope = {
+        ...clonePlain$2(signal),
+        targetId: signal.targetId ?? this.id,
+      };
+
+      this.lastSignal = envelope;
+      this.signalHistory.push(envelope);
+      this.signalHistory = this.signalHistory.slice(-20);
+      this.emit('SIGNAL_RECEIVED', envelope);
+
+      if (this.hasActorRef && typeof envelope.type === 'string') {
+        this.sendEvent(envelope.type, envelope);
+        return this;
+      }
+
+      if (envelope.type === RuntimeSignal.patchContext || envelope.type === RuntimeSignal.setContext) {
+        this.applyMutation({
+          type: envelope.type,
+          contextPatch: envelope.patch ?? envelope.contextPatch ?? {},
+        });
+        return this;
+      }
+
+      if (envelope.type === RuntimeSignal.applyMutation) {
+        this.applyMutation({
+          type: envelope.type,
+          ...(envelope.mutation ?? {}),
+        });
+        return this;
+      }
+
+      if (envelope.type === RuntimeSignal.setUi) {
+        this.applyMutation({ type: envelope.type, ui: envelope.ui ?? {} });
+        return this;
+      }
+
+      if (envelope.type === RuntimeSignal.setStatus) {
+        this.applyMutation({ type: envelope.type, status: envelope.status ?? 'ready' });
+        return this;
+      }
+
+      if (envelope.type === RuntimeSignal.requestSnapshot || envelope.type === RuntimeSignal.refreshProjection) {
+        this.refresh();
+        return this;
+      }
+
+      return this;
+    }
+
+    emitSignal(signal = {}, target = null) {
+      const envelope = {
+        ...clonePlain$2(signal),
+        sourceId: signal.sourceId ?? this.id,
+        sourceType: signal.sourceType ?? this.type,
+      };
+
+      this.lastSignal = envelope;
+      this.signalHistory.push(envelope);
+      this.signalHistory = this.signalHistory.slice(-20);
+      this.emit('SIGNAL_EMITTED', envelope);
+
+      const resolvedTarget = this.resolveSignalTarget(target, envelope.targetId);
+      if (resolvedTarget && typeof resolvedTarget.receiveSignal === 'function') {
+        resolvedTarget.receiveSignal(envelope);
+      }
+
+      return envelope;
+    }
+
+    resolveSignalTarget(target, targetId) {
+      if (target && typeof target.receiveSignal === 'function') {
+        return target;
+      }
+
+      if (typeof target === 'string' && this.children.has(target)) {
+        return this.children.get(target).unit;
+      }
+
+      if (typeof target === 'string' && this.parent && this.parent.children.has(target)) {
+        return this.parent.children.get(target).unit;
+      }
+
+      if (typeof targetId === 'string' && this.children.has(targetId)) {
+        return this.children.get(targetId).unit;
+      }
+
+      if (typeof targetId === 'string' && this.parent && this.parent.children.has(targetId)) {
+        return this.parent.children.get(targetId).unit;
+      }
+
+      if (this.parent && (target === null || typeof target === 'undefined' || targetId === this.parent.id)) {
+        return this.parent;
+      }
+
+      return null;
+    }
+
+    async callBoundary(boundaryName, actionName, payload = {}, options = {}) {
+      const boundary = this.boundaries[boundaryName];
+      const boundaryKey = `${boundaryName}.${actionName}`;
+      const actorRef = options.actorRef ?? this._actorRef;
+      const successType = options.successType ?? 'BOUNDARY_DONE';
+      const errorType = options.errorType ?? 'BOUNDARY_ERROR';
+
+      this.applyMutation({
+        boundaryStatus: {
+          [boundaryKey]: {
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      try {
+        let result;
+
+        if (typeof boundary === 'function') {
+          result = await boundary(payload);
+        } else if (boundary && typeof boundary[actionName] === 'function') {
+          result = await boundary[actionName](payload);
+        } else {
+          throw new Error(`Missing boundary handler for ${boundaryKey}`);
+        }
+
+        if (actorRef && typeof actorRef.send === 'function') {
+          actorRef.send({
+            type: successType,
+            boundaryName,
+            actionName,
+            result: clonePlain$2(result),
+          });
+        } else {
+          this.applyMutation({
+            boundaryStatus: {
+              [boundaryKey]: {
+                status: 'success',
+                result: clonePlain$2(result),
+              },
+            },
+          });
+        }
+
+        return result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (actorRef && typeof actorRef.send === 'function') {
+          actorRef.send({
+            type: errorType,
+            boundaryName,
+            actionName,
+            error: message,
+          });
+        } else {
+          this.applyMutation({
+            boundaryStatus: {
+              [boundaryKey]: {
+                status: 'error',
+                error: message,
+              },
+            },
+            errors: [...this.errors, message],
+            status: 'error',
+          });
+        }
+
+        throw error;
+      }
+    }
+
+    getChildEntries() {
+      return Array.from(this.children.values()).map(({ unit, meta }) => ({
+        id: unit.id,
+        unit,
+        meta: clonePlain$2(meta),
+      }));
+    }
+
+    getProjection() {
+      return {
+        id: this.id,
+        type: this.type,
+        status: this.status,
+        visible: this.visible,
+        enabled: this.enabled,
+        stage: this.stage,
+        state: clonePlain$2(this.state),
+        context: clonePlain$2(this.context),
+        ui: clonePlain$2(this.ui),
+        children: this.getChildEntries().map(({ unit, meta }) => ({
+          ...unit.getProjection(),
+          meta,
+        })),
+        derived: clonePlain$2(this.derived),
+        errors: clonePlain$2(this.errors),
+        warnings: clonePlain$2(this.warnings),
+        actions: clonePlain$2(this.ui.actions ?? []),
+        boundaryStatus: clonePlain$2(this.boundaryStatus),
+        lastSignal: clonePlain$2(this.lastSignal),
+      };
+    }
+
+    getSnapshot() {
+      return {
+        id: this.id,
+        type: this.type,
+        status: this.status,
+        visible: this.visible,
+        enabled: this.enabled,
+        stage: this.stage,
+        context: clonePlain$2(this.context),
+        state: clonePlain$2(this.state),
+        ui: clonePlain$2(this.ui),
+        derived: clonePlain$2(this.derived),
+        errors: clonePlain$2(this.errors),
+        warnings: clonePlain$2(this.warnings),
+        boundaryStatus: clonePlain$2(this.boundaryStatus),
+        meta: clonePlain$2(this.meta),
+        lastSignal: clonePlain$2(this.lastSignal),
+        childIds: this.getChildEntries().map(({ id }) => id),
+      };
+    }
+
+    toDisplayObject() {
+      return this.getProjection();
+    }
+
+    refresh() {
+      this.emit('PROJECTION_UPDATED', this.getProjection());
+      this.emit('SNAPSHOT_UPDATED', this.getSnapshot());
+      return this;
+    }
+  }
+
+  /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
+
+  function clonePlain$1(value) {
+    if (value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => clonePlain$1(entry));
+    }
+
+    const result = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === 'function' || typeof entry === 'undefined') {
+        continue;
+      }
+      result[key] = clonePlain$1(entry);
+    }
+
+    return result;
+  }
+
+  function mergePlain(base = {}, patch = {}) {
+    return {
+      ...clonePlain$1(base),
+      ...clonePlain$1(patch),
+    };
+  }
+
+  function normalizeStages(stages = []) {
+    return stages.map((stage, index) => {
+      if (typeof stage === 'string') {
+        return {
+          id: stage,
+          label: stage.replace(/[_-]+/g, ' '),
+          order: index,
+        };
+      }
+
+      return {
+        id: stage.id,
+        label: stage.label ?? stage.id,
+        order: index,
+      };
+    });
+  }
+
+  function getStageIndex(stageOrder, stageId) {
+    const index = stageOrder.indexOf(stageId);
+    return index >= 0 ? index : 0;
+  }
+
+  function getNeighborStage(stageOrder, currentStageId, direction) {
+    const currentIndex = getStageIndex(stageOrder, currentStageId);
+    const nextIndex = Math.max(0, Math.min(stageOrder.length - 1, currentIndex + direction));
+    return stageOrder[nextIndex] ?? currentStageId ?? null;
+  }
+
+  function createViewMachine(view) {
+    const stageOrder = view.stages.map((stage) => stage.id);
+    const initialStageId = view.stage ?? stageOrder[0] ?? null;
+
+    return setup({
+      actions: {
+        requestSave: ({ event, self }) => {
+          void view.callBoundary('persistence', 'save', {
+            snapshot: view.getSnapshot(),
+            payload: clonePlain$1(event.payload ?? {}),
+          }, { actorRef: self });
+        },
+        requestExport: ({ event, self }) => {
+          void view.callBoundary('export', 'generate', {
+            projection: view.getProjection(),
+            payload: clonePlain$1(event.payload ?? {}),
+          }, { actorRef: self });
+        },
+        requestPricing: ({ event, self }) => {
+          void view.callBoundary('pricing', 'evaluate', {
+            snapshot: view.getSnapshot(),
+            payload: clonePlain$1(event.payload ?? {}),
+          }, { actorRef: self });
+        },
+        requestRules: ({ event, self }) => {
+          void view.callBoundary('rules', 'evaluate', {
+            snapshot: view.getSnapshot(),
+            payload: clonePlain$1(event.payload ?? {}),
+          }, { actorRef: self });
+        },
+        requestStore: ({ event, self }) => {
+          void view.callBoundary('store', 'query', {
+            snapshot: view.getSnapshot(),
+            payload: clonePlain$1(event.payload ?? {}),
+          }, { actorRef: self });
+        },
+      },
+    }).createMachine({
+      id: `${view.id}-view-machine`,
+      initial: 'active',
+      context: {
+        stageOrder,
+        stageId: initialStageId,
+        contextData: clonePlain$1(view.context),
+        runtimeState: clonePlain$1(view.state),
+        ui: clonePlain$1(view.ui),
+        boundaryStatus: clonePlain$1(view.boundaryStatus),
+        derived: clonePlain$1(view.derived),
+        errors: clonePlain$1(view.errors),
+        warnings: clonePlain$1(view.warnings),
+        status: view.status,
+        lastSignal: null,
+      },
+      states: {
+        active: {},
+      },
+      on: {
+        [RuntimeSignal.applyMutation]: {
+          actions: assign(({ context, event }) => ({
+            runtimeState: mergePlain(context.runtimeState, clonePlain$1(event.patch ?? event.state ?? event.mutation?.patch ?? {})),
+            contextData: mergePlain(context.contextData, clonePlain$1(event.contextPatch ?? event.mutation?.contextPatch ?? {})),
+            ui: mergePlain(context.ui, clonePlain$1(event.ui ?? event.mutation?.ui ?? {})),
+            derived: mergePlain(context.derived, clonePlain$1(event.derived ?? event.mutation?.derived ?? {})),
+            status: event.status ?? event.mutation?.status ?? context.status,
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.patchContext]: {
+          actions: assign(({ context, event }) => ({
+            contextData: mergePlain(context.contextData, clonePlain$1(event.patch ?? event.contextPatch ?? {})),
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.setContext]: {
+          actions: assign(({ event }) => ({
+            contextData: clonePlain$1(event.patch ?? event.contextPatch ?? {}),
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.enterStage]: {
+          actions: assign(({ context, event }) => ({
+            stageId: stageOrder.includes(event.stageId) ? event.stageId : context.stageId,
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.nextStage]: {
+          actions: assign(({ context, event }) => ({
+            stageId: getNeighborStage(stageOrder, context.stageId, 1),
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.previousStage]: {
+          actions: assign(({ context, event }) => ({
+            stageId: getNeighborStage(stageOrder, context.stageId, -1),
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.requestSave]: {
+          actions: [
+            assign(({ context, event }) => ({
+              boundaryStatus: mergePlain(context.boundaryStatus, {
+                'persistence.save': {
+                  status: 'pending',
+                  payload: clonePlain$1(event.payload ?? {}),
+                },
+              }),
+              lastSignal: clonePlain$1(event),
+            })),
+            'requestSave',
+          ],
+        },
+        [RuntimeSignal.requestExport]: {
+          actions: [
+            assign(({ context, event }) => ({
+              boundaryStatus: mergePlain(context.boundaryStatus, {
+                'export.generate': {
+                  status: 'pending',
+                  payload: clonePlain$1(event.payload ?? {}),
+                },
+              }),
+              lastSignal: clonePlain$1(event),
+            })),
+            'requestExport',
+          ],
+        },
+        [RuntimeSignal.requestPricing]: {
+          actions: [
+            assign(({ context, event }) => ({
+              boundaryStatus: mergePlain(context.boundaryStatus, {
+                'pricing.evaluate': {
+                  status: 'pending',
+                  payload: clonePlain$1(event.payload ?? {}),
+                },
+              }),
+              lastSignal: clonePlain$1(event),
+            })),
+            'requestPricing',
+          ],
+        },
+        [RuntimeSignal.requestRules]: {
+          actions: [
+            assign(({ context, event }) => ({
+              boundaryStatus: mergePlain(context.boundaryStatus, {
+                'rules.evaluate': {
+                  status: 'pending',
+                  payload: clonePlain$1(event.payload ?? {}),
+                },
+              }),
+              lastSignal: clonePlain$1(event),
+            })),
+            'requestRules',
+          ],
+        },
+        [RuntimeSignal.requestStore]: {
+          actions: [
+            assign(({ context, event }) => ({
+              boundaryStatus: mergePlain(context.boundaryStatus, {
+                'store.query': {
+                  status: 'pending',
+                  payload: clonePlain$1(event.payload ?? {}),
+                },
+              }),
+              lastSignal: clonePlain$1(event),
+            })),
+            'requestStore',
+          ],
+        },
+        [RuntimeSignal.boundaryDone]: {
+          actions: assign(({ context, event }) => ({
+            boundaryStatus: mergePlain(context.boundaryStatus, {
+              [`${event.boundaryName}.${event.actionName}`]: {
+                status: 'success',
+                result: clonePlain$1(event.result),
+              },
+            }),
+            derived: mergePlain(context.derived, {
+              [event.boundaryName]: clonePlain$1(event.result),
+            }),
+            status: 'ready',
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.boundaryError]: {
+          actions: assign(({ context, event }) => ({
+            boundaryStatus: mergePlain(context.boundaryStatus, {
+              [`${event.boundaryName}.${event.actionName}`]: {
+                status: 'error',
+                error: event.error,
+              },
+            }),
+            errors: [...context.errors, event.error],
+            status: 'error',
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+        [RuntimeSignal.childSignal]: {
+          actions: assign(({ context, event }) => ({
+            runtimeState: mergePlain(context.runtimeState, {
+              childSignals: [...(context.runtimeState.childSignals ?? []), clonePlain$1(event.signal)].slice(-10),
+            }),
+            lastSignal: clonePlain$1(event),
+          })),
+        },
+      },
+    });
+  }
+
+  class GenericViewBase extends GenericUnitBase {
+    constructor(options = {}) {
+      super({
+        ...options,
+        type: options.type ?? 'view',
+      });
+      this.viewId = options.viewId ?? this.id;
+      this.stages = normalizeStages(options.stages ?? []);
+      this.stage = options.initialStageId ?? this.stages[0]?.id ?? null;
+    }
+
+    initialize(context = {}, boundaries = {}, initialState = {}) {
+      super.initialize(context, boundaries, {
+        ...initialState,
+        childSignals: initialState.childSignals ?? [],
+      });
+
+      this.stage = initialState.stage ?? this.stage ?? this.stages[0]?.id ?? null;
+      const actor = createActor(createViewMachine(this));
+      this.attachActor(actor);
+      actor.start();
+      this.refresh();
+      return this;
+    }
+
+    onActorUpdate(snapshot) {
+      const machineContext = snapshot?.context;
+      if (!machineContext) {
+        return;
+      }
+
+      this.stage = machineContext.stageId ?? this.stage;
+      this.context = clonePlain$1(machineContext.contextData ?? this.context);
+      this.state = clonePlain$1(machineContext.runtimeState ?? this.state);
+      this.ui = clonePlain$1(machineContext.ui ?? this.ui);
+      this.boundaryStatus = clonePlain$1(machineContext.boundaryStatus ?? this.boundaryStatus);
+      this.derived = clonePlain$1(machineContext.derived ?? this.derived);
+      this.errors = clonePlain$1(machineContext.errors ?? this.errors);
+      this.warnings = clonePlain$1(machineContext.warnings ?? this.warnings);
+      this.status = machineContext.status ?? this.status;
+      this.lastSignal = clonePlain$1(machineContext.lastSignal ?? this.lastSignal);
+      this.refresh();
+    }
+
+    registerChild(unit, meta = {}) {
+      super.registerChild(unit, meta);
+
+      unit.on('SIGNAL_EMITTED', (signal) => {
+        if (this.hasActorRef) {
+          this.sendEvent(RuntimeSignal.childSignal, { signal });
+        }
+      });
+
+      return this;
+    }
+
+    transition(signal = {}) {
+      this.receiveSignal(signal);
+      return this.stage;
+    }
+
+    routeSignal(signal = {}, target = null) {
+      if (target) {
+        const resolvedTarget = this.resolveSignalTarget(target, signal.targetId);
+        if (resolvedTarget && typeof resolvedTarget.receiveSignal === 'function') {
+          resolvedTarget.receiveSignal(signal);
+          this.refresh();
+        }
+        return this;
+      }
+
+      this.receiveSignal(signal);
+      return this;
+    }
+
+    receiveSignal(signal = {}) {
+      const envelope = {
+        ...clonePlain$1(signal),
+        targetId: signal.targetId ?? this.id,
+      };
+
+      this.lastSignal = envelope;
+      this.signalHistory.push(envelope);
+      this.signalHistory = this.signalHistory.slice(-20);
+      this.emit('SIGNAL_RECEIVED', envelope);
+
+      if (this.hasActorRef && typeof envelope.type === 'string') {
+        this.sendEvent(envelope.type, envelope);
+        return this;
+      }
+
+      return super.receiveSignal(envelope);
+    }
+
+    getVisibleChildren() {
+      return this.getChildEntries().filter(({ meta }) => {
+        if (!Array.isArray(meta.stages) || meta.stages.length === 0) {
+          return true;
+        }
+
+        return meta.stages.includes(this.stage);
+      });
+    }
+
+    getProjection() {
+      const visibleChildren = this.getVisibleChildren();
+      const visibleUnits = visibleChildren.map(({ unit, meta }) => ({
+        id: unit.id,
+        type: unit.type,
+        title: meta.title ?? unit.ui.title,
+        stageIds: clonePlain$1(meta.stages ?? []),
+      }));
+
+      return {
+        ...super.getProjection(),
+        viewId: this.viewId,
+        stage: this.stage,
+        stages: this.stages.map((stage) => ({
+          ...stage,
+          isActive: stage.id === this.stage,
+        })),
+        visibleUnits,
+        children: visibleChildren.map(({ unit, meta }) => ({
+          ...unit.getProjection(),
+          meta,
+        })),
+        derived: {
+          ...clonePlain$1(this.derived),
+          visibleChildCount: visibleChildren.length,
+          totalChildCount: this.children.size,
+        },
+      };
+    }
+  }
+
+  /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
+
+  function clonePlain(value) {
+    if (value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => clonePlain(entry));
+    }
+
+    const result = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === 'function' || typeof entry === 'undefined') {
+        continue;
+      }
+      result[key] = clonePlain(entry);
+    }
+    return result;
+  }
+
+  const QUOTATION_STAGES = ['browse', 'client', 'basket', 'validation'];
+
+  class QuotationFlowRuntimeView extends GenericViewBase {
+    constructor(runtime, options = {}) {
+      super({
+        id: options.id ?? 'quotation-flow-view',
+        viewId: options.viewId ?? 'quotation-flow',
+        title: options.title ?? 'Quotation Flow',
+        stages: options.stages ?? QUOTATION_STAGES,
+      });
+      this.runtime = runtime;
+      this.unsubscribeRuntime = null;
+    }
+
+    initialize(context = {}, boundaries = {}, initialState = {}) {
+      super.initialize(context, boundaries, {
+        ...initialState,
+        stage: initialState.stage ?? this.runtime?.getSnapshot?.().stage ?? 'browse',
+      });
+      this.receiveRuntimeSnapshot(this.runtime?.getSnapshot?.() ?? {});
+      return this;
+    }
+
+    attachRuntime(runtime = this.runtime) {
+      this.runtime = runtime;
+      if (typeof this.unsubscribeRuntime === 'function') {
+        this.unsubscribeRuntime();
+        this.unsubscribeRuntime = null;
+      }
+
+      if (typeof runtime?.subscribe === 'function') {
+        this.unsubscribeRuntime = runtime.subscribe((snapshot) => {
+          this.receiveRuntimeSnapshot(snapshot);
+        });
+      }
+
+      this.receiveRuntimeSnapshot(runtime?.getSnapshot?.() ?? {});
+      return this;
+    }
+
+    receiveRuntimeSnapshot(snapshot = {}) {
+      this.receiveSignal({
+        type: RuntimeSignal.enterStage,
+        stageId: snapshot.stage ?? 'browse',
+      });
+      this.receiveSignal({
+        type: RuntimeSignal.applyMutation,
+        contextPatch: {
+          selectedClient: clonePlain(snapshot.selectedClient ?? null),
+          settings: clonePlain(snapshot.settings ?? {}),
+        },
+        derived: {
+          shell: {
+            clientModalOpen: Boolean(snapshot.clientModalOpen),
+            clients: clonePlain(snapshot.clients ?? []),
+            catalogSummary: clonePlain(snapshot.catalog?.summary ?? {}),
+            basketSummary: clonePlain(snapshot.basket?.summary ?? {}),
+            validationTotals: clonePlain(snapshot.validation?.totals ?? {}),
+            persistence: clonePlain(snapshot.persistence ?? {}),
+          },
+        },
+        ui: {
+          title: snapshot.selectedClient?.nombre || 'Quotation Flow',
+          subtitle: `Stage: ${snapshot.stage ?? 'browse'}`,
+        },
+        status: snapshot.persistence?.error ? 'error' : 'ready',
+      });
+      return this;
+    }
+
+    getProjection() {
+      const projection = super.getProjection();
+      return {
+        ...projection,
+        shell: {
+          selectedClient: clonePlain(this.context.selectedClient ?? null),
+          settings: clonePlain(this.context.settings ?? {}),
+          ...clonePlain(this.derived.shell ?? {}),
+        },
+      };
+    }
+
+    dispose() {
+      if (typeof this.unsubscribeRuntime === 'function') {
+        this.unsubscribeRuntime();
+        this.unsubscribeRuntime = null;
+      }
+      return super.dispose();
+    }
+  }
+
+  function createQuotationFlowRuntimeView(runtime, options = {}) {
+    const view = new QuotationFlowRuntimeView(runtime, options);
+    view.initialize({}, {}, {});
+    view.attachRuntime(runtime);
+    return view;
+  }
+
+  /* eslint-disable complexity, jsdoc/require-jsdoc, max-lines, max-lines-per-function */
+
   function toNumberValue(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -16022,6 +17460,7 @@ ${item.derived.catalogDisaggregated}`,
   function createQuotationFlowComponent(options = {}) {
     const runtime = options.runtime || createQuotationRuntime(options);
     const capabilities = resolveCapabilities(options);
+    const runtimeView = createQuotationFlowRuntimeView(runtime);
 
     function resolveDatabaseEditorUrl() {
       if (typeof options.databaseEditorUrl === 'string' && options.databaseEditorUrl.trim()) {
@@ -16084,6 +17523,7 @@ ${item.derived.catalogDisaggregated}`,
       draggingCatalogItemId: null,
       databaseEditorUrl: resolveDatabaseEditorUrl(),
       mainTab: 'timeline',
+      runtimeProjection: runtimeView.getProjection(),
       sidebar: createSidebar(runtime),
       timeline: createTimeline(runtime),
       itemList: createItemList(runtime),
@@ -16091,18 +17531,29 @@ ${item.derived.catalogDisaggregated}`,
 
       async init() {
         const sync = (snapshot) => {
+          runtimeView.receiveRuntimeSnapshot(snapshot);
+          const runtimeProjection = runtimeView.getProjection();
+          this.runtimeProjection = {
+            ...runtimeProjection,
+            stage: snapshot.stage ?? runtimeProjection.stage,
+            shell: {
+              ...(runtimeProjection.shell || {}),
+              persistence: snapshot.persistence || runtimeProjection.shell?.persistence || null,
+            },
+          };
+          const shell = this.runtimeProjection.shell || {};
           this.sidebar.onActorUpdate(snapshot);
           this.timeline.onActorUpdate(snapshot);
           this.itemList.onActorUpdate(snapshot);
           this.modals.onActorUpdate(snapshot);
-          this.stage = snapshot.stage;
-          this.clientModalOpen = snapshot.clientModalOpen;
-          this.selectedClient = snapshot.selectedClient;
-          this.settings = { ...snapshot.settings };
+          this.stage = snapshot.stage ?? this.runtimeProjection.stage;
+          this.clientModalOpen = shell.clientModalOpen ?? snapshot.clientModalOpen;
+          this.selectedClient = shell.selectedClient ?? snapshot.selectedClient;
+          this.settings = { ...(shell.settings || snapshot.settings) };
           this.globalContext = {
             hora: this.settings.horaInicio,
           };
-          this.clients = normalizeClients(snapshot.clients || []);
+          this.clients = normalizeClients(shell.clients || snapshot.clients || []);
           this.catalog = snapshot.catalog || { searchTerm: '', categories: [], summary: {} };
           this.basket = snapshot.basket || {
             dayOptions: [],
@@ -16115,7 +17566,7 @@ ${item.derived.catalogDisaggregated}`,
             rows: [],
             totals: { subtotal: 0, iva: 0, total: 0 },
           };
-          this.persistence = snapshot.persistence || {
+          this.persistence = shell.persistence || snapshot.persistence || {
             isSaving: false,
             isLoading: false,
             error: null,
@@ -16125,6 +17576,7 @@ ${item.derived.catalogDisaggregated}`,
         };
 
         sync(runtime.getSnapshot());
+        runtimeView.attachRuntime(runtime);
         runtime.subscribe(sync);
 
         this.timeline.on('ITEM_DROPPED', ({ itemId, hora }) => {

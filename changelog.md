@@ -8,6 +8,18 @@
 - Added context pills for runtime hierarchy, projection-first shell migration, and the final `user_flow.json` validation gate.
 - Recorded `user_flow.json` + `tools/userFlowRunner.mjs` as the final redesign validation step after rebuild.
 
+### 2026-04-21 (runtime redesign completion)
+- Completed the runtime-first redesign for the quotation flow shell and playground stack.
+- Added and integrated the generic runtime layer under `src/components/common/base/runtime/`, including shared signals, `GenericItemBase`, `GenericContainerBase`, and `GenericViewBase` wiring.
+- Added `gas/scripts/QuotationFlowRuntimeView.js` and migrated quotation shell synchronization in `gas/scripts/createQuotationFlowComponent.js` to consume runtime projections safely.
+- Fixed the GAS preview shell recursion issue caused by exposing `runtimeView` directly to Alpine, and fixed quotation save completion rendering so the completed state survives runtime synchronization.
+- Regenerated runtime artifacts in `dist/` and `gas/`.
+- Verified completion with:
+  - `npm test`
+  - `npm run build`
+  - `node tools/userFlowRunner.mjs`
+- Captured final E2E evidence in `auto_user_test/`, including a successful `report.json` for the full quotation lifecycle.
+
 ### 2026-04-17 (feature: database editors and rules management)
 - **V-08: Pack Editor**: Created a specialized UI in `apps/sandbox/routes/pack-editor.html` to manage kit compositions. Integrated with `PersistencePort` to support saving kit components to local and remote storage.
 - **V-09: Rules Visualization**: Enhanced the business rules popover in the basket UI. Users can now see the rule name, UI message, and the technical condition (JavaScript) directly in the popover.
