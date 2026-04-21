@@ -5,15 +5,18 @@
 ## Active (status=open|in_progress)
 | ID | Domain | Task | Priority | Depends On | Pills |
 |----|--------|------|----------|------------|-------|
+| RD-01 | runtime | Consolidate `GenericUnit` runtime kernel | p0 | - | `pill-runtime-unit-hierarchy` |
+| RD-02 | quotation | Migrate quotation shell to `runtimeProjection` | p0 | `RD-01` | `pill-runtime-unit-hierarchy`, `pill-projection-first-ui` |
+| RD-03 | quotation | Adopt real quotation `Container` and `Item` units | p0 | `RD-01`, `RD-02` | `pill-runtime-unit-hierarchy`, `pill-projection-first-ui` |
+| RD-04 | runtime | Unify runtime boundaries and rebuild artifacts | p1 | `RD-02`, `RD-03` | `pill-projection-first-ui` |
+| RD-05 | qa | Run full `user_flow.json` suite as final redesign gate | p0 | `RD-04` | `pill-user-flow-final-gate` |
 
 ## Blocked (status=blocked)
 | ID | Domain | Blocker | Gate |
 |----|--------|---------|------|
 
 ## Audit Notes
-- 2026-04-20: Architecture docs imply the intended split is by runtime responsibility: `src/` for source/business logic, `playground/` for isolated component testing, `gas/` for build/deployment, and `tools/` for dev CLI. `desk/drawers/PROPOSED_STRUCTURE_V0.1.md` was rejected because it was an intermediate draft, not the final folder map.
-- 2026-04-20: `A-03-*` implementation is now split into a fetched playground layout (`playground/playground/item/ui/ItemPlayground.html`), a dedicated controller (`playground/playground/item/ItemPlaygroundController.js`), and a thin mount entrypoint (`playground/playground/item/mountItemPlayground.js`).
-- 2026-04-20: `V-08` local implementation now uses current `src/` imports in `playground/routes/pack-editor.html`, and `user_flow.json` includes `edit_pack_db` coverage.
-- 2026-04-20: `npm test` is green again after fixing GAS runtime import paths and timeline display fallback behavior.
-- 2026-04-20: Desk task artifacts have been normalized to current `src/`, `playground/`, and `gas/` paths; the legacy `apps/` / `packages/` drift in `desk/tasks/` is cleared.
+- 2026-04-21: Legacy `A-*`, `R-*`, `U-*`, and `V-*` desk tasks were cleared because they no longer reflect the current runtime-first redesign path.
+- 2026-04-21: The active track is now the runtime-first redesign documented in `desk/drawers/objective-design/` and implemented under `src/components/common/base/runtime/`.
+- 2026-04-21: `user_flow.json` is the required final gate after rebuild; the redesign is not complete until `tools/userFlowRunner.mjs` passes the full lifecycle.
 - Completed work should be derived from git history and changelog; this board only tracks active work and current blockers.

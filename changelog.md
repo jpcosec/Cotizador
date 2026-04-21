@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-04-21 (runtime redesign desk reset and validation gate)
+- Added the runtime redesign task track to `desk/tasks/` around `GenericUnit`/`View`/`Container`/`Item` adoption.
+- Cleared obsolete desk task files that no longer match the runtime-first migration path.
+- Added context pills for runtime hierarchy, projection-first shell migration, and the final `user_flow.json` validation gate.
+- Recorded `user_flow.json` + `tools/userFlowRunner.mjs` as the final redesign validation step after rebuild.
+
 ### 2026-04-17 (feature: database editors and rules management)
 - **V-08: Pack Editor**: Created a specialized UI in `apps/sandbox/routes/pack-editor.html` to manage kit compositions. Integrated with `PersistencePort` to support saving kit components to local and remote storage.
 - **V-09: Rules Visualization**: Enhanced the business rules popover in the basket UI. Users can now see the rule name, UI message, and the technical condition (JavaScript) directly in the popover.
