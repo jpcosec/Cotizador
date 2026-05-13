@@ -1,0 +1,46 @@
+@startuml
+participant cotizacion
+participant linea_cotizada
+participant item_catalogo
+participant categoria_catalogo
+participant propiedad_efectiva
+participant pricing
+participant ruling
+
+group instantiation
+cotizacion -> linea_cotizada: crear linea con item + runtime_overrides
+end
+group instantiation
+linea_cotizada -> item_catalogo: cargar defaults del item
+end
+group instantiation
+item_catalogo -> categoria_catalogo: heredar estructura encapsulada
+end
+group resolution
+categoria_catalogo -> propiedad_efectiva: aportar defaults de categoria
+end
+group resolution
+item_catalogo -> propiedad_efectiva: aportar defaults de item
+end
+group resolution
+linea_cotizada -> propiedad_efectiva: aplicar overrides runtime
+end
+group pricing
+propiedad_efectiva -> pricing: resolver precio
+end
+group pricing
+categoria_catalogo -> pricing: ejecutar pricing op
+end
+group ruling
+propiedad_efectiva -> ruling: evaluar reglas
+end
+group ruling
+categoria_catalogo -> ruling: ejecutar ruling op
+end
+group result
+pricing -> linea_cotizada: devolver precio resuelto
+end
+group result
+ruling -> linea_cotizada: devolver warnings/errores
+end
+@enduml

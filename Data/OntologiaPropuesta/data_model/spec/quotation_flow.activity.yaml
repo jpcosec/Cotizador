@@ -1,0 +1,41 @@
+id: quotation-flow
+title: Quotation Flow
+version: "1.0"
+type: activity
+data:
+  start: crear_cotizacion
+  end: consolidar_totales
+  steps:
+    crear_cotizacion:
+      label: Crear cotizacion
+      kind: action
+      next: agregar_item
+    agregar_item:
+      label: Seleccionar ItemCatalogo
+      kind: action
+      next: instanciar_linea
+    instanciar_linea:
+      label: Instanciar LineaCotizada
+      kind: action
+      next: resolver_propiedades
+    resolver_propiedades:
+      label: Resolver PropiedadEfectiva
+      kind: action
+      next: calcular_pricing
+    calcular_pricing:
+      label: Ejecutar Pricing
+      kind: action
+      next: evaluar_ruling
+    evaluar_ruling:
+      label: Ejecutar Ruling
+      kind: decision
+      branches:
+        valido: consolidar_totales
+        invalido: corregir_linea
+    corregir_linea:
+      label: Ajustar overrides runtime
+      kind: action
+      next: resolver_propiedades
+    consolidar_totales:
+      label: Consolidar total de cotizacion
+      kind: action

@@ -1,0 +1,20 @@
+{
+  "items": [],
+  "price_expressions": [
+    {"item_id": "DESCORCHE", "raw_expression": "$15.000+IVA por botella", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 15000, "unit": "bottle"}], "confidence": "high"},
+    {"item_id": "DESCORCHE_UNDECLARED", "raw_expression": "$45.000+IVA por botella", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 45000, "unit": "bottle"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "RESERVE_DEPOSIT", "raw_text": "Para reserva de fecha solicitamos 50% del valor del programa", "rule_type": "dependency", "structured_hint": {"condition": "reservation", "effect": "50% deposit"}, "confidence": "high"},
+    {"item_id": "CANCELLATION_FREE", "raw_text": "Se puede cancelar el evento 15 dias antes sin complicaciones ni recargos", "rule_type": "conditional", "structured_hint": {"min": 15, "unit": "days", "condition": "cancellation", "effect": "no charge"}, "confidence": "high"},
+    {"item_id": "CANCELLATION_PENALTY", "raw_text": "La cancelación del evento, una vez confirmado, ocasionará penalizacion si se realiza con menos de 15 días de anticipación", "rule_type": "conditional", "structured_hint": {"max": 14, "unit": "days", "condition": "cancellation", "effect": "penalty"}, "confidence": "high"},
+    {"item_id": "DATE_CHANGE", "raw_text": "Se puede realizar cambios de fecha hasta 7 dias antes del evento", "rule_type": "conditional", "structured_hint": {"min": 7, "unit": "days", "condition": "date change"}, "confidence": "high"},
+    {"item_id": "MODIFICATION_DEADLINE", "raw_text": "Las modificaciones de asistentes y servicios se deben realizar con minimo de 72 hrs de anticipación, luego se paga por lo reservado", "rule_type": "conditional", "structured_hint": {"min": 72, "unit": "hours", "condition": "modifications", "effect": "pay reserved if late"}, "confidence": "high"},
+    {"item_id": "SCHEDULE_DEFINITION", "raw_text": "Se deberá definir los horarios de los servicios y montajes de salones a más tardar 48 horas antes de iniciado el evento", "rule_type": "schedule", "structured_hint": {"min": 48, "unit": "hours", "condition": "schedule definition"}, "confidence": "high"},
+    {"item_id": "FOOD_DRINK_PROHIBITION", "raw_text": "Se prohibe ingresar alimentos y bebidas al recinto", "rule_type": "conditional", "structured_hint": {"condition": "external food/drink", "effect": "prohibited"}, "confidence": "high"},
+    {"item_id": "CHECK_IN_TIME", "raw_text": "La entrega de habitaciones es a las 16:00 hrs el día de llegada", "rule_type": "schedule", "structured_hint": {"condition": "check-in", "effect": "16:00"}, "confidence": "high"},
+    {"item_id": "CHECK_OUT_TIME", "raw_text": "12:00 hrs el día de salida", "rule_type": "schedule", "structured_hint": {"condition": "check-out", "effect": "12:00"}, "confidence": "high"},
+    {"item_id": "DAMAGE_LIABILITY", "raw_text": "La empresa contratante deberá pagar por daños a las habitaciones o mobiliario", "rule_type": "conditional", "structured_hint": {"condition": "damage", "effect": "repair/repossession cost + lost revenue"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

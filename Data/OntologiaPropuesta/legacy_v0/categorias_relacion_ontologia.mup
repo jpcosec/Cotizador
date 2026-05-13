@@ -1,0 +1,335 @@
+{
+  "id": "root",
+  "title": "Categorias y relacion con ontologia",
+  "formatVersion": 3,
+  "ideas": {
+    "1": {
+      "id": 17,
+      "title": "Ontologia base",
+      "ideas": {
+        "1": {
+          "id": 3,
+          "title": "ITEM_CATALOGO",
+          "ideas": {
+            "1": {
+              "id": 1,
+              "title": "se compone por dimensiones"
+            },
+            "2": {
+              "id": 2,
+              "title": "no es categoria por si mismo"
+            }
+          }
+        },
+        "2": {
+          "id": 11,
+          "title": "Dimensiones",
+          "ideas": {
+            "1": {
+              "id": 4,
+              "title": "Tipo cliente"
+            },
+            "2": {
+              "id": 5,
+              "title": "Locacion"
+            },
+            "3": {
+              "id": 6,
+              "title": "Horario"
+            },
+            "4": {
+              "id": 7,
+              "title": "Tipo valorizacion"
+            },
+            "5": {
+              "id": 8,
+              "title": "Infra"
+            },
+            "6": {
+              "id": 9,
+              "title": "Reglas"
+            },
+            "7": {
+              "id": 10,
+              "title": "Precios"
+            }
+          }
+        },
+        "3": {
+          "id": 16,
+          "title": "Infra se divide en",
+          "ideas": {
+            "1": {
+              "id": 12,
+              "title": "consumible"
+            },
+            "2": {
+              "id": 13,
+              "title": "personal"
+            },
+            "3": {
+              "id": 14,
+              "title": "locacion"
+            },
+            "4": {
+              "id": 15,
+              "title": "equipamiento"
+            }
+          }
+        }
+      }
+    },
+    "2": {
+      "id": 69,
+      "title": "Categorias comerciales",
+      "ideas": {
+        "1": {
+          "id": 26,
+          "title": "Alojamiento",
+          "ideas": {
+            "1": {
+              "id": 25,
+              "title": "usa ontologia",
+              "ideas": {
+                "1": {
+                  "id": 18,
+                  "title": "locacion -> habitacion, cabana, departamento"
+                },
+                "2": {
+                  "id": 19,
+                  "title": "horario -> checkin, checkout, noche, estadia"
+                },
+                "3": {
+                  "id": 20,
+                  "title": "tipo valorizacion -> per_unit, per_person, extra"
+                },
+                "4": {
+                  "id": 21,
+                  "title": "tipo cliente -> persona y empresa"
+                },
+                "5": {
+                  "id": 22,
+                  "title": "infra -> locacion + personal + consumibles"
+                },
+                "6": {
+                  "id": 23,
+                  "title": "reglas -> capacidad, anticipacion, early/late"
+                },
+                "7": {
+                  "id": 24,
+                  "title": "precios -> tarifa por tipo/nivel/organizacion"
+                }
+              }
+            }
+          }
+        },
+        "2": {
+          "id": 35,
+          "title": "Gastronomia",
+          "ideas": {
+            "1": {
+              "id": 34,
+              "title": "usa ontologia",
+              "ideas": {
+                "1": {
+                  "id": 27,
+                  "title": "locacion -> salon, comedor, terraza, outdoor"
+                },
+                "2": {
+                  "id": 28,
+                  "title": "horario -> desayuno, almuerzo, cena, coffee, extra horario"
+                },
+                "3": {
+                  "id": 29,
+                  "title": "tipo valorizacion -> per_person, per_unit, base_plus_variable"
+                },
+                "4": {
+                  "id": 30,
+                  "title": "tipo cliente -> sobre todo empresa, pero puede admitir persona"
+                },
+                "5": {
+                  "id": 31,
+                  "title": "infra -> consumibles + personal + equipamiento + locacion"
+                },
+                "6": {
+                  "id": 32,
+                  "title": "reglas -> min/max pax, formato buffet, dependencias"
+                },
+                "7": {
+                  "id": 33,
+                  "title": "precios -> menu, bebida, bar, servicio"
+                }
+              }
+            }
+          }
+        },
+        "3": {
+          "id": 44,
+          "title": "Actividades y teambuilding",
+          "ideas": {
+            "1": {
+              "id": 43,
+              "title": "usa ontologia",
+              "ideas": {
+                "1": {
+                  "id": 36,
+                  "title": "locacion -> outdoor, laguna, cancha, sector, salon"
+                },
+                "2": {
+                  "id": 37,
+                  "title": "horario -> bloque actividad, duracion guiada"
+                },
+                "3": {
+                  "id": 38,
+                  "title": "tipo valorizacion -> flat, per_person, base_plus_variable"
+                },
+                "4": {
+                  "id": 39,
+                  "title": "tipo cliente -> principalmente empresa"
+                },
+                "5": {
+                  "id": 40,
+                  "title": "infra -> personal + equipamiento + locacion + consumibles"
+                },
+                "6": {
+                  "id": 41,
+                  "title": "reglas -> min/max pax, seguridad, ratio de guias"
+                },
+                "7": {
+                  "id": 42,
+                  "title": "precios -> actividad base, add-ons, recargas"
+                }
+              }
+            }
+          }
+        },
+        "4": {
+          "id": 53,
+          "title": "Spa y wellness",
+          "ideas": {
+            "1": {
+              "id": 52,
+              "title": "usa ontologia",
+              "ideas": {
+                "1": {
+                  "id": 45,
+                  "title": "locacion -> piscina, jacuzzi, sauna, sala masaje"
+                },
+                "2": {
+                  "id": 46,
+                  "title": "horario -> bloque horario, reserva anticipada"
+                },
+                "3": {
+                  "id": 47,
+                  "title": "tipo valorizacion -> per_person, per_unit, flat, time"
+                },
+                "4": {
+                  "id": 48,
+                  "title": "tipo cliente -> persona y empresa"
+                },
+                "5": {
+                  "id": 49,
+                  "title": "infra -> personal + locacion + consumibles"
+                },
+                "6": {
+                  "id": 50,
+                  "title": "reglas -> cupo, anticipacion, disponibilidad"
+                },
+                "7": {
+                  "id": 51,
+                  "title": "precios -> tratamiento, acceso, insumo"
+                }
+              }
+            }
+          }
+        },
+        "5": {
+          "id": 62,
+          "title": "Infra y operacional",
+          "ideas": {
+            "1": {
+              "id": 61,
+              "title": "usa ontologia",
+              "ideas": {
+                "1": {
+                  "id": 54,
+                  "title": "locacion -> salon, terraza, outdoor, domo"
+                },
+                "2": {
+                  "id": 55,
+                  "title": "horario -> uso diurno, 4h noche, extension"
+                },
+                "3": {
+                  "id": 56,
+                  "title": "tipo valorizacion -> flat, time, per_person segun servicio"
+                },
+                "4": {
+                  "id": 57,
+                  "title": "tipo cliente -> sobre todo empresa"
+                },
+                "5": {
+                  "id": 58,
+                  "title": "infra -> el objeto mismo del item: locacion, equipamiento o personal"
+                },
+                "6": {
+                  "id": 59,
+                  "title": "reglas -> capacidad, montaje, dependencias tecnicas"
+                },
+                "7": {
+                  "id": 60,
+                  "title": "precios -> arriendo, operador, cambio, soporte tecnico"
+                }
+              }
+            }
+          }
+        },
+        "6": {
+          "id": 68,
+          "title": "Politica y plantillas",
+          "ideas": {
+            "1": {
+              "id": 63,
+              "title": "no deberia vivir como categoria comercial principal"
+            },
+            "2": {
+              "id": 67,
+              "title": "deberia migrar a",
+              "ideas": {
+                "1": {
+                  "id": 64,
+                  "title": "reglas"
+                },
+                "2": {
+                  "id": 65,
+                  "title": "plantillas de cotizacion"
+                },
+                "3": {
+                  "id": 66,
+                  "title": "presets de item o canasta"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "3": {
+      "id": 73,
+      "title": "Lectura recomendada",
+      "ideas": {
+        "1": {
+          "id": 70,
+          "title": "primero disenar ontologia base"
+        },
+        "2": {
+          "id": 71,
+          "title": "despues mapear categorias comerciales a esa ontologia"
+        },
+        "3": {
+          "id": 72,
+          "title": "por ultimo ligar items reales del catalogo a las dimensiones"
+        }
+      }
+    }
+  }
+}

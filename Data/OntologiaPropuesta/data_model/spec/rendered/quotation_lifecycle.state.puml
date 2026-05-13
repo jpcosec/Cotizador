@@ -1,0 +1,10 @@
+@startuml
+[*] --> borrador
+
+borrador --> guardada : GUARDAR / persistir cabecera y lineas
+guardada --> enviada : ENVIAR [cotizacion valida] / generar documento / compartir
+enviada --> aprobada : APROBAR / bloquear edicion critica
+enviada --> borrador : REABRIR / permitir cambios
+guardada --> cancelada : CANCELAR
+borrador --> cancelada : DESCARTAR
+@enduml

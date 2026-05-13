@@ -1,0 +1,134 @@
+@startuml SistemaTipadoTablas
+hide circle
+skinparam backgroundColor white
+skinparam classBackgroundColor #FDFDFD
+skinparam classBorderColor #4F81BD
+skinparam ArrowColor #666666
+skinparam classAttributeIconSize 0
+left to right direction
+
+title Tablas para el sistema tipado con AREA + TIPO_ITEM + CLASE_CATALOGO
+
+class CATEGORIA_COMERCIAL {
+  +ID_Categoria_Comercial : string
+  Nombre : string
+}
+
+class AREA {
+  +ID_Area : string
+  Nombre : string
+}
+
+class TIPO_ITEM {
+  +ID_Tipo_Item : string
+  Nombre : string
+  Descripcion : text
+}
+
+class SUBTIPO_ITEM {
+  +ID_Subtipo_Item : string
+  ID_Tipo_Item : fk
+  Nombre : string
+}
+
+class CLASE_CATALOGO {
+  +ID_Clase_Catalogo : string
+  Nombre : string
+  ID_Categoria_Comercial : fk
+  ID_Area : fk
+  ID_Tipo_Item : fk
+  ID_Subtipo_Item : fk?
+  Es_Configurable : boolean
+  Metadata_Base_JSON : json?
+}
+
+class FACETA {
+  +ID_Faceta : string
+  Nombre : string
+  Grupo : string
+}
+
+class CLASE_FACETA {
+  +ID_Clase_Faceta : string
+  ID_Clase_Catalogo : fk
+  ID_Faceta : fk
+  Valor_Default : string?
+}
+
+class CLASE_TIPO_CLIENTE {
+  +ID_Clase_Tipo_Cliente : string
+  ID_Clase_Catalogo : fk
+  ID_Tipo_Cliente : fk
+}
+
+class CLASE_LOCACION {
+  +ID_Clase_Locacion : string
+  ID_Clase_Catalogo : fk
+  ID_Locacion : fk
+}
+
+class CLASE_HORARIO {
+  +ID_Clase_Horario : string
+  ID_Clase_Catalogo : fk
+  ID_Horario : fk
+}
+
+class CLASE_PRECIO {
+  +ID_Clase_Precio : string
+  ID_Clase_Catalogo : fk
+  ID_Perfil_Precio : fk
+  Es_Default : boolean
+}
+
+class CLASE_REGLA {
+  +ID_Clase_Regla : string
+  ID_Clase_Catalogo : fk
+  ID_Regla : fk
+}
+
+class CLASE_INFRA {
+  +ID_Clase_Infra : string
+  ID_Clase_Catalogo : fk
+  ID_Infra_Recurso : fk
+  Cantidad_Default : number
+}
+
+class ITEM_CATALOGO {
+  +ID_Item : string
+  Nombre_Comercial : string
+  ID_Clase_Catalogo : fk
+  Activo : boolean
+  Metadata_Override_JSON : json?
+}
+
+class ITEM_OVERRIDE {
+  +ID_Item_Override : string
+  ID_Item : fk
+  Tipo_Override : enum
+  Ref_ID : fk?
+  Valor_JSON : json?
+}
+
+CATEGORIA_COMERCIAL "1" -- "0..*" CLASE_CATALOGO : agrupa
+AREA "1" -- "0..*" CLASE_CATALOGO : dominio
+TIPO_ITEM "1" -- "0..*" SUBTIPO_ITEM : especializa
+TIPO_ITEM "1" -- "0..*" CLASE_CATALOGO : tipa
+SUBTIPO_ITEM "0..1" -- "0..*" CLASE_CATALOGO : matiza
+CLASE_CATALOGO "1" -- "0..*" CLASE_FACETA : define
+FACETA "1" -- "0..*" CLASE_FACETA : reutiliza
+CLASE_CATALOGO "1" -- "0..*" CLASE_TIPO_CLIENTE : habilita
+CLASE_CATALOGO "1" -- "0..*" CLASE_LOCACION : default
+CLASE_CATALOGO "1" -- "0..*" CLASE_HORARIO : default
+CLASE_CATALOGO "1" -- "0..*" CLASE_PRECIO : precio_base
+CLASE_CATALOGO "1" -- "0..*" CLASE_REGLA : reglas_base
+CLASE_CATALOGO "1" -- "0..*" CLASE_INFRA : infra_base
+CLASE_CATALOGO "1" -- "0..*" ITEM_CATALOGO : instancia
+ITEM_CATALOGO "1" -- "0..*" ITEM_OVERRIDE : overridea
+
+note bottom of TIPO_ITEM
+servicio = prestacion cuantificable
+producto = consumo/inventario
+recurso = personal/equipamiento/locacion
+compuesto = evento/pack/programa
+end note
+@enduml

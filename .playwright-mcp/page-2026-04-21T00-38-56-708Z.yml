@@ -1,0 +1,157 @@
+- generic [ref=e31]:
+  - complementary [ref=e32]:
+    - generic [ref=e33]:
+      - button "test1 " [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: test1
+        - generic [ref=e36]: 
+      - generic [ref=e37]:
+        - generic [ref=e38]:
+          - heading "Client" [level=3] [ref=e39]
+          - button "Change" [ref=e40]
+        - generic [ref=e41]:
+          - paragraph [ref=e42]: test1
+          - paragraph [ref=e43]: 18123123-5
+          - paragraph [ref=e44]: empresa@asda.cl
+        - heading "Quotation Settings" [level=3] [ref=e45]
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - generic [ref=e48]: Start Date
+            - textbox "Start Date" [ref=e49]: 2026-04-21
+          - generic [ref=e50]:
+            - generic [ref=e51]: Days
+            - spinbutton "Days" [ref=e52]: "3"
+          - generic [ref=e53]:
+            - generic [ref=e54]: Pax Global
+            - spinbutton "Pax Global" [ref=e55]: "20"
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Catalog" [level=3] [ref=e58]
+        - textbox "Search category or item" [ref=e59]
+      - generic [ref=e60]:
+        - article [ref=e61]:
+          - button "Actividades " [ref=e62] [cursor=pointer]:
+            - generic [ref=e63]: Actividades
+            - generic [ref=e64]: 
+        - article [ref=e65]:
+          - button "Alimentacion y banqueteria " [ref=e66] [cursor=pointer]:
+            - generic [ref=e67]: Alimentacion y banqueteria
+            - generic [ref=e68]: 
+        - article [ref=e69]:
+          - button "Alojamiento " [ref=e70] [cursor=pointer]:
+            - generic [ref=e71]: Alojamiento
+            - generic [ref=e72]: 
+        - article [ref=e73]:
+          - button "Arriendo de salones, audios y comedores " [ref=e74] [cursor=pointer]:
+            - generic [ref=e75]: Arriendo de salones, audios y comedores
+            - generic [ref=e76]: 
+        - article [ref=e77]:
+          - button "Bebidas y Bar " [ref=e78] [cursor=pointer]:
+            - generic [ref=e79]: Bebidas y Bar
+            - generic [ref=e80]: 
+        - article [ref=e81]:
+          - button "Cambios de horas y lugar en servicios de alimentacion " [ref=e82] [cursor=pointer]:
+            - generic [ref=e83]: Cambios de horas y lugar en servicios de alimentacion
+            - generic [ref=e84]: 
+        - article [ref=e85]:
+          - button "Coffes y servicios relacionado a salones " [ref=e86] [cursor=pointer]:
+            - generic [ref=e87]: Coffes y servicios relacionado a salones
+            - generic [ref=e88]: 
+        - article [ref=e89]:
+          - button "Otros articulos " [ref=e90] [cursor=pointer]:
+            - generic [ref=e91]: Otros articulos
+            - generic [ref=e92]: 
+        - article [ref=e93]:
+          - button "Servicios para fiestas " [ref=e94] [cursor=pointer]:
+            - generic [ref=e95]: Servicios para fiestas
+            - generic [ref=e96]: 
+        - article [ref=e97]:
+          - button "Spa " [ref=e98] [cursor=pointer]:
+            - generic [ref=e99]: Spa
+            - generic [ref=e100]: 
+        - article [ref=e101]:
+          - button "Teambuilding " [ref=e102] [cursor=pointer]:
+            - generic [ref=e103]: Teambuilding
+            - generic [ref=e104]: 
+        - article [ref=e105]:
+          - button "Teambuilding, actividades de pausa " [ref=e106] [cursor=pointer]:
+            - generic [ref=e107]: Teambuilding, actividades de pausa
+            - generic [ref=e108]: 
+  - main [ref=e109]:
+    - generic [ref=e110]:
+      - generic [ref=e111]:
+        - generic [ref=e112]: 
+        - text: Day
+        - generic [ref=e113]: "1"
+        - generic [ref=e114]: · 2026-04-21
+      - generic [ref=e115]: Drag items from catalog into this timeline
+    - generic [ref=e116]:
+      - button "Dia 1" [ref=e117] [cursor=pointer]:
+        - strong [ref=e118]: Dia 1
+      - button "Dia 2" [ref=e119] [cursor=pointer]:
+        - strong [ref=e120]: Dia 2
+      - button "Dia 3" [ref=e121] [cursor=pointer]:
+        - strong [ref=e122]: Dia 3
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - generic [ref=e125]:
+          - text: "Client:"
+          - strong [ref=e126]: test1
+        - generic [ref=e127]:
+          - text: "Pax:"
+          - strong [ref=e128]: "20"
+        - generic [ref=e129]:
+          - text: "Days:"
+          - strong [ref=e130]: "3"
+      - generic [ref=e131]:
+        - button "Copy Day" [ref=e132]
+        - button "Save Quotation" [disabled] [ref=e133]
+        - button "Validate" [disabled] [ref=e134]
+    - navigation [ref=e135]:
+      - button " Timeline" [ref=e136] [cursor=pointer]:
+        - generic [ref=e137]: 
+        - text: Timeline
+      - button " Item List & Overrides" [ref=e138] [cursor=pointer]:
+        - generic [ref=e139]: 
+        - text: Item List & Overrides
+    - generic [ref=e141]:
+      - generic:
+        - generic: 08:00
+      - generic:
+        - generic: 09:00
+      - generic:
+        - generic: 10:00
+      - generic:
+        - generic: 11:00
+      - generic:
+        - generic: 12:00
+      - generic:
+        - generic: 13:00
+      - generic:
+        - generic: 14:00
+      - generic:
+        - generic: 15:00
+      - generic:
+        - generic: 16:00
+      - generic:
+        - generic: 17:00
+      - generic:
+        - generic: 18:00
+      - generic:
+        - generic: 19:00
+      - generic:
+        - generic: 20:00
+      - generic:
+        - generic: 21:00
+      - generic:
+        - generic: 22:00
+      - generic:
+        - generic: 23:00
+    - generic [ref=e142]:
+      - paragraph [ref=e144]:
+        - text: "Entries:"
+        - strong [ref=e145]: "0"
+      - generic [ref=e146]:
+        - paragraph [ref=e147]:
+          - text: "Subtotal:"
+          - strong [ref=e148]: $0
+        - paragraph [ref=e149]: "Total: $0"

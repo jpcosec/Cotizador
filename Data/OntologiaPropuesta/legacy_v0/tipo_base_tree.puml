@@ -1,0 +1,69 @@
+@startmindmap
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam ArrowColor #666666
+
+title Base semantica = AREA + TIPO_ITEM + SUBTIPO_ITEM
+
+* AREA
+** cocina
+*** servicio
+**** buffet
+**** desayuno
+**** coffee
+**** parrilla
+*** producto
+**** sandwich
+**** torta
+**** bebida unitaria
+** bebidas_bar
+*** servicio
+**** bar abierto
+**** ticket trago
+*** producto
+**** vino
+**** cerveza
+**** bebida lata
+** alojamiento
+*** servicio
+**** estadia hotel
+**** estadia cabana
+**** early checkin
+**** late checkout
+*** producto
+**** regalo habitacion
+** spa_wellness
+*** servicio
+**** masaje
+**** acceso piscina
+**** sauna
+*** producto
+**** gorro piscina
+**** insumo spa
+*** recurso
+**** personal -> masajista
+**** locacion -> piscina, jacuzzi
+** teambuilding
+*** servicio
+**** taller guiado
+**** karaoke
+*** compuesto
+**** evento -> naufrago
+**** evento -> alianzas
+**** pack -> cata + coctel
+*** recurso
+**** equipamiento -> arco, kayak
+**** personal -> guia, coach
+** infraestructura
+*** recurso
+**** locacion -> salon, domo, pergola
+**** equipamiento -> audio, microfono
+*** servicio
+**** arriendo salon
+** operacional
+*** servicio
+**** cambio de montaje
+**** soporte tecnico
+*** recurso
+**** personal -> operador, DJ
+@endmindmap

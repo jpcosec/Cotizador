@@ -1,0 +1,81 @@
+id: quote-line-resolution
+title: Quote Line Resolution
+version: "1.0"
+type: sequence
+data:
+  participants:
+    - id: cotizacion
+      kind: runtime
+    - id: linea_cotizada
+      kind: runtime
+    - id: item_catalogo
+      kind: entity
+    - id: categoria_catalogo
+      kind: entity
+    - id: propiedad_efectiva
+      kind: data
+    - id: pricing
+      kind: service
+    - id: ruling
+      kind: service
+  messages:
+    - from: cotizacion
+      to: linea_cotizada
+      message: crear linea con item + runtime_overrides
+      kind: sync
+      group: instantiation
+    - from: linea_cotizada
+      to: item_catalogo
+      message: cargar defaults del item
+      kind: sync
+      group: instantiation
+    - from: item_catalogo
+      to: categoria_catalogo
+      message: heredar estructura encapsulada
+      kind: sync
+      group: instantiation
+    - from: categoria_catalogo
+      to: propiedad_efectiva
+      message: aportar defaults de categoria
+      kind: sync
+      group: resolution
+    - from: item_catalogo
+      to: propiedad_efectiva
+      message: aportar defaults de item
+      kind: sync
+      group: resolution
+    - from: linea_cotizada
+      to: propiedad_efectiva
+      message: aplicar overrides runtime
+      kind: sync
+      group: resolution
+    - from: propiedad_efectiva
+      to: pricing
+      message: resolver precio
+      kind: sync
+      group: pricing
+    - from: categoria_catalogo
+      to: pricing
+      message: ejecutar pricing op
+      kind: sync
+      group: pricing
+    - from: propiedad_efectiva
+      to: ruling
+      message: evaluar reglas
+      kind: sync
+      group: ruling
+    - from: categoria_catalogo
+      to: ruling
+      message: ejecutar ruling op
+      kind: sync
+      group: ruling
+    - from: pricing
+      to: linea_cotizada
+      message: devolver precio resuelto
+      kind: sync
+      group: result
+    - from: ruling
+      to: linea_cotizada
+      message: devolver warnings/errores
+      kind: sync
+      group: result

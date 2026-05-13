@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "claps_codelab_rebuild_components/docs/plans/2026-03-11-vistas-parallel-design-graph.md",
+                "file": "dev/WORKFLOW.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "2026-03-11-vistas-parallel-design-graph"
+              "title": "WORKFLOW"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "claps_codelab_rebuild_components/docs/plans/2026-03-11-vistas-parallel-design-graph.md",
+                "file": "dev/WORKFLOW.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Enlaces entrantes de 2026-03-11-vistas-parallel-design-graph"
+              "title": "Enlaces entrantes de WORKFLOW"
             }
           },
           {
@@ -177,50 +177,55 @@
       "daily-notes:Abrir la nota de hoy": false,
       "templates:Insertar plantilla": false,
       "command-palette:Abrir paleta de comandos": false,
-      "bases:Crear nueva base": false
+      "bases:Crear nueva base": false,
+      "opencode-obsidian:OpenCode": false
     }
   },
   "active": "45095c54ef28d8d9",
   "lastOpenFiles": [
-    "claps_codelab_rebuild_components/docs/plans/2026-03-11-vistas-design-map.md",
-    "claps_codelab_rebuild_components/docs/plans/2026-03-11-vistas-parallel-design-graph.md",
-    "claps_codelab_rebuild_components/docs/GUIDES/testing-components.md",
-    "claps_codelab_rebuild_components/docs/PACKAGES/components.md",
-    "claps_codelab_rebuild_components/docs/README.md",
-    "Vistas.md",
-    "claps_codelab_rebuild_components/docs/ARCHITECTURE/mixin-arch/03_critique.md",
-    "claps_codelab_rebuild_components/docs/ARCHITECTURE/mixin-arch/02_design_strategy.md",
-    "claps_codelab_rebuild_components/docs/ARCHITECTURE/mixin-arch/01_system_overview.md",
-    "claps_codelab_rebuild_components/docs/plans/2026-03-01-item-db-integration-design.md",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-freebsd-x64",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-android-arm-eabi",
-    "claps_codelab_rebuild_components/node_modules/playwright/node_modules/fsevents",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-win32-x64-msvc",
-    "claps_codelab_rebuild_components/node_modules/@esbuild/aix-ppc64",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-win32-x64-gnu",
-    "claps_codelab_rebuild_components/node_modules/@esbuild/android-arm",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-win32-ia32-msvc",
-    "claps_codelab_rebuild_components/node_modules/fsevents",
-    "claps_codelab_rebuild_components/node_modules/@rollup/rollup-win32-arm64-msvc",
+    "dev/debug_html.cjs",
+    "dev/debug_modal.png",
+    "dev/debug_screenshot.cjs",
+    "dev/debug_console.cjs",
+    "dev/auto_user_test/03_03_pick_client.html",
+    "dev/auto_user_test/03_03_pick_client.png",
+    "dev/auto_user_test/02_02_select_client.html",
+    "dev/auto_user_test/02_02_select_client.png",
+    "dev/auto_user_test/report.json",
+    "dev/auto_user_test/01_01_open_app.html",
+    "dev/auto_user_test/01_01_open_app.png",
+    "dev/packages/pricing/src/Formulas.js",
+    "dev/patch_a02_4.cjs",
+    "dev/patch_a02_3.cjs",
+    "dev/packages/pricing/src/QuantityResolution.js",
+    "dev/desk/tasks/R-04-3-modals-integration.md",
+    "dev/desk/tasks/R-03-3-item-list-integration.md",
+    "dev/desk/tasks/R-02-3-timeline-integration.md",
+    "dev/desk/tasks/A-03-3-playground-orchestrator.md",
+    "dev/desk/pills/pill-pack-editor-ui.md",
+    "dev/desk/tasks/A-04-3-reorganize-sidebar.md",
+    "dev/desk/tasks/A-04-2-reorganize-basket.md",
+    "dev/desk/tasks/A-04-1-reorganize-timeline.md",
+    "dev/desk/tasks/A-03-2-playground-controller.md",
+    "dev/desk/tasks/A-03-1-playground-templates.md",
+    "dev/desk/tasks/A-02-4-pricing-formulas.md",
+    "dev/desk/tasks/A-02-3-quantity-resolution.md",
+    "dev/desk/tasks/A-02-2-pricing-detection.md",
+    "dev/desk/tasks/A-02-1-pricing-enums.md",
+    "dev/desk/tasks/A-01-3-item-orchestrator.md",
+    "dev/desk/tasks/A-01-2-item-state-logic.md",
+    "dev/desk/tasks/A-01-1-extract-templates.md",
+    "dev/desk/pills/pill-decision-rule-filtering.md",
+    "dev/node_modules/eslint/README.md",
+    "dev/node_modules/eslint-plugin-jsdoc/README.md",
+    "dev/node_modules/@eslint/eslintrc/README.md",
+    "dev/node_modules/ajv/README.md",
+    "dev/node_modules/@es-joy/jsdoccomment/README.md",
+    "dev/node_modules/@es-joy/jsdoccomment/CHANGES.md",
+    "dev/node_modules/comment-parser/README.md",
     "claps_codelab_rebuild_components/node_modules/playwright-core/lib/vite/traceViewer/playwright-logo.svg",
     "claps_codelab_rebuild_components/node_modules/playwright-core/lib/vite/recorder/playwright-logo.svg",
     "claps_codelab_rebuild_components/node_modules/playwright-core/lib/server/chromium/appIcon.png",
-    "claps_codelab_rebuild_components/node_modules/playwright-core/README.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/README.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-planner.agent.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-plan.prompt.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-healer.agent.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-heal.prompt.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-generator.agent.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-generate.prompt.md",
-    "claps_codelab_rebuild_components/node_modules/playwright/lib/agents/playwright-test-coverage.prompt.md",
-    "claps_codelab_rebuild_components/node_modules/@playwright/test/README.md",
-    "claps_codelab_rebuild_components/packages/components/item/README.md",
-    "claps_codelab_rebuild_components/packages/components/item/ITEM_PLAYGROUND_IMPLEMENTATION_PLAN.md",
-    "claps_codelab_rebuild_components/packages/components/item/STEP_03B_MULTI_VIEW_ISSUE_DIAGNOSIS.md",
-    "claps_codelab_rebuild_components/plan/I-2b-item-cleanup/06_UI_SEPARATION.md",
-    "claps_codelab_rebuild_components/plan/I-2b-item-cleanup/05_CONTEXT_FIX.md",
-    "claps_codelab_rebuild_components/plan/I-2b-item-cleanup/04_ITEM_FROM_DEFINITION.md",
     "step-I1-database-2560.png",
     "claps_codelab/packages/pricing/node_modules/json-logic-js/jsonlogic.png"
   ]

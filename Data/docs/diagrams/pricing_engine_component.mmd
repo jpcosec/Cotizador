@@ -1,0 +1,33 @@
+graph TD
+    ItemLogic["ItemLogic (stateful item)"]
+    ItemLogic --> PricingDetection
+    ItemLogic --> Formulas
+    ItemLogic --> QuantityResolution
+    PricingDetection["PricingDetection"]
+    Formulas["Formulas"]
+    QuantityResolution["QuantityResolution"]
+    RulesCoordinator["RulesCoordinator (JSON-Logic)"]
+    JsonLogic["json-logic-js"]
+    ResolveItemDefinition["resolveItemDefinition (5-way join)"]
+    Database["InMemoryStore / GasSheetAdapter"]
+    Database --> ITEM_CATALOGO
+    Database --> PERFILES_PRECIO
+    Database --> PERFILES_INICIALIZACION
+    Database --> CATEGORIAS
+    Database --> REGLAS_NEGOCIO
+    ITEM_CATALOGO["ITEM_CATALOGO"]
+    PERFILES_PRECIO["PERFILES_PRECIO"]
+    PERFILES_INICIALIZACION["PERFILES_INICIALIZACION"]
+    CATEGORIAS["CATEGORIAS"]
+    REGLAS_NEGOCIO["REGLAS_NEGOCIO"]
+    BasketMachine["Basket / Item Machine"]
+    UI["Alpine UI Layer"]
+    BasketMachine -->|resolve item definition| ResolveItemDefinition
+    ResolveItemDefinition -->|5-way join| Database
+    BasketMachine -->|initialize / recalculate| ItemLogic
+    ItemLogic -->|detectPricingKind / normalizeProfile| PricingDetection
+    ItemLogic -->|formatCatalogTerms / evaluateRules| Formulas
+    ItemLogic -->|resolveBasketQuantity| QuantityResolution
+    RulesCoordinator -->|evaluate condition| JsonLogic
+    ItemLogic -->|toCatalogCard / toBasketLine / toMachineContext| UI
+    ResolveItemDefinition -->|pre-filtered reglas| RulesCoordinator

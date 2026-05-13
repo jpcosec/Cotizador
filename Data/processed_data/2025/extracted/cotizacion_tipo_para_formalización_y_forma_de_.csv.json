@@ -1,0 +1,11 @@
+{
+  "items": [],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "PAYMENT_CONTADO", "raw_text": "Orden de compra indicando forma de pago abono y datos de la empresa", "rule_type": "dependency", "structured_hint": {"condition": "formalization", "effect": "Purchase Order required"}, "confidence": "high"},
+    {"item_id": "RESERVE_ABONO", "raw_text": "Se solicita un abono del 50% del total del Evento para efectuar reserva", "rule_type": "dependency", "structured_hint": {"condition": "reservation", "effect": "50% abono"}, "confidence": "high"},
+    {"item_id": "REMAINING_BALANCE", "raw_text": "Saldo restante se cancela directamente en el Lodge antes que comience el evento", "rule_type": "dependency", "structured_hint": {"condition": "event start", "effect": "pay balance"}, "confidence": "high"},
+    {"item_id": "EXTRAS_CHECKOUT", "raw_text": "Los extras se cancelan al check out, siempre y cuando se deje garantia para cargar a la habitación", "rule_type": "conditional", "structured_hint": {"condition": "extras", "effect": "pay at checkout with guarantee"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

@@ -1,0 +1,20 @@
+{
+  "items": [
+    {"item_id": "COMEDOR_VIP_TERRAZA_8H_DIURNO", "name": "Comedor VIP y terraza 8h diurno", "raw_name": "Comedor VIP y terraza (2do piso) para 80 personas 8 horas uso diurno", "category": "SALON", "source_row": 1},
+    {"item_id": "COMEDOR_TRUCHITA_TERRAZA_8H_DIURNO", "name": "Comedor truchita y terraza 8h diurno", "raw_name": "Comedor truchita o ex poo y terraza para 35 personas, 8 horas uso diurno", "category": "SALON", "source_row": 2},
+    {"item_id": "ARRIENDO_PERGOLA_PARRILLA_8H_DIURNO", "name": "Arriendo pergola con parrilla 8h diurno", "raw_name": "Arriendo pergola con parrilla para 16 personas, 8 horas uso diurno", "category": "SALON", "source_row": 3},
+    {"item_id": "COMEDOR_VIP_TERRAZA_1.5H", "name": "Comedor VIP y terraza 1.5h", "raw_name": "Comedor VIP y terraza (2do piso) para 70 personas 1,5 hrs / AM O PM (ALMUERZO O CENA)", "category": "SALON", "source_row": 4},
+    {"item_id": "COMEDOR_TRUCHITA_TERRAZA_1.5H", "name": "Comedor truchita y terraza 1.5h", "raw_name": "Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)", "category": "SALON", "source_row": 5},
+    {"item_id": "ARRIENDO_PERGOLA_PARRILLA_4H", "name": "Arriendo pergola con parrilla 4h", "raw_name": "Arriendo pergola con parrilla para 16 personas, 4 horas", "category": "SALON", "source_row": 6},
+    {"item_id": "ARRIENDO_PERGOLA_PICADERO", "name": "Arriendo pergola picadero", "raw_name": "Arriendo pergola picadero solo con autorizacion, 2 dias antes.", "category": "SALON", "source_row": 7}
+  ],
+  "price_expressions": [
+    {"item_id": "COMEDOR_VIP_TERRAZA_8H_DIURNO", "raw_expression": "365000", "expression_type": "flat", "components": [{"type": "base", "value": 365000, "unit": "8 hours"}], "confidence": "high"},
+    {"item_id": "ARRIENDO_PERGOLA_PICADERO", "raw_expression": "100000", "expression_type": "flat", "components": [{"type": "base", "value": 100000, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "COMEDOR_VIP_TERRAZA_8H_DIURNO", "raw_text": "para 80 personas", "rule_type": "capacity", "structured_hint": {"max": 80, "unit": "pax"}, "confidence": "high"},
+    {"item_id": "ARRIENDO_PERGOLA_PICADERO", "raw_text": "solo con autorizacion, 2 dias antes", "rule_type": "dependency", "structured_hint": {"min": 2, "unit": "days", "condition": "authorization"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

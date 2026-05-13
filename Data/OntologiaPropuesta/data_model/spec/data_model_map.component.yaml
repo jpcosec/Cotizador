@@ -1,0 +1,119 @@
+id: data-model-map
+title: Data Model Map
+version: "1.0"
+type: component
+data:
+  nodes:
+    modelo_base:
+      label: Modelo base
+      kind: domain
+      contains:
+        - categoria_catalogo
+        - item_catalogo
+        - propiedad_base
+        - area
+        - categoria_operacional
+    categoria_catalogo:
+      label: CategoriaCatalogo
+      kind: core
+    item_catalogo:
+      label: ItemCatalogo
+      kind: entity
+    propiedad_base:
+      label: PropiedadBase
+      kind: data
+    area:
+      label: Area
+      kind: data
+    categoria_operacional:
+      label: CategoriaOperacional
+      kind: data
+    cotizacion_time:
+      label: Cotizacion time
+      kind: runtime
+      contains:
+        - cotizacion
+        - linea_cotizada
+        - propiedad_runtime
+        - propiedad_efectiva
+    cotizacion:
+      label: Cotizacion
+      kind: entity
+    linea_cotizada:
+      label: LineaCotizada
+      kind: entity
+    propiedad_runtime:
+      label: PropiedadRuntime
+      kind: data
+    propiedad_efectiva:
+      label: PropiedadEfectiva
+      kind: data
+    operaciones_logicas:
+      label: Operaciones logicas
+      kind: service
+      contains:
+        - pricing
+        - ruling
+    pricing:
+      label: Pricing
+      kind: service
+    ruling:
+      label: Ruling
+      kind: service
+  edges:
+    - from: area
+      to: categoria_catalogo
+      relation: encapsulates
+      label: contexto semantico
+    - from: categoria_operacional
+      to: categoria_catalogo
+      relation: encapsulates
+      label: forma operacional
+    - from: propiedad_base
+      to: categoria_catalogo
+      relation: encapsulates
+      label: defaults base
+    - from: categoria_catalogo
+      to: item_catalogo
+      relation: instantiates
+      label: hereda todo
+    - from: item_catalogo
+      to: linea_cotizada
+      relation: instantiates
+      label: se compra como
+    - from: propiedad_runtime
+      to: linea_cotizada
+      relation: configures
+      label: overrides runtime
+    - from: categoria_catalogo
+      to: propiedad_efectiva
+      relation: contributes
+      label: defaults categoria
+    - from: item_catalogo
+      to: propiedad_efectiva
+      relation: contributes
+      label: defaults item
+    - from: propiedad_runtime
+      to: propiedad_efectiva
+      relation: contributes
+      label: valores runtime
+    - from: propiedad_efectiva
+      to: pricing
+      relation: feeds
+      label: input
+    - from: propiedad_efectiva
+      to: ruling
+      relation: feeds
+      label: input
+    - from: categoria_catalogo
+      to: pricing
+      relation: defines
+      label: pricing op
+    - from: categoria_catalogo
+      to: ruling
+      relation: defines
+      label: ruling op
+    - from: linea_cotizada
+      to: cotizacion
+      relation: belongs_to
+      label: pertenece a

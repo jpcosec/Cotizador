@@ -1,0 +1,12 @@
+@startuml
+start
+:Crear cotizacion;
+:Seleccionar ItemCatalogo;
+:Instanciar LineaCotizada;
+:Resolver PropiedadEfectiva;
+:Ejecutar Pricing;
+if (Ejecutar Ruling?) then (yes)
+else (no)
+endif
+stop
+@enduml

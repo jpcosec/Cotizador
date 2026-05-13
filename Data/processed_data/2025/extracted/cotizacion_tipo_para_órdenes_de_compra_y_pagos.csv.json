@@ -1,0 +1,9 @@
+{
+  "items": [],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "BANK_ACCOUNT", "raw_text": "Nº620024-9, Banco Santander, Aventuras Andinas LTDA, Rut 76.666.800-3", "rule_type": "dependency", "structured_hint": {"condition": "payment transfer", "effect": "use bank details"}, "confidence": "high"},
+    {"item_id": "TRANSFER_NOTIFICATION", "raw_text": "Copiar abonos o transferencias a sf@sflodge.cl y correo de la vendedora", "rule_type": "dependency", "structured_hint": {"condition": "transfer", "effect": "notify via email"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

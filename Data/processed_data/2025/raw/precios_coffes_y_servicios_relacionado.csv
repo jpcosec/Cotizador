@@ -1,0 +1,27 @@
+Coffes y servicios relacionado a salones,Hora,Uds,Nº Pax,Valor neto,,Detalle de servicios.
+Coffee Básico,,1,1,6380,6380,"Café, té, agua, jugo de pulpa, 1 tapadito, 1 top de masa de hoja+ 1 mini muffin o 1 galleta"
+Coffee Intermedio  ,,1,1,10395,10395,"Café, té, agua, jugo de pulpa, 1 tapadito, 1 mini muffin, 1 facturita, 1 galleta y  una fruta."
+Coffe Full,,1,1,16500,16500,"Café de grano, té, jugo de pulpa, 2 tapaditos, 2 mini muffin , 2 galletas, 1 facturita y una brocheta de fruta."
+Coffe Light,,1,1,10395,10395,"Café, té, agua, jugo de pulpa, yogurt natural con granola y fruta, 1 tapadito integral, una brocheta de fruta"
+Adicionar coffe dentro del Salon,,1,1,3500,3500,Servicios de coffe ubicados dentro del salon.
+Maquina Cafe Milano con carga para 120 cafes app. ( autoservicio),,1,1,200000,200000,"Maquina auto servicio que entrega app. 120 unidades entre Cafe, capuchinos, mocachino, late, expresos, americano, agua caliente chocolate."
+1 tapadito ,,1,1,2500,2500,
+1 medialuna,,1,1,1800,1800,
+Galletas de mantequilla  3 por persona,,1,1,1500,1500,
+Cafe de grano o te en salon 8 hrs,,1,1,7500,7500,valor por persona
+Dispensador de agua 20 Lts en salon,,1,1,60000,60000,Dispensador de agua  20 lts con vasos en salón
+Recarga de bidon de 20 Lts para dispensador de agua,,1,1,40000,40000,Recarga de bidon de agua de 20 litros y vasos.
+"Cafe de grano, te y agua fria /caliente en salon  por 8 horas.",,1,1,10000,,valor por persona 
+Servicios para fiestas,Hora,Uds,Nº Pax,Valor neto,TOTAL,Detalle de servicios.
+Luces perimetrales salon chinook o vip,,1,1,160000,160000,12 Luces decorativas perimetrales para una fiesta o karaoke.
+DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,21:00- 1:00,1,1,850000,850000,"Dj y karaoke por 4 horas,( agregar salon)"
+Hora extra DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,,1,1,276250,276250,hora extra 
+DJ y/o Karaoke para grupos mayores a 50 Pax,21:00- 1:00,1,1,1200000,1200000,"Dj y karaoke por 4 horas,( agregar salon)"
+Hora extra DJ y/o Karaoke para grupos mayores a 50 Pax,,1,1,390000,390000,hora extra 
+"Salon chinook con fogata, hasta 300 personas, 4 horas noche",21:00- 1:00,1,1,500000,500000,Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras
+"Salon chinook con fogata, hasta 300 personas",19:00.1:00,1,1,750000,750000,Salon para fiestas y karaokes con terraza exclusiva . Incluye fogata en terraza y tiene arranque trifasico para productoras. 
+"Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",21:00- 1:00,1,1,360000,360000,"Comedor en 2do piso con terraza para fiestas o Karaokes exclusivos, incluye fogata en terraza"
+"Comedor VIP con fogata, 2 piso hasta 70 personas",19:00.1:00,1,1,540000,540000,Comedor en 2do piso con terraza para servicios de alimentacion exclusivos. Posee una terraza exclusiva.
+"Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",21:00- 1:00,1,1,300000,300000,Espacio del bar principal del hotel para la realizacion de karaokes
+"Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",21:00- 1:00,1,1,600000,600000,Domo para fiestas y karaokes con amplios jardines.Incluye fogata y tiene arranque trifasico para productoras.
+"Lounge en terrazas con sillones, mesas y fogones, hasta 50 pax. Valor por persona",,1,1,8000,8000,"Lugares: Terraza chinook, terraza comedor  chico( ex pool), terraza comedor 2do piso y Domo. Valor por persona"

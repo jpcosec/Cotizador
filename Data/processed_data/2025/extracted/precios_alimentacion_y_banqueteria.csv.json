@@ -1,0 +1,33 @@
+{
+  "items": [
+    {"item_id": "DESAYUNO", "name": "Desayuno", "raw_name": "Desayuno", "category": "ALIMENTACION", "source_row": 1},
+    {"item_id": "DESAYUNO_INCLUIDO", "name": "Desayuno incluido por alojamiento", "raw_name": "Desayuno incluido por alojamiento", "category": "ALIMENTACION", "source_row": 2},
+    {"item_id": "ALMUERZO_BUFFET", "name": "Almuerzo Sugerencias del chef Buffet", "raw_name": "Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta", "category": "ALIMENTACION", "source_row": 3},
+    {"item_id": "CENA_BUFFET", "name": "Cena Sugerencias del chef Buffet", "raw_name": "Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta", "category": "ALIMENTACION", "source_row": 4},
+    {"item_id": "ALMUERZO_CENA_A_LA_CARTA", "name": "Almuerzo o cena a la carta", "raw_name": "Almuerzo o cena a la carta", "category": "ALIMENTACION", "source_row": 5},
+    {"item_id": "ALMUERZO_CENA_A_LA_CARTA_VIP", "name": "Almuerzo o cena a la carta VIP", "raw_name": "Almuerzo o cena a la carta VIP", "category": "ALIMENTACION", "source_row": 6},
+    {"item_id": "ALMUERZO_CENA_PARRILLA_MIN_30", "name": "Cena o Almuerzo parrilla, minimo 30 pax", "raw_name": "Cena o Almuerzo parrilla, minimo 30 pax", "category": "ALIMENTACION", "source_row": 7},
+    {"item_id": "ALMUERZO_CENA_PARRILLA_LESS_30", "name": "Cena o Almuerzo parrilla, menos de 30 pax", "raw_name": "Cena o Almuerzo parrilla, menos de 30 pax", "category": "ALIMENTACION", "source_row": 8},
+    {"item_id": "ONCE", "name": "Once", "raw_name": "Once ", "category": "ALIMENTACION", "source_row": 9},
+    {"item_id": "BOX_LUNCH", "name": "Box lunch", "raw_name": "Box lunch (Como una Once en cajitas individuales para que se la puedan llevar) ", "category": "ALIMENTACION", "source_row": 10},
+    {"item_id": "CATA_VINOS", "name": "Cata de vinos con somelier", "raw_name": "Cata de vinos con somelier, minimo 10 personas y hasta 40.  Duración 1 hora", "category": "ALIMENTACION", "source_row": 11}
+  ],
+  "price_expressions": [
+    {"item_id": "DESAYUNO", "raw_expression": "12500", "expression_type": "per_person", "components": [{"type": "per_person", "value": 12500, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_BUFFET", "raw_expression": "27310.92437", "expression_type": "per_person", "components": [{"type": "per_person", "value": 27310.92437, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "CENA_BUFFET", "raw_expression": "27310.92437", "expression_type": "per_person", "components": [{"type": "per_person", "value": 27310.92437, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_CENA_A_LA_CARTA", "raw_expression": "35000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 35000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_CENA_A_LA_CARTA_VIP", "raw_expression": "45000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 45000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_CENA_PARRILLA_MIN_30", "raw_expression": "35000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 35000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_CENA_PARRILLA_LESS_30", "raw_expression": "45000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 45000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "ONCE", "raw_expression": "9800", "expression_type": "per_person", "components": [{"type": "per_person", "value": 9800, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BOX_LUNCH", "raw_expression": "12000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 12000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "CATA_VINOS", "raw_expression": "$300.000 fijo mas $24.000 por persona", "expression_type": "base_plus_variable", "components": [{"type": "base", "value": 300000, "unit": "CLP"}, {"type": "per_person", "value": 24000, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "ALMUERZO_BUFFET", "raw_text": "mas de 30 pasajeros. Menos de 30 es carta", "rule_type": "conditional", "structured_hint": {"min": 31, "condition": "buffet if > 30", "effect": "buffet"}, "confidence": "high"},
+    {"item_id": "ALMUERZO_CENA_A_LA_CARTA", "raw_text": "un menú único que debe elergirse con una semana de anticipación", "rule_type": "schedule", "structured_hint": {"min": 1, "unit": "week", "condition": "choice", "effect": "fixed menu"}, "confidence": "high"},
+    {"item_id": "CATA_VINOS", "raw_text": "minimo 10 personas y hasta 40", "rule_type": "capacity", "structured_hint": {"min": 10, "max": 40, "unit": "pax"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

@@ -1,0 +1,107 @@
+- main [ref=e2]:
+  - link "← Back to playgrounds" [ref=e3] [cursor=pointer]:
+    - /url: /playground/index.html
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - paragraph [ref=e8]: Architecture Spike
+        - heading "GenericUnit Runtime Lab" [level=1] [ref=e9]
+        - paragraph [ref=e10]: Alpine renders projections while XState drives transitions, boundaries, and recursive units.
+      - generic [ref=e11]:
+        - button "Previous" [ref=e12] [cursor=pointer]
+        - button "Next" [ref=e13] [cursor=pointer]
+        - button "Hide debug" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - article [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - paragraph [ref=e19]: View
+            - heading "generic-unit-lab" [level=2] [ref=e20]
+          - generic [ref=e21]: compose
+        - generic [ref=e22]:
+          - button "Compose" [ref=e23] [cursor=pointer]
+          - button "Review" [ref=e24] [cursor=pointer]
+          - button "Export" [ref=e25] [cursor=pointer]
+        - generic [ref=e26]:
+          - button "Mutate child state" [ref=e27] [cursor=pointer]
+          - button "Signal sibling" [ref=e28] [cursor=pointer]
+          - button "Mirror stage to child" [ref=e29] [cursor=pointer]
+          - button "Propagate context" [ref=e30] [cursor=pointer]
+          - button "Save snapshot" [ref=e31] [cursor=pointer]
+          - button "Export projection" [ref=e32] [cursor=pointer]
+          - button "Run pricing" [ref=e33] [cursor=pointer]
+          - button "Run rules" [ref=e34] [cursor=pointer]
+          - button "Query store" [ref=e35] [cursor=pointer]
+      - article [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - paragraph [ref=e39]: Projection
+            - heading "Visible Units" [level=2] [ref=e40]
+          - generic [ref=e41]: "1"
+        - generic [ref=e43]:
+          - strong [ref=e44]: Workspace Container
+          - generic [ref=e45]: workspace-container
+    - article [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - paragraph [ref=e50]: container
+          - heading "Workspace Container" [level=3] [ref=e51]
+          - paragraph [ref=e52]: Recursive layer between View and leaf units.
+        - generic [ref=e54]: recursive-layer
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - term [ref=e57]: Children
+          - definition [ref=e58]: "2"
+        - generic [ref=e59]:
+          - term [ref=e60]: Aggregate Count
+          - definition
+        - generic [ref=e61]:
+          - term [ref=e62]: Status
+          - definition [ref=e63]: ready
+      - generic [ref=e64]:
+        - article [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: demo-unit
+              - heading "Status Unit" [level=3] [ref=e69]
+            - generic [ref=e71]: local-state
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - term [ref=e74]: Count
+              - definition [ref=e75]: "1"
+            - generic [ref=e76]:
+              - term [ref=e77]: Last Note
+              - definition [ref=e78]: None
+            - generic [ref=e79]:
+              - term [ref=e80]: Stage
+              - definition [ref=e81]: n/a
+          - generic [ref=e82]: "{ \"derived\": {}, \"context\": { \"unitRole\": \"status\" }, \"meta\": { \"title\": \"Status Unit\", \"stages\": [ \"compose\", \"review\", \"export\" ] } }"
+        - article [ref=e83]:
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - paragraph [ref=e86]: demo-unit
+              - heading "Inspector Unit" [level=3] [ref=e87]
+            - generic [ref=e89]: cross-unit
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - term [ref=e92]: Count
+              - definition [ref=e93]: "0"
+            - generic [ref=e94]:
+              - term [ref=e95]: Last Note
+              - definition [ref=e96]: Waiting for sibling signal
+            - generic [ref=e97]:
+              - term [ref=e98]: Stage
+              - definition [ref=e99]: n/a
+          - generic [ref=e100]: "{ \"derived\": {}, \"context\": { \"unitRole\": \"inspector\" }, \"meta\": { \"title\": \"Inspector Unit\", \"stages\": [ \"review\", \"export\" ] } }"
+      - generic [ref=e101]: "{ \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 1, \"subtotal\": 0 } }, \"derived\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 1, \"subtotal\": 0 } } }, \"meta\": { \"title\": \"Workspace Container\", \"stages\": [ \"compose\", \"review\", \"export\" ] } }"
+    - generic [ref=e102]:
+      - article [ref=e103]:
+        - generic [ref=e105]:
+          - paragraph [ref=e106]: Signals
+          - heading "Recent traffic" [level=2] [ref=e107]
+        - generic [ref=e108]: "[]"
+      - article [ref=e109]:
+        - generic [ref=e111]:
+          - paragraph [ref=e112]: Snapshot
+          - heading "Serializable runtime state" [level=2] [ref=e113]
+        - generic [ref=e114]: "{ \"id\": \"generic-unit-lab\", \"type\": \"view\", \"status\": \"ready\", \"visible\": true, \"enabled\": true, \"stage\": \"compose\", \"context\": { \"mode\": \"playground\", \"runtime\": \"generic-unit-spike\" }, \"state\": { \"childSignals\": [], \"selectedUnitId\": \"status-unit\" }, \"ui\": { \"title\": \"GenericUnit Runtime Lab\", \"subtitle\": \"Alpine renders projections while XState drives transitions, boundaries, and recursive units.\", \"variant\": \"default\", \"badges\": [], \"panels\": [], \"fields\": [], \"actions\": [ { \"id\": \"next\", \"label\": \"Next stage\" }, { \"id\": \"save\", \"label\": \"Save snapshot\" }, { \"id\": \"export\", \"label\": \"Export projection\" } ], \"classes\": [] }, \"derived\": {}, \"errors\": [], \"warnings\": [], \"boundaryStatus\": {}, \"meta\": {}, \"lastSignal\": { \"type\": \"APPLY_MUTATION\", \"unitId\": \"generic-unit-lab\" }, \"childIds\": [ \"workspace-container\" ] }"

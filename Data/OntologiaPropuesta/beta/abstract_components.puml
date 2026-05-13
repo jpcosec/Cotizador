@@ -1,0 +1,74 @@
+@startuml AbstractComponents
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam defaultFontName Arial
+left to right direction
+
+title Componentes abstractos del sistema
+
+package "Modelo base" {
+  component Area
+  component CategoriaOperacional
+  component CategoriaCatalogo
+  component ItemCatalogo
+  component PropiedadBase
+}
+
+package "Cotizacion time" {
+  component Cotizacion
+  component LineaCotizada
+  component PropiedadRuntime
+}
+
+package "Motor logico" {
+  component Pricing
+  component Ruling
+}
+
+Area --> ItemCatalogo : clasifica contexto
+CategoriaOperacional --> ItemCatalogo : clasifica forma
+CategoriaCatalogo --> ItemCatalogo : contiene/comercializa
+PropiedadBase --> ItemCatalogo : describe/configura
+
+ItemCatalogo --> LineaCotizada : plantilla de datos
+PropiedadRuntime --> LineaCotizada : valores efectivos
+LineaCotizada --> Cotizacion : composicion
+
+PropiedadRuntime --> Pricing : input exclusivo
+Area --> Ruling : input contextual
+CategoriaOperacional --> Ruling : input estructural
+PropiedadBase --> Ruling : input persistido
+PropiedadRuntime --> Ruling : input runtime
+
+Pricing --> LineaCotizada : total/precio resuelto
+Ruling --> LineaCotizada : validaciones/warnings
+
+note bottom of CategoriaCatalogo
+Puede tener 1 CategoriaOperacional dominante
++ N compatibles.
+end note
+
+note bottom of ItemCatalogo
+Instancia exactamente 1
+CategoriaOperacional.
+No contiene logica.
+end note
+
+note bottom of PropiedadBase
+Defaults y configuracion persistida.
+end note
+
+note bottom of PropiedadRuntime
+Valores efectivos de la cotizacion.
+end note
+
+note bottom of Pricing
+No mira modelo base directo.
+Solo runtime.
+end note
+
+note bottom of Ruling
+Cruza base + runtime.
+end note
+@enduml

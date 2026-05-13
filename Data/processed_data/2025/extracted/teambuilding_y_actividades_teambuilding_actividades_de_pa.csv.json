@@ -1,0 +1,24 @@
+{
+  "items": [
+    {"item_id": "ACTIVIDAD_PAUSA_NEUMATICOS", "name": "Los Neumaticos", "raw_name": "Los Neumaticos", "category": "ACTIVIDADES", "source_row": 1},
+    {"item_id": "ACTIVIDAD_PAUSA_TOTEM", "name": "Totem", "raw_name": "Totem", "category": "ACTIVIDADES", "source_row": 2},
+    {"item_id": "ACTIVIDAD_PAUSA_ESTRELLA", "name": "La estrella", "raw_name": "La estrella", "category": "ACTIVIDADES", "source_row": 3},
+    {"item_id": "ACTIVIDAD_PAUSA_CUERDA", "name": "Tirar la cuerda", "raw_name": "Tirar la cuerda", "category": "ACTIVIDADES", "source_row": 4},
+    {"item_id": "ACTIVIDAD_PAUSA_EQUILIBRIO", "name": "El equilibrio", "raw_name": "El equilibrio", "category": "ACTIVIDADES", "source_row": 5},
+    {"item_id": "ACTIVIDAD_PAUSA_ENREDO", "name": "El Enredo", "raw_name": "El Enredo", "category": "ACTIVIDADES", "source_row": 6},
+    {"item_id": "ACTIVIDAD_PAUSA_BAILE_ENTRETENIDO", "name": "Baile Entretenido", "raw_name": "Baile Entretenido", "category": "ACTIVIDADES", "source_row": 7},
+    {"item_id": "ACTIVIDAD_PAUSA_GIMNASIA", "name": "Gimnasia de Pausa", "raw_name": "Gimnasia de Pausa ", "category": "ACTIVIDADES", "source_row": 8},
+    {"item_id": "ACTIVIDAD_PAUSA_YOGA", "name": "Yoga", "raw_name": "Yoga", "category": "ACTIVIDADES", "source_row": 9},
+    {"item_id": "ACTIVIDAD_PAUSA_BOLITA", "name": "La Bolita", "raw_name": "La Bolita", "category": "ACTIVIDADES", "source_row": 10},
+    {"item_id": "ACTIVIDAD_PAUSA_ULA_ULA", "name": "Ula Ula", "raw_name": "Ula Ula", "category": "ACTIVIDADES", "source_row": 11},
+    {"item_id": "ACTIVIDAD_PAUSA_SACOS", "name": "Carrera de Sacos", "raw_name": "Carrera de Sacos ", "category": "ACTIVIDADES", "source_row": 12},
+    {"item_id": "ACTIVIDAD_PAUSA_BOB_ESPONJA", "name": "Bob Esponja", "raw_name": "Bob Esponja", "category": "ACTIVIDADES", "source_row": 13}
+  ],
+  "price_expressions": [
+    {"item_id": "ACTIVIDAD_PAUSA_NEUMATICOS", "raw_expression": "150.000 + 3.000 por persona", "expression_type": "base_plus_variable", "components": [{"type": "base", "value": 150000, "unit": "CLP"}, {"type": "per_person", "value": 3000, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "ACTIVIDAD_PAUSA_NEUMATICOS", "raw_text": "actividades de pausa de 15- 30 minutos aprox. cada una", "rule_type": "duration", "structured_hint": {"min": 15, "max": 30, "unit": "minutes"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

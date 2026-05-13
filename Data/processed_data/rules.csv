@@ -1,0 +1,81 @@
+rule_id,item_id,year,rule_type,raw_text,hint_min,hint_max,hint_unit,hint_condition,hint_effect,confidence,source_file
+RULE_SALON_CHINOOK_0001,SALON_CHINOOK,2025,capacity,320 - 350,320.0,350.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0002,SALON_CHINOOK,2025,capacity,168,168.0,168.0,pax,Mesas redondas de trabajo,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0003,SALON_CHINOOK,2025,capacity,216,216.0,216.0,pax,Escuela,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0004,SALON_CHINOOK,2025,capacity,95,95.0,95.0,pax,U c/mesas,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0005,SALON_CHINOOK,2025,unknown,"Tarima chinook mide  4,1 x 7,4",,,,Tarima,,medium,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_ARCOIRIS_1_0006,SALON_ARCOIRIS_1,2025,capacity,70,70.0,70.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_COHO_0007,SALON_COHO,2025,capacity,145,145.0,145.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_DOMO_0008,SALON_DOMO,2025,capacity,240,240.0,240.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_DOMO_0009,SALON_DOMO,2025,unknown,"Tarima domo mide 1,5 x 7,5",,,,Tarima,,medium,capacidades_maximas_salones_y__chinook.csv
+RULE_CENA_BUFFET_0010,CENA_BUFFET,2025,conditional,mas de 30 pasajeros,31.0,,,format Buffet,Buffet,high,cotizacion_tipo_dia_1.csv
+RULE_CENA_BUFFET_0011,CENA_BUFFET,2025,conditional,Si en el hotel hay menos de 30 personas el servicio a la carta,,29.0,,less than 30,A la carta,high,cotizacion_tipo_dia_1.csv
+RULE_PAINTBALL_0012,PAINTBALL,2025,inclusion,100 bolas de pintura por persona,,,pax,100 bolas,,high,cotizacion_tipo_dia_1.csv
+RULE_ALMUERZO_CENA_BUFFET_0013,ALMUERZO_CENA_BUFFET,2025,capacity,sobre 30 personas,31.0,,pax,format buffet,,high,cotizacion_tipo_presupuesto_valorizado.csv
+RULE_ALMUERZO_BUFFET_0014,ALMUERZO_BUFFET,2025,conditional,mas de 30 pasajeros. Menos de 30 es carta,31.0,,,buffet if > 30,buffet,high,precios_alimentacion_y_banqueteria.csv
+RULE_ALMUERZO_CENA_A_LA_CARTA_0015,ALMUERZO_CENA_A_LA_CARTA,2025,schedule,un menú único que debe elergirse con una semana de anticipación,1.0,,week,choice,fixed menu,high,precios_alimentacion_y_banqueteria.csv
+RULE_CATA_VINOS_0016,CATA_VINOS,2025,capacity,minimo 10 personas y hasta 40,10.0,40.0,pax,,,high,precios_alimentacion_y_banqueteria.csv
+RULE_SALON_CHINOOK_USO_DIURNO_0017,SALON_CHINOOK_USO_DIURNO,2025,capacity,hasta 320 personas,,320.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_SALON_CHINOOK_USO_DIURNO_0018,SALON_CHINOOK_USO_DIURNO,2025,schedule,8:30-19:30,,,,uso diurno,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_SALON_CHINOOK_USO_DIURNO_0019,SALON_CHINOOK_USO_DIURNO,2025,inclusion,"Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día",,,,8 hours,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_VINO_CASTILLO_MOLINA_0020,VINO_CASTILLO_MOLINA,2025,ratio,Se recomienda 1 botella para 5 personas,,,,recommendation,1 bottle per 5 pax,high,precios_bebidas__y_bar.csv
+RULE_CAMBIO_HORARIO_DESAYUNO_1H_0021,CAMBIO_HORARIO_DESAYUNO_1H,2025,capacity,minimo 30 personas,30.0,,pax,,,high,precios_cambios_de_horas_y_lugar_en_se.csv
+RULE_CAMBIO_LUGAR_ALIMENTACION_0022,CAMBIO_LUGAR_ALIMENTACION,2025,dependency,"se debe reservar adicionalmente el salon ( chinook, salon truchita o comedor vip)",,,,cambio lugar,reserve salon,high,precios_cambios_de_horas_y_lugar_en_se.csv
+RULE_MAQUINA_CAFE_MILANO_0023,MAQUINA_CAFE_MILANO,2025,capacity,carga para 120 cafes app.,,120.0,coffees,,,high,precios_coffes_y_servicios_relacionado.csv
+RULE_LOUNGE_TERRAZA_PP_0024,LOUNGE_TERRAZA_PP,2025,capacity,hasta 50 pax,,50.0,pax,,,high,precios_coffes_y_servicios_relacionado.csv
+RULE_COMEDOR_VIP_TERRAZA_8H_DIURNO_0025,COMEDOR_VIP_TERRAZA_8H_DIURNO,2025,capacity,para 80 personas,,80.0,pax,,,high,precios_comedor_vip_y_terraza_2do_piso.csv
+RULE_ARRIENDO_PERGOLA_PICADERO_0026,ARRIENDO_PERGOLA_PICADERO,2025,dependency,"solo con autorizacion, 2 dias antes",2.0,,days,authorization,,high,precios_comedor_vip_y_terraza_2do_piso.csv
+RULE_RAMO_FLORES_0027,RAMO_FLORES,2025,schedule,encargar hasta 72 horas antes,72.0,,hours,order deadline,,high,precios_otros_articulos.csv
+RULE_PICOTEO_PARRILLANDO_AMIGOS_0028,PICOTEO_PARRILLANDO_AMIGOS,2025,capacity,minimo 20 personas,20.0,,pax,,,high,precios_picoteo_parrillando_con_amigos.csv
+RULE_APERITIVO_TEMATICO_BARRA_0029,APERITIVO_TEMATICO_BARRA,2025,duration,"Maximo 1,5 horas",,1.5,hours,,,high,precios_picoteo_parrillando_con_amigos.csv
+RULE_PIERNA_CERDO_16H_0030,PIERNA_CERDO_16H,2025,capacity,Recomendado para maximo 50 personas,,50.0,pax,,,high,precios_picoteo_parrillando_con_amigos.csv
+RULE_MASAJISTA_EXCLUSIVA_RELAX_30M_0031,MASAJISTA_EXCLUSIVA_RELAX_30M,2025,capacity,puede hacer maximo 10 masajes de relajación por dia,,10.0,masajes,,,high,precios_spa.csv
+RULE_MASAJES_RELAX_30M_0032,MASAJES_RELAX_30M,2025,schedule,Minimo 3 dias de anticipacion,3.0,,days,anticipation,,high,precios_spa.csv
+RULE_TECNICA_SALON_DIURNO_0033,TECNICA_SALON_DIURNO,2025,inclusion,"Data, amplificacion, 2 microfonos",,,,includes,"Data, amp, 2 mics",high,precios_tecnica_para_salones_uso_diurn.csv
+RULE_EARLY_CHECK_IN_HOTEL_0034,EARLY_CHECK_IN_HOTEL,2025,conditional,"desde las 12:00, segun disponibilidad",,,,availability,12:00 check-in,high,precios_valor_pax_adicional_en_la_mism.csv
+RULE_GUIAS_EXCLUSIVOS_CAMINATAS_0035,GUIAS_EXCLUSIVOS_CAMINATAS,2025,ratio,1 guia cada 20 o 25 personas,,,,ratio,1 per 20-25 pax,high,teambuilding_y_actividades_actividades.csv
+RULE_PASEOS_CABALLO_EXCLUSIVOS_0036,PASEOS_CABALLO_EXCLUSIVOS,2025,capacity,"minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",4.0,20.0,pax,,,high,teambuilding_y_actividades_actividades.csv
+RULE_TEAMBUILDING_PAINTBALL_0037,TEAMBUILDING_PAINTBALL,2025,duration,Duracion aproximada 2 horas,2.0,,hours,,,high,teambuilding_y_actividades_teambuilding.csv
+RULE_TEAMBUILDING_PAINTBALL_0038,TEAMBUILDING_PAINTBALL,2025,inclusion,"Inlcuye primera carga de pelotas, con posibilidad de recarga por 15.000+ iva por persona",,,,refill,15000+IVA,high,teambuilding_y_actividades_teambuilding.csv
+RULE_ACTIVIDAD_PAUSA_NEUMATICOS_0039,ACTIVIDAD_PAUSA_NEUMATICOS,2025,duration,actividades de pausa de 15- 30 minutos aprox. cada una,15.0,30.0,minutes,,,high,teambuilding_y_actividades_teambuilding_actividades_de_pa.csv
+RULE_SALON_CHINOOK_0040,SALON_CHINOOK,2026,capacity,320 - 350,320.0,350.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0041,SALON_CHINOOK,2026,capacity,168,168.0,168.0,pax,Mesas redondas de trabajo,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0042,SALON_CHINOOK,2026,capacity,216,216.0,216.0,pax,Escuela,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0043,SALON_CHINOOK,2026,capacity,95,95.0,95.0,pax,U c/mesas,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0044,SALON_CHINOOK,2026,unknown,"Tarima chinook mide  4,1 x 7,4",,,,Tarima,,medium,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_ARCOIRIS_1_0045,SALON_ARCOIRIS_1,2026,capacity,70,70.0,70.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_COHO_0046,SALON_COHO,2026,capacity,145,145.0,145.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_DOMO_0047,SALON_DOMO,2026,capacity,240,240.0,240.0,pax,Auditorio,,high,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_DOMO_0048,SALON_DOMO,2026,unknown,"Tarima domo mide 1,5 x 7,5",,,,Tarima,,medium,capacidades_maximas_salones_y__chinook.csv
+RULE_SALON_CHINOOK_0049,SALON_CHINOOK,2026,capacity,320 - 350,320.0,350.0,pax,Auditorio,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_CHINOOK_0050,SALON_CHINOOK,2026,capacity,168,168.0,168.0,pax,Mesas redondas de trabajo,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_CHINOOK_0051,SALON_CHINOOK,2026,capacity,216,216.0,216.0,pax,Escuela,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_CHINOOK_0052,SALON_CHINOOK,2026,capacity,95,95.0,95.0,pax,U c/mesas,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_CHINOOK_0053,SALON_CHINOOK,2026,unknown,"Tarima chinook mide  4,1 x 7,4",,,,Tarima,,medium,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_ARCOIRIS_1_0054,SALON_ARCOIRIS_1,2026,capacity,70,70.0,70.0,pax,Auditorio,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_COHO_0055,SALON_COHO,2026,capacity,145,145.0,145.0,pax,Auditorio,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_DOMO_0056,SALON_DOMO,2026,capacity,240,240.0,240.0,pax,Auditorio,,high,capacidades_maximas_salones_y__salones.csv
+RULE_SALON_DOMO_0057,SALON_DOMO,2026,unknown,"Tarima domo mide 1,5 x 7,5",,,,Tarima,,medium,capacidades_maximas_salones_y__salones.csv
+RULE_CENA_BUFFET_0058,CENA_BUFFET,2026,conditional,mas de 30 pasajeros,31.0,,,format Buffet,Buffet,high,cotizacion_tipo_dia_1.csv
+RULE_CENA_BUFFET_0059,CENA_BUFFET,2026,conditional,Si en el hotel hay menos de 30 personas el servicio a la carta,,29.0,,less than 30,A la carta,high,cotizacion_tipo_dia_1.csv
+RULE_PAINTBALL_0060,PAINTBALL,2026,inclusion,100 bolas de pintura por persona,,,pax,100 bolas,,high,cotizacion_tipo_dia_1.csv
+RULE_ALMUERZO_CENA_BUFFET_0061,ALMUERZO_CENA_BUFFET,2026,capacity,sobre 30 personas,31.0,,pax,format buffet,,high,cotizacion_tipo_presupuesto_valorizado.csv
+RULE_ALMUERZO_BUFFET_0062,ALMUERZO_BUFFET,2026,conditional,mas de 30 pasajeros. Menos de 30 es carta,31.0,,,buffet if > 30,buffet,high,precios_alimentacion_y_banqueteria.csv
+RULE_CENA_BUFFET_0063,CENA_BUFFET,2026,conditional,mas de 30 pasajeros. Menos de 30 es carta,31.0,,,buffet if > 30,buffet,high,precios_alimentacion_y_banqueteria.csv
+RULE_ALMUERZO_CENA_A_LA_CARTA_0064,ALMUERZO_CENA_A_LA_CARTA,2026,schedule,un menú único que debe elergirse con una semana de anticipación,1.0,,week,choice,fixed menu,high,precios_alimentacion_y_banqueteria.csv
+RULE_CATA_VINOS_0065,CATA_VINOS,2026,capacity,minimo 10 personas y hasta 40,10.0,40.0,pax,,,high,precios_alimentacion_y_banqueteria.csv
+RULE_SALON_CHINOOK_DIURNO_0066,SALON_CHINOOK_DIURNO,2026,capacity,hasta 320 personas,,320.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_SALON_COHO_DIURNO_0067,SALON_COHO_DIURNO,2026,capacity,hasta 120 personas,,120.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_SALON_FARIO_DIURNO_0068,SALON_FARIO_DIURNO,2026,capacity,hasta 70 personas,,70.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_SALON_ARCOIRIS_DIURNO_0069,SALON_ARCOIRIS_DIURNO,2026,capacity,hasta 70 personas,,70.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_DIRECTORIO_DIURNO_0070,DIRECTORIO_DIURNO,2026,capacity,"para 16 personas, mesa imperial",,16.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_DOMO_240_PAX_0071,DOMO_240_PAX,2026,capacity,para 240 personas,,240.0,pax,,,high,precios_arriendo_de_salones_audios_y_c.csv
+RULE_VINO_CASTILLO_MOLINA_0072,VINO_CASTILLO_MOLINA,2026,ratio,Se recomienda 1 botella para 5 personas,,,,ratio,1 per 5 pax,high,precios_bebidas__y_bar.csv
+RULE_VINO_LAPOSTOLLE_0073,VINO_LAPOSTOLLE,2026,ratio,Se recomienda 1 botella para 5 personas,,,,ratio,1 per 5 pax,high,precios_bebidas__y_bar.csv
+RULE_VINO_MARQUES_CASA_CONCHA_0074,VINO_MARQUES_CASA_CONCHA,2026,ratio,Se recomienda 1 botella para 5 personas,,,,ratio,1 per 5 pax,high,precios_bebidas__y_bar.csv
+RULE_MASAJISTA_EXCLUSIVA_RELAX_30M_0075,MASAJISTA_EXCLUSIVA_RELAX_30M,2026,capacity,maximo 10 masajes de relajación por dia,,10.0,masajes,,,high,precios_spa.csv
+RULE_MASAJES_RELAX_30M_0076,MASAJES_RELAX_30M,2026,conditional,Minimo 3 dias de anticipacion,3.0,,dias,anticipacion,booking,high,precios_spa.csv
+RULE_GUIAS_EXCLUSIVOS_CAMINATAS_0077,GUIAS_EXCLUSIVOS_CAMINATAS,2026,ratio,1 guia cada 20 o 25 personas,,,,ratio,1 per 20-25 pax,high,teambuilding_y_actividades_actividades.csv
+RULE_PASEOS_CABALLO_EXCLUSIVOS_0078,PASEOS_CABALLO_EXCLUSIVOS,2026,capacity,"minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",4.0,20.0,pax,,,high,teambuilding_y_actividades_actividades.csv
+RULE_SAFARI_ECUESTRE_TRACTOR_0079,SAFARI_ECUESTRE_TRACTOR,2026,capacity,maximo 15 personas. duracion 3 horas,,15.0,pax,,,high,teambuilding_y_actividades_actividades.csv
+RULE_PAINTBALL_0080,PAINTBALL,2026,inclusion,"Inlcuye primera carga de pelotas, con posibilidad de recarga por 15.000+ iva por persona",,,persona,recarga,15000+iva,high,teambuilding_y_actividades_teambuilding.csv

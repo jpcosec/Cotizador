@@ -1,0 +1,36 @@
+[      56ms] [WARNING] Alpine Expression Error: Unexpected token '||'
+
+Expression: "child.aggregate?.totals?.count ?? child.state?.lastNote || 'None'"
+
+ JSHandle@node @ https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:0
+[      78ms] Uncaught SyntaxError: Unexpected token '||'
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:664)
+    at jn (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:888)
+    at Fn (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:933)
+    at xt (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:301)
+    at x (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:179)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:33238)
+    at r (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2322)
+    at n (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2352)
+    at fr (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2362)
+    at S (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:5130)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:37112)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:11663)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:37118)
+    at m (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:0:1830)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:37087)
+    at Ne (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:1424)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:1106)
+    at or (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:0:4956)
+    at to (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:35604)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:35404)
+    at r (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:18579)
+    at rn (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:18367)
+    at N (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:0:397)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:0:510)
+    at <anonymous> (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:35398)
+    at r (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2322)
+    at n (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2352)
+    at fr (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:2362)
+    at S (https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js:4:5130)
+    at mountGenericUnitPlayground (http://127.0.0.1:8011/playground/playground/generic-unit/mountGenericUnitPlayground.js:15:18)

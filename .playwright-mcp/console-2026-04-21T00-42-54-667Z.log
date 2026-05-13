@@ -1,0 +1,5 @@
+[   12676ms] [LOG] [RUNTIME] shipItemToSelectedDay: itemId=ITEM_GUIAS_EXCLUSIVOS_PARA_CAMINATAS, day=1, overrides= {} @ http://localhost:8082/:8815
+[  833087ms] [LOG] [RUNTIME] shipItemToSelectedDay: itemId=ITEM_GUIAS_EXCLUSIVOS_PARA_CAMINATAS, day=1, overrides= {hora: 10:00} @ http://localhost:8082/:8815
+[  833194ms] [LOG] [RUNTIME] applying overrides to new entry: BSK_ENTRY_1776733007754_0xsow0 {hora: 10:00} @ http://localhost:8082/:8830
+[  837559ms] [LOG] [RUNTIME] shipItemToSelectedDay: itemId=ITEM_CAMINATA_LA_TENCA_DE_FORMA_EXCLUSIVA_1_5_HORAS, day=1, overrides= {hora: 11:30} @ http://localhost:8082/:8815
+[  837661ms] [LOG] [RUNTIME] applying overrides to new entry: BSK_ENTRY_1776733012226_ygt6n9 {hora: 11:30} @ http://localhost:8082/:8830

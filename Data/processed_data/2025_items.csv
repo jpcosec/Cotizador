@@ -1,0 +1,199 @@
+item_name,item_extra,category,subcategory,source_row
+guias exclusivos para caminatas,,teambuilding_y_actividades_actividades,Actividades,1
+caminar la tenca exclusiva,"Caminata ""la tenca"" de forma exclusiva, 1,5 horas",teambuilding_y_actividades_actividades,Actividades,2
+caminar al mirador exclusiva,".  Dificultad media, duracion: 1 hora",teambuilding_y_actividades_actividades,Actividades,3
+fogon pequeño,(Fogata pequeña),teambuilding_y_actividades_actividades,Actividades,4
+fogata grande,,teambuilding_y_actividades_actividades,Actividades,5
+clasar de pesca con mosca 3 horas,(9 am a 12pm),teambuilding_y_actividades_actividades,Actividades,6
+arrendar de caña,,teambuilding_y_actividades_actividades,Actividades,7
+pasears a caballo exclusivos,", minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",teambuilding_y_actividades_actividades,Actividades,8
+pasear a caballo vertiente del toro,,teambuilding_y_actividades_actividades,Actividades,9
+pasear a caballo altos del guindo,,teambuilding_y_actividades_actividades,Actividades,10
+usar de actividades,,teambuilding_y_actividades_actividades,Actividades,11
+usar de actividades por cortesía,,teambuilding_y_actividades_actividades,Actividades,12
+yoga,,teambuilding_y_actividades_actividades,Actividades,13
+salon chinook,Chinook,capacidades_maximas_salones_y__chinook,Infraestructura,1
+salon arcoiris 1,Arcoiris 1,capacidades_maximas_salones_y__chinook,Infraestructura,2
+salon arcoiris 2,Arcoiris 2,capacidades_maximas_salones_y__chinook,Infraestructura,3
+salon coho,Coho,capacidades_maximas_salones_y__chinook,Infraestructura,4
+salon fario 1,Fario 1,capacidades_maximas_salones_y__chinook,Infraestructura,5
+salon fario 2,Fario 2,capacidades_maximas_salones_y__chinook,Infraestructura,6
+salon quincho,Quincho(fiesta uso recomendado),capacidades_maximas_salones_y__chinook,Infraestructura,7
+salon domo,Domo,capacidades_maximas_salones_y__chinook,Infraestructura,8
+salon directorio,Directorio,capacidades_maximas_salones_y__chinook,Infraestructura,9
+masajista exclusiva masajes relax 30 min,"Masajista exclusiva, para masajes relax 30 minutos",precios_spa,Wellness,1
+masajear de relajacion de media hora,",",precios_spa,Wellness,2
+gorros de piscinas lycra,Gorros de piscinas  lycra,precios_spa,Wellness,3
+gorros de piscinas latex,Gorros de piscinas  latex,precios_spa,Wellness,4
+piscina temperada nocturna exclusiva 1h,Piscina temperada nocturna exclusiva por 1 hora,precios_spa,Wellness,5
+cambiar de montaje chinook,Cambios de montaje  Chinook durante el arriendo de salon.,precios_block_1,General,1
+cambiar de montaje coho,Cambios de montaje Coho durante el arriendo de salon.,precios_block_1,General,2
+cambiar de montaje farios y arcoiris,Cambios de montaje  Farios y Arcoiris durante el arriendo de salon.,precios_block_1,General,3
+habitación single hotel b&b,,precios_alojamiento,Hospedaje,1
+habitación doble hotel b&b,,precios_alojamiento,Hospedaje,2
+habitación triple hotel b&b,,precios_alojamiento,Hospedaje,3
+habitación cuadruple hotel b&b,Habitación Cuadruple hotel  B&B,precios_alojamiento,Hospedaje,4
+habitación quintuple hotel b&b,,precios_alojamiento,Hospedaje,5
+cabaña 6 pasajeros b&b,"Valor 6 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,6
+cabaña 7 pasajeros b&b,"Valor 7 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,7
+cabaña 8 pasajeros b&b,"Valor 8 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,8
+ticket de trago,,precios_bebidas__y_bar,General,1
+ticket de cerveza,,precios_bebidas__y_bar,General,2
+ticket de trago vip,,precios_bebidas__y_bar,General,3
+bar abierto 4 horas,", valor por persona",precios_bebidas__y_bar,General,4
+hora extra bar abierto,por persona,precios_bebidas__y_bar,General,5
+bar abierto sin alcohol 4 horas,", valor por persona",precios_bebidas__y_bar,General,6
+hora extra bar abierto sin alcohol,por persona,precios_bebidas__y_bar,General,7
+bar abierto vip 4 horas,"Bar abierto VIP  4 horas, valor por persona",precios_bebidas__y_bar,General,8
+hora extra bar abierto vip,por persona,precios_bebidas__y_bar,General,9
+bar abierto de bebidas en vaso por 4 horas,", por persona",precios_bebidas__y_bar,General,10
+bar abierto de bebidas en vaso por 8 horas,", por persona",precios_bebidas__y_bar,General,11
+bebidas lata ccu,Bebidas,precios_bebidas__y_bar,General,12
+ticket de bebida o agua,,precios_bebidas__y_bar,General,13
+barril de cerveza kuntsman torobayo 30l,,precios_bebidas__y_bar,General,14
+vino castillo molina,,precios_bebidas__y_bar,General,16
+vino casillero del diablo reserva especial,,precios_bebidas__y_bar,General,17
+vino marques casa concha,,precios_bebidas__y_bar,General,18
+cena sugerencias del chef buffet,"Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros",cotizacion_tipo_dia_1,General,1
+bebidas lata ccu,Bebidas,cotizacion_tipo_dia_1,General,2
+ticket de trago,,cotizacion_tipo_dia_1,General,3
+habitación single hotel,,cotizacion_tipo_dia_1,General,4
+desayuno incluido por alojamiento,,cotizacion_tipo_dia_1,General,7
+naufrago para 12 personas,/ 3 grupos/ al azar / colores al azar,cotizacion_tipo_dia_1,General,8
+almuerzo sugerencias del chef buffet,"Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros",cotizacion_tipo_dia_1,General,9
+salon fario uso diurno,", hasta 70 personas",cotizacion_tipo_dia_1,General,11
+bar abierto vip 4 horas,"Bar abierto VIP  4 horas, valor por persona",cotizacion_tipo_dia_1,General,14
+salon chinook 4 horas noche,"Salon chinook, hasta 300 personas, 4 horas noche",cotizacion_tipo_dia_1,General,15
+dj por 4 horas,para grupos menores a  35 pax,cotizacion_tipo_dia_1,General,16
+desayuno,,cotizacion_tipo_dia_1,General,19
+paintball para 12 personas,,cotizacion_tipo_dia_1,General,20
+usar de actividades por cortesía,,cotizacion_tipo_dia_1,General,22
+tecnica para salones uso diurno,.,precios_tecnica_para_salones_uso_diurn,Infraestructura,0
+audio 4 horas en la noche,,precios_tecnica_para_salones_uso_diurn,Infraestructura,1
+amplificacion exterior,,precios_tecnica_para_salones_uso_diurn,Infraestructura,2
+microfono inalambrico adicional,,precios_tecnica_para_salones_uso_diurn,Infraestructura,3
+microfono solapa adicional,,precios_tecnica_para_salones_uso_diurn,Infraestructura,4
+operador para audio 8 hrs,,precios_tecnica_para_salones_uso_diurn,Infraestructura,5
+papelografo adicional para el salon,,precios_tecnica_para_salones_uso_diurn,Infraestructura,6
+comedor vip y terraza 8h diurno,Comedor VIP y terraza (2do piso) para 80 personas 8 horas uso diurno,precios_comedor_vip_y_terraza_2do_piso,General,1
+comedor truchita y terraza 8h diurno,"Comedor truchita o ex poo y terraza para 35 personas, 8 horas uso diurno",precios_comedor_vip_y_terraza_2do_piso,General,2
+arrendar pergola con parrilla 8h diurno,"Arriendo pergola con parrilla para 16 personas, 8 horas uso diurno",precios_comedor_vip_y_terraza_2do_piso,General,3
+comedor vip y terraza 1.5h,"Comedor VIP y terraza (2do piso) para 70 personas 1,5 hrs / AM O PM (ALMUERZO O CENA)",precios_comedor_vip_y_terraza_2do_piso,General,4
+comedor truchita y terraza 1.5h,"Comedor truchita o ex pool y terraza para 35 personas 1,5 horas / AM O PM (ALMUERZO O CENA)",precios_comedor_vip_y_terraza_2do_piso,General,5
+arrendar pergola con parrilla 4h,"Arriendo pergola con parrilla para 16 personas, 4 horas",precios_comedor_vip_y_terraza_2do_piso,General,6
+arrendar pergola picadero,"solo con autorizacion, 2 dias antes.",precios_comedor_vip_y_terraza_2do_piso,General,7
+almuerzo/cena buffet,*Almuerzo/Cena recomendaciones del chef formato buffet sobre 30 personas,cotizacion_tipo_presupuesto_valorizado,General,5
+salon chinook uso diurno,", hasta 320 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,1
+salon coho uso diurno,", hasta 120 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,2
+salon fario uso diurno,", hasta 70 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,3
+salón arcoiris uso diurno,", hasta 70 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,4
+directorio uso diurno,"para 16 personas, mesa imperial",precios_arriendo_de_salones_audios_y_c,Infraestructura,5
+domo uso diurno,Domo para 240 personas,precios_arriendo_de_salones_audios_y_c,Infraestructura,6
+cambiar de horario del desayuno 1 hora,", minimo 30 personas",precios_cambios_de_horas_y_lugar_en_se,General,1
+cambiar de horario del desayuno por media hora,", minimo 30 personas",precios_cambios_de_horas_y_lugar_en_se,General,2
+cambiar de horario de almuerzo por media hora,", minimo 30 personas",precios_cambios_de_horas_y_lugar_en_se,General,3
+extension media hora horario de cena,,precios_cambios_de_horas_y_lugar_en_se,General,4
+cambiar de lugar de servicio de alimentacion,,precios_cambios_de_horas_y_lugar_en_se,General,5
+los neumaticos,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,1
+totem,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,2
+la estrella,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,3
+tirar la cuerda,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,4
+el equilibrio,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,5
+el enredo,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,6
+baile entretenido,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,7
+gimnasia de pausa,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,8
+yoga,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,9
+la bolita,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,10
+ula ula,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,11
+carrera de sacos,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,12
+bob esponja,,teambuilding_y_actividades_teambuilding_actividades_de_pa,Actividades,13
+paintball,,teambuilding_y_actividades_teambuilding,Actividades,1
+busqueda de tesoro,,teambuilding_y_actividades_teambuilding,Actividades,2
+actividad de la luz,,teambuilding_y_actividades_teambuilding,Actividades,3
+alianzas,,teambuilding_y_actividades_teambuilding,Actividades,4
+el herido,,teambuilding_y_actividades_teambuilding,Actividades,5
+"el naufrago, la balsa",,teambuilding_y_actividades_teambuilding,Actividades,6
+el naufrago full,,teambuilding_y_actividades_teambuilding,Actividades,7
+conquistando la cumbre,,teambuilding_y_actividades_teambuilding,Actividades,8
+tiro con arco,,teambuilding_y_actividades_teambuilding,Actividades,9
+mision y vision,,teambuilding_y_actividades_teambuilding,Actividades,10
+fabrica de sal,,teambuilding_y_actividades_teambuilding,Actividades,11
+la pizza nostra per tutti,,teambuilding_y_actividades_teambuilding,Actividades,12
+la pizza nostra,,teambuilding_y_actividades_teambuilding,Actividades,13
+the boss grill,,teambuilding_y_actividades_teambuilding,Actividades,14
+cocinando equipos,,teambuilding_y_actividades_teambuilding,Actividades,15
+master chef,,teambuilding_y_actividades_teambuilding,Actividades,16
+de la masa al plato,,teambuilding_y_actividades_teambuilding,Actividades,17
+parrillando en equipo,,teambuilding_y_actividades_teambuilding,Actividades,18
+karaoke con copas y tapas,,teambuilding_y_actividades_teambuilding,Actividades,19
+cordero & vinos,,teambuilding_y_actividades_teambuilding,Actividades,20
+cata de vinos,,teambuilding_y_actividades_teambuilding,Actividades,21
+1 ramo de flores,", 6 rosas, rojas, blancas, rosadas, amarilla",precios_otros_articulos,General,1
+sahne nuss + espumante/vino,1 Chocolate Sahne Nuss 250g + espumante o botella de vino,precios_otros_articulos,General,2
+resma de hojas,,precios_otros_articulos,General,4
+lapices azul pasta,,precios_otros_articulos,General,5
+corrector lapiz,,precios_otros_articulos,General,6
+plumones permanente,,precios_otros_articulos,General,7
+plumones de pizarra,,precios_otros_articulos,General,8
+fotocopias o impresion color,,precios_otros_articulos,General,9
+fotocopias o impresion negro,,precios_otros_articulos,General,10
+almuerzos productoras o choferes,en buffet,precios_otros_articulos,General,11
+coffee básico,,precios_coffes_y_servicios_relacionado,General,1
+coffee intermedio,,precios_coffes_y_servicios_relacionado,General,2
+coffe full,,precios_coffes_y_servicios_relacionado,General,3
+coffe light,,precios_coffes_y_servicios_relacionado,General,4
+adicionar coffe dentro del salon,,precios_coffes_y_servicios_relacionado,General,5
+maquina cafe milano,con carga para 120 cafes app. ( autoservicio),precios_coffes_y_servicios_relacionado,General,6
+1 tapadito,,precios_coffes_y_servicios_relacionado,General,7
+1 medialuna,,precios_coffes_y_servicios_relacionado,General,8
+galletas de mantequilla 3 por persona,Galletas de mantequilla  3 por persona,precios_coffes_y_servicios_relacionado,General,9
+cafe de grano o te en salon 8 hrs,,precios_coffes_y_servicios_relacionado,General,10
+dispensador de agua 20 lts en salon,,precios_coffes_y_servicios_relacionado,General,11
+recarga de bidon de 20 lts,para dispensador de agua,precios_coffes_y_servicios_relacionado,General,12
+"cafe de grano, te y agua salon 8 horas","Cafe de grano, te y agua fria /caliente en salon  por 8 horas.",precios_coffes_y_servicios_relacionado,General,13
+luces perimetrales salon,chinook o vip,precios_coffes_y_servicios_relacionado,General,15
+dj y/o karaoke < 50 pax 4 hrs,DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,precios_coffes_y_servicios_relacionado,General,16
+hora extra dj/karaoke < 50 pax,Hora extra DJ y/o Karaoke por 4 hrs para grupos menores 50 Pax,precios_coffes_y_servicios_relacionado,General,17
+dj y/o karaoke > 50 pax 4 hrs,DJ y/o Karaoke para grupos mayores a 50 Pax,precios_coffes_y_servicios_relacionado,General,18
+hora extra dj/karaoke > 50 pax,Hora extra DJ y/o Karaoke para grupos mayores a 50 Pax,precios_coffes_y_servicios_relacionado,General,19
+salon chinook con fogata 4h noche,"Salon chinook con fogata, hasta 300 personas, 4 horas noche",precios_coffes_y_servicios_relacionado,General,20
+comedor vip con fogata 4h noche,"Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",precios_coffes_y_servicios_relacionado,General,22
+espacio bar para karaoke 4h noche,"Espacio del Bar para karaoke, hasta 50 personas por 4 hrs noche",precios_coffes_y_servicios_relacionado,General,24
+domo fiestas con fogata 4h noche,"Domo para fiestas con fogata, hasta 250 personas, 4 horas noche",precios_coffes_y_servicios_relacionado,General,25
+lounge en terrazas valor por persona,"Lounge en terrazas con sillones, mesas y fogones, hasta 50 pax. Valor por persona",precios_coffes_y_servicios_relacionado,General,26
+desayuno,,precios_alimentacion_y_banqueteria,Gastronomia,1
+desayuno incluido por alojamiento,,precios_alimentacion_y_banqueteria,Gastronomia,2
+almuerzo sugerencias del chef buffet,"Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",precios_alimentacion_y_banqueteria,Gastronomia,3
+cena sugerencias del chef buffet,"Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",precios_alimentacion_y_banqueteria,Gastronomia,4
+almuerzo o cena a la carta,,precios_alimentacion_y_banqueteria,Gastronomia,5
+almuerzo o cena a la carta vip,,precios_alimentacion_y_banqueteria,Gastronomia,6
+"cena o almuerzo parrilla, minimo 30 pax",,precios_alimentacion_y_banqueteria,Gastronomia,7
+"cena o almuerzo parrilla, menos de 30 pax",,precios_alimentacion_y_banqueteria,Gastronomia,8
+once,,precios_alimentacion_y_banqueteria,Gastronomia,9
+box lunch,(Como una Once en cajitas individuales para que se la puedan llevar),precios_alimentacion_y_banqueteria,Gastronomia,10
+cata de vinos con somelier,", minimo 10 personas y hasta 40.  Duración 1 hora",precios_alimentacion_y_banqueteria,Gastronomia,11
+valor pax adicional misma habitacion,Valor Pax adicional en la misma habitacion,precios_valor_pax_adicional_en_la_mism,General,0
+early check in hotel,"Early check in, por habitacion de hotel",precios_valor_pax_adicional_en_la_mism,General,1
+late check out hotel,"Late check out, por habitacion de hotel",precios_valor_pax_adicional_en_la_mism,General,2
+early check in cabaña,"Early check in, por cabaña",precios_valor_pax_adicional_en_la_mism,General,3
+late check out cabaña,"Late check out, por cabaña",precios_valor_pax_adicional_en_la_mism,General,4
+traslado de maletas,", entrega y retiro fuera de las habitaciones, valor por persona",precios_valor_pax_adicional_en_la_mism,General,5
+productos o regalos en habitaciones,"Productos o regalos en las habitaciones, valor por persona",precios_valor_pax_adicional_en_la_mism,General,6
+picoteo parrillando con amigos,: minimo 20 personas,precios_picoteo_parrillando_con_amigos,General,1
+aperitivo tematico: jugando en la barra,", minimo 20 personas. Maximo 1,5 horas",precios_picoteo_parrillando_con_amigos,General,2
+tabla de queso 6 pax,,precios_picoteo_parrillando_con_amigos,General,3
+tabla fiambres 6 pax,,precios_picoteo_parrillando_con_amigos,General,4
+tabla mixta quesos y fiambres 6 pax,,precios_picoteo_parrillando_con_amigos,General,5
+"tabla mix tapaditos, quiches y empanadas 6 pax","Tabla Mix Tapaditos, Quiches y Mini Empanadas 6 pax",precios_picoteo_parrillando_con_amigos,General,6
+tabla vegana 6 pax,,precios_picoteo_parrillando_con_amigos,General,7
+coctail basico,", minimo 15 pasajeros.",precios_picoteo_parrillando_con_amigos,General,8
+coctail chileno,", minimo 15 pasajeros.",precios_picoteo_parrillando_con_amigos,General,9
+cordero a la espada 20 pax,Cordero a la espada (Cordero con pan amasado y salsas para 20 pax),precios_picoteo_parrillando_con_amigos,General,10
+pierna de cerdo 16 hrs,"al horno, con amasado y 3 salsas para picoteo",precios_picoteo_parrillando_con_amigos,General,11
+empanadas coctel unitario,"Empanadas coctel( pino, queso y napolitana)",precios_picoteo_parrillando_con_amigos,General,12
+servicio trasnoche consome + tapaditos,Servicio de trasnoche Consome 250cc con 2 tapaditos,precios_picoteo_parrillando_con_amigos,General,13
+punto de hidratación,,precios_picoteo_parrillando_con_amigos,General,14
+1 fruta de estación,,precios_picoteo_parrillando_con_amigos,General,15
+1 barra de cereal,,precios_picoteo_parrillando_con_amigos,General,16
+torta chocolate 16 pax,,precios_picoteo_parrillando_con_amigos,General,17
+trozo torta chocolate + cafe,Trozo de torta de Chocolate + estacion cafe o té en comedor,precios_picoteo_parrillando_con_amigos,General,22
