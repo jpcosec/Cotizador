@@ -1,47 +1,42 @@
-# CotizadorLodge — Data
+# CotizadorLodge - Data
 
-Data extraction, analysis, and documentation for the Lodge quotation engine.
+Datos y especificaciones para construir el motor del cotizador.
 
-## Structure
+## Estructura
 
-```
-source/             Raw price list Excel files and extracted text
-scripts/            Extraction and table-generation scripts
-processed_data/     Pipeline outputs (items, pricing, rules, categories)
-repo_cotizaciones/  Historical quotation archive (2018, 2020, 2026)
-docs/               Documentation index
-cotizaciones_analysis.ipynb   Historical data analysis notebook
-Data_Historica.csv            Row-level historical quotation data
+```text
+docs/                  Documentacion y specs del modelo
+scripting/             Espacio reservado para scripts/utilidades del pipeline
+data/raw/              Fuentes crudas e historicas
+data/processed/        Salidas procesadas para modelado y motor
 ```
 
-## Quick Start
+## Data cruda
 
-### Open the Streamlit data viewer
+- `data/raw/source/`
+  - excels fuente y dumps de apoyo
+- `data/raw/repo_cotizaciones/`
+  - archivo historico de cotizaciones reales
+- `data/raw/2025/`, `data/raw/2026/`
+  - CSVs crudos por ano extraidos desde las planillas
+- `data/raw/Data_Historica.csv`
+  - historico tabular adicional
 
-```bash
-streamlit run Data/streamlit_app.py
-```
+## Data procesada
 
-This opens a 4-view explorer for `items`, `categories`, `pricing`, and `rules` with cross-links between related records.
-
-### Run the extraction pipeline
-
-Scripts must be run from `scripts/` or any directory — they resolve paths relative to the repo root:
-
-```bash
-python scripts/generate_tables.py   # regenerates items_enriched.json, pricing.csv, rules.csv, categories.csv
-python scripts/generate_items.py    # regenerates 2025_items.csv and 2026_items.csv
-```
-
-### Explore historical data
-
-```bash
-jupyter lab
-# open cotizaciones_analysis.ipynb
-```
-
-See [`docs/notebook.md`](docs/notebook.md) for usage guide.
+- `data/processed/items_enriched.json`
+- `data/processed/pricing.csv`
+- `data/processed/rules.csv`
+- `data/processed/categories.csv`
+- `data/processed/2025/extracted/`
+- `data/processed/2026/extracted/`
 
 ## Docs
 
-See [`docs/README.md`](docs/README.md) for the full documentation index, including migration guides and dev architecture pointers.
+- `docs/README.md`
+- `docs/models/OntologiaPropuesta/`
+- `docs/models/Ortogonalizacion.mup`
+
+## Scripting
+
+Hoy no hay scripts activos en esta carpeta. Se deja separada para futuras utilidades de pipeline o conversion.

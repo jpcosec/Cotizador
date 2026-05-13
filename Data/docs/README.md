@@ -26,3 +26,9 @@ Guides for porting legacy GAS logic to the new schema:
 
 - [`diagrams/`](diagrams/) — Mermaid component and activity diagrams.
 - [`specs/`](specs/) — YAML specs for the same diagrams.
+
+
+## Modelado
+
+- `models/OntologiaPropuesta/`
+- `models/Ortogonalizacion.mup`
