@@ -1,0 +1,114 @@
+- main [ref=e2]:
+  - link "← Back to playgrounds" [ref=e3] [cursor=pointer]:
+    - /url: /playground/index.html
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - paragraph [ref=e8]: Architecture Spike
+        - heading "GenericUnit Runtime Lab" [level=1] [ref=e9]
+        - paragraph [ref=e10]: Alpine renders projections while XState drives transitions, boundaries, and recursive units.
+      - generic [ref=e11]:
+        - button "Previous" [ref=e12] [cursor=pointer]
+        - button "Next" [active] [ref=e13] [cursor=pointer]
+        - button "Hide debug" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - article [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - paragraph [ref=e19]: View
+            - heading "generic-unit-lab" [level=2] [ref=e20]
+          - generic [ref=e21]: review
+        - generic [ref=e22]:
+          - button "Compose" [ref=e23] [cursor=pointer]
+          - button "Review" [ref=e24] [cursor=pointer]
+          - button "Export" [ref=e25] [cursor=pointer]
+        - generic [ref=e26]:
+          - button "Mutate child state" [ref=e27] [cursor=pointer]
+          - button "Signal sibling" [ref=e28] [cursor=pointer]
+          - button "Mirror stage to child" [ref=e29] [cursor=pointer]
+          - button "Propagate context" [ref=e30] [cursor=pointer]
+          - button "Save snapshot" [ref=e31] [cursor=pointer]
+          - button "Export projection" [ref=e32] [cursor=pointer]
+          - button "Run pricing" [ref=e33] [cursor=pointer]
+          - button "Run rules" [ref=e34] [cursor=pointer]
+          - button "Query store" [ref=e35] [cursor=pointer]
+      - article [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - paragraph [ref=e39]: Projection
+            - heading "Visible Units" [level=2] [ref=e40]
+          - generic [ref=e41]: "1"
+        - generic [ref=e43]:
+          - strong [ref=e44]: Workspace Container
+          - generic [ref=e45]: workspace-container
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - strong [ref=e118]: store.query
+            - generic [ref=e119]: success
+          - generic [ref=e120]:
+            - strong [ref=e121]: rules.evaluate
+            - generic [ref=e122]: success
+    - article [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - paragraph [ref=e50]: container
+          - heading "Workspace Container" [level=3] [ref=e51]
+          - paragraph [ref=e52]: Recursive layer between View and leaf units.
+        - generic [ref=e54]: recursive-layer
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - term [ref=e57]: Children
+          - definition [ref=e58]: "2"
+        - generic [ref=e59]:
+          - term [ref=e60]: Aggregate Count
+          - definition [ref=e61]: "2"
+        - generic [ref=e62]:
+          - term [ref=e63]: Status
+          - definition [ref=e64]: ready
+      - generic [ref=e65]:
+        - article [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e68]:
+              - paragraph [ref=e69]: demo-unit
+              - heading "Status Unit" [level=3] [ref=e70]
+            - generic [ref=e72]: local-state
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - term [ref=e75]: Count
+              - definition [ref=e76]: "2"
+            - generic [ref=e77]:
+              - term [ref=e78]: Last Note
+              - definition [ref=e79]: None
+            - generic [ref=e80]:
+              - term [ref=e81]: Stage
+              - definition [ref=e82]: compose
+          - generic [ref=e83]: "{ \"derived\": { \"updatedBy\": \"playground\" }, \"context\": { \"unitRole\": \"status\", \"stage\": \"compose\", \"flowMode\": \"editing\" }, \"meta\": { \"title\": \"Status Unit\", \"stages\": [ \"compose\", \"review\", \"export\" ] } }"
+        - article [ref=e84]:
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - paragraph [ref=e87]: demo-unit
+              - heading "Inspector Unit" [level=3] [ref=e88]
+            - generic [ref=e90]: cross-unit
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - term [ref=e93]: Count
+              - definition [ref=e94]: "0"
+            - generic [ref=e95]:
+              - term [ref=e96]: Last Note
+              - definition [ref=e97]: Sibling signal arrived through GenericUnit routing.
+            - generic [ref=e98]:
+              - term [ref=e99]: Stage
+              - definition [ref=e100]: compose
+          - generic [ref=e101]: "{ \"derived\": {}, \"context\": { \"unitRole\": \"inspector\", \"stage\": \"compose\", \"flowMode\": \"editing\" }, \"meta\": { \"title\": \"Inspector Unit\", \"stages\": [ \"review\", \"export\" ] } }"
+      - generic [ref=e102]: "{ \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } }, \"derived\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } }, \"meta\": { \"title\": \"Workspace Container\", \"stages\": [ \"compose\", \"review\", \"export\" ] } }"
+    - generic [ref=e103]:
+      - article [ref=e104]:
+        - generic [ref=e106]:
+          - paragraph [ref=e107]: Signals
+          - heading "Recent traffic" [level=2] [ref=e108]
+        - generic [ref=e109]: "[ { \"kind\": \"view:received\", \"timestamp\": \"2026-04-20T22:01:39.391Z\", \"payload\": { \"type\": \"NEXT_STAGE\", \"targetId\": \"generic-unit-lab\" } }, { \"kind\": \"view:received\", \"timestamp\": \"2026-04-20T22:01:39.234Z\", \"payload\": { \"type\": \"REQUEST_RULES\", \"payload\": { \"subtotal\": 0 }, \"targetId\": \"generic-unit-lab\" } }, { \"kind\": \"view:received\", \"timestamp\": \"2026-04-20T22:01:39.082Z\", \"payload\": { \"type\": \"REQUEST_STORE\", \"payload\": { \"id\": \"status-unit\" }, \"targetId\": \"generic-unit-lab\" } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.006Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.005Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.005Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.004Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.004Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"inspector:received\", \"timestamp\": \"2026-04-20T22:01:39.004Z\", \"payload\": { \"type\": \"PATCH_CONTEXT\", \"patch\": { \"stage\": \"compose\", \"flowMode\": \"editing\" }, \"sourceId\": \"workspace-container\", \"targetId\": \"inspector-unit\" } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.003Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.003Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } }, { \"kind\": \"container:projection\", \"timestamp\": \"2026-04-20T22:01:39.002Z\", \"payload\": { \"aggregate\": { \"childCount\": 2, \"visibleChildCount\": 2, \"statuses\": { \"status-unit\": \"ready\", \"inspector-unit\": \"ready\" }, \"totals\": { \"count\": 2, \"subtotal\": 0 } } } } ]"
+      - article [ref=e110]:
+        - generic [ref=e112]:
+          - paragraph [ref=e113]: Snapshot
+          - heading "Serializable runtime state" [level=2] [ref=e114]
+        - generic [ref=e115]: "{ \"id\": \"generic-unit-lab\", \"type\": \"view\", \"status\": \"ready\", \"visible\": true, \"enabled\": true, \"stage\": \"review\", \"context\": { \"mode\": \"playground\", \"runtime\": \"generic-unit-spike\" }, \"state\": { \"childSignals\": [ { \"type\": \"CHILD_NOTE\", \"payload\": { \"note\": \"Sibling signal arrived through GenericUnit routing.\" }, \"sourceId\": \"status-unit\", \"sourceType\": \"demo-unit\", \"via\": [ \"workspace-container\" ] } ], \"selectedUnitId\": \"status-unit\" }, \"ui\": { \"title\": \"GenericUnit Runtime Lab\", \"subtitle\": \"Alpine renders projections while XState drives transitions, boundaries, and recursive units.\", \"variant\": \"default\", \"badges\": [], \"panels\": [], \"fields\": [], \"actions\": [ { \"id\": \"next\", \"label\": \"Next stage\" }, { \"id\": \"save\", \"label\": \"Save snapshot\" }, { \"id\": \"export\", \"label\": \"Export projection\" } ], \"classes\": [] }, \"derived\": { \"store\": { \"items\": [ { \"id\": \"status-unit\", \"label\": \"Catalog seed loaded from mock store\", \"category\": \"playground\" } ] }, \"rules\": { \"level\": \"standard\", \"warnings\": [ \"Subtotal is zero\" ] } }, \"errors\": [], \"warnings\": [], \"boundaryStatus\": { \"store.query\": { \"status\": \"success\", \"result\": { \"items\": [ { \"id\": \"status-unit\", \"label\": \"Catalog seed loaded from mock store\", \"category\": \"playground\" } ] } }, \"rules.evaluate\": { \"status\": \"success\", \"result\": { \"level\": \"standard\", \"warnings\": [ \"Subtotal is zero\" ] } } }, \"meta\": {}, \"lastSignal\": { \"type\": \"NEXT_STAGE\", \"targetId\": \"generic-unit-lab\" }, \"childIds\": [ \"workspace-container\" ] }"

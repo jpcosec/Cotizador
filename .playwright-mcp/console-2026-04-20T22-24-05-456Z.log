@@ -1,0 +1,2 @@
+[      49ms] Error: json-logic-js UMD module must be loaded before importing this wrapper. Ensure <script src="/node_modules/json-logic-js/logic.js"></script> is in the HTML.
+    at http://127.0.0.1:8011/src/components/item/domain/rulesEngine/json-logic-esm.js:11:9

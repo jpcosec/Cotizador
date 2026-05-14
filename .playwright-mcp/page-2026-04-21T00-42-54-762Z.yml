@@ -1,0 +1,10 @@
+- generic [ref=e4]:
+  - heading "Quotation Flow" [level=2] [ref=e5]
+  - paragraph [ref=e6]: "Full GAS app runtime: select client, configure quotation, build basket by days."
+  - generic [ref=e7]:
+    - button "Start Quotation" [ref=e8]
+    - button "Select Client" [ref=e9]
+    - button "Buscar cotizacion" [ref=e10]
+  - generic [ref=e11]:
+    - 'textbox "Quotation ID (ex: COT-0001)" [ref=e12]'
+    - button "Load Quotation" [ref=e13]

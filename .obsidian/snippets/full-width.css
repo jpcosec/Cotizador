@@ -1,0 +1,19 @@
+body {
+  --file-line-width: 100% !important;
+}
+
+.markdown-source-view.mod-cm6 .cm-content,
+.markdown-source-view.mod-cm6 .cm-sizer,
+.markdown-reading-view .markdown-preview-view,
+.markdown-reading-view .markdown-preview-section {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.markdown-source-view.mod-cm6 .cm-content > .cm-gutterElement {
+  max-width: 100%;
+}
+
+.workspace-leaf-content[data-type="markdown"] .view-content {
+  padding: 0 20px;
+}

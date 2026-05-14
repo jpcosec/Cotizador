@@ -1,0 +1,32 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - heading "Quotation Flow" [level=2] [ref=e5]
+    - paragraph [ref=e6]: "Full GAS app runtime: select client, configure quotation, build basket by days."
+    - generic [ref=e7]:
+      - button "Start Quotation" [ref=e8]
+      - button "Select Client" [active] [ref=e9]
+      - button "Buscar cotizacion" [ref=e10]
+    - generic [ref=e11]:
+      - 'textbox "Quotation ID (ex: COT-0001)" [ref=e12]'
+      - button "Load Quotation" [ref=e13]
+  - generic [ref=e15]:
+    - generic [ref=e16]:
+      - heading "Select Client" [level=3] [ref=e17]
+      - button "Close" [ref=e18]
+    - textbox "Search by name/rut/email" [ref=e19]
+    - generic [ref=e20]:
+      - button "test1 18123123-5 · empresa@asda.cl" [ref=e21] [cursor=pointer]:
+        - strong [ref=e22]: test1
+        - text: 18123123-5 · empresa@asda.cl
+      - button "pedro palotes 12345678-9 · wea@a.cl" [ref=e23] [cursor=pointer]:
+        - strong [ref=e24]: pedro palotes
+        - text: 12345678-9 · wea@a.cl
+      - button "Aventuta*/r 76666800-3 · carmen@sflodge.cl" [ref=e25] [cursor=pointer]:
+        - strong [ref=e26]: Aventuta*/r
+        - text: 76666800-3 · carmen@sflodge.cl
+      - button "Ruth Stollsteimer 11111111-1 · ruth.stollsteimer@gmail.com" [ref=e27] [cursor=pointer]:
+        - strong [ref=e28]: Ruth Stollsteimer
+        - text: 11111111-1 · ruth.stollsteimer@gmail.com
+      - button "La corralera spa 25870262-K · taydecorrales@gmail.com" [ref=e29] [cursor=pointer]:
+        - strong [ref=e30]: La corralera spa
+        - text: 25870262-K · taydecorrales@gmail.com

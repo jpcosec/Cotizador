@@ -1,0 +1,96 @@
+- main [ref=e2]:
+  - link "← Back to playgrounds" [ref=e3] [cursor=pointer]:
+    - /url: /playground/index.html
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - paragraph [ref=e8]: Architecture Spike
+        - heading "GenericUnit Runtime Lab" [level=1] [ref=e9]
+        - paragraph [ref=e10]: Alpine renders projections while XState drives transitions and boundaries.
+      - generic [ref=e11]:
+        - button "Previous" [ref=e12] [cursor=pointer]
+        - button "Next" [active] [ref=e13] [cursor=pointer]
+        - button "Hide debug" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - article [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - paragraph [ref=e19]: View
+            - heading "generic-unit-lab" [level=2] [ref=e20]
+          - generic [ref=e21]: review
+        - generic [ref=e22]:
+          - button "Compose" [ref=e23] [cursor=pointer]
+          - button "Review" [ref=e24] [cursor=pointer]
+          - button "Export" [ref=e25] [cursor=pointer]
+        - generic [ref=e26]:
+          - button "Mutate child state" [ref=e27] [cursor=pointer]
+          - button "Signal sibling" [ref=e28] [cursor=pointer]
+          - button "Mirror stage to child" [ref=e29] [cursor=pointer]
+          - button "Save snapshot" [ref=e30] [cursor=pointer]
+          - button "Export projection" [ref=e31] [cursor=pointer]
+          - button "Run pricing" [ref=e32] [cursor=pointer]
+          - button "Run rules" [ref=e33] [cursor=pointer]
+      - article [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e36]:
+            - paragraph [ref=e37]: Projection
+            - heading "Visible Units" [level=2] [ref=e38]
+          - generic [ref=e39]: "2"
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - strong [ref=e42]: Status Unit
+            - generic [ref=e43]: status-unit
+          - generic [ref=e77]:
+            - strong [ref=e78]: Inspector Unit
+            - generic [ref=e79]: inspector-unit
+        - generic [ref=e81]:
+          - strong [ref=e82]: persistence.save
+          - generic [ref=e83]: success
+    - generic [ref=e44]:
+      - article [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - paragraph [ref=e48]: demo-unit
+            - heading "Status Unit" [level=3] [ref=e49]
+            - paragraph [ref=e50]: Count 2
+          - generic [ref=e52]: local-state
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - term [ref=e55]: Count
+            - definition [ref=e56]: "2"
+          - generic [ref=e57]:
+            - term [ref=e58]: Last Note
+            - definition [ref=e59]: None
+          - generic [ref=e60]:
+            - term [ref=e61]: Status
+            - definition [ref=e62]: ready
+        - generic [ref=e63]: "{ \"derived\": { \"updatedBy\": \"playground\" }, \"meta\": { \"title\": \"Status Unit\", \"stages\": [ \"compose\", \"review\", \"export\" ] } }"
+      - article [ref=e84]:
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: demo-unit
+            - heading "Inspector Unit" [level=3] [ref=e88]
+            - paragraph [ref=e89]: Receives routed signals and mirrors view status.
+          - generic [ref=e91]: cross-unit
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - term [ref=e94]: Count
+            - definition [ref=e95]: "0"
+          - generic [ref=e96]:
+            - term [ref=e97]: Last Note
+            - definition [ref=e98]: Waiting for sibling signal
+          - generic [ref=e99]:
+            - term [ref=e100]: Status
+            - definition [ref=e101]: ready
+        - generic [ref=e102]: "{ \"derived\": {}, \"meta\": { \"title\": \"Inspector Unit\", \"stages\": [ \"review\", \"export\" ] } }"
+    - generic [ref=e64]:
+      - article [ref=e65]:
+        - generic [ref=e67]:
+          - paragraph [ref=e68]: Signals
+          - heading "Recent traffic" [level=2] [ref=e69]
+        - generic [ref=e70]: "[ { \"kind\": \"view:received\", \"timestamp\": \"2026-04-20T21:54:15.076Z\", \"payload\": { \"type\": \"NEXT_STAGE\", \"targetId\": \"generic-unit-lab\" } }, { \"kind\": \"view:received\", \"timestamp\": \"2026-04-20T21:54:14.917Z\", \"payload\": { \"type\": \"REQUEST_SAVE\", \"payload\": { \"label\": \"draft-compose\" }, \"targetId\": \"generic-unit-lab\" } } ]"
+      - article [ref=e71]:
+        - generic [ref=e73]:
+          - paragraph [ref=e74]: Snapshot
+          - heading "Serializable runtime state" [level=2] [ref=e75]
+        - generic [ref=e76]: "{ \"id\": \"generic-unit-lab\", \"type\": \"view\", \"status\": \"ready\", \"visible\": true, \"enabled\": true, \"stage\": \"review\", \"context\": { \"mode\": \"playground\", \"runtime\": \"generic-unit-spike\" }, \"state\": { \"childSignals\": [], \"selectedUnitId\": \"status-unit\" }, \"ui\": { \"title\": \"GenericUnit Runtime Lab\", \"subtitle\": \"Alpine renders projections while XState drives transitions and boundaries.\", \"variant\": \"default\", \"badges\": [], \"panels\": [], \"fields\": [], \"actions\": [ { \"id\": \"next\", \"label\": \"Next stage\" }, { \"id\": \"save\", \"label\": \"Save snapshot\" }, { \"id\": \"export\", \"label\": \"Export projection\" } ], \"classes\": [] }, \"derived\": { \"persistence\": { \"ok\": true, \"savedAt\": \"playground\", \"label\": \"draft-compose\", \"childCount\": 2 } }, \"errors\": [], \"warnings\": [], \"boundaryStatus\": { \"persistence.save\": { \"status\": \"success\", \"result\": { \"ok\": true, \"savedAt\": \"playground\", \"label\": \"draft-compose\", \"childCount\": 2 } } }, \"meta\": {}, \"lastSignal\": { \"type\": \"NEXT_STAGE\", \"targetId\": \"generic-unit-lab\" }, \"childIds\": [ \"status-unit\", \"inspector-unit\" ] }"
