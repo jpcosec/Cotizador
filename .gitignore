@@ -4,3 +4,4 @@ node_modules/
 test-results/
 data/db.json
 .clasp.json
+.worktrees/
