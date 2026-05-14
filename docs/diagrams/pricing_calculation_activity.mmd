@@ -1,0 +1,42 @@
+flowchart TD
+    __start([Start])
+    resolve_definition["resolveItemDefinition(itemId, db)"]
+    normalize_profile["normalizeProfile(pricingProfile)"]
+    detect_kind{"detectPricingKind(profile)"}
+    resolve_pax_quantity["resolveBasketQuantity — PAX"]
+    check_init_mode_pax{"InitMode?"}
+    use_pax_fixed["quantity = defaults.pax"]
+    use_global_pax["quantity = externalContext.paxGlobal"]
+    use_pax_override["quantity = overrides.pax"]
+    resolve_units_quantity["resolveBasketQuantity — UNITS"]
+    resolve_time_quantity["resolveBasketQuantity — TIME"]
+    compute_flat["total = baseFijo"]
+    compute_total["total = baseFijo + (quantity × rate)"]
+    evaluate_rules["evaluateRules(rules, snapshot)"]
+    check_rules{"Any blocking rule fired?"}
+    mark_unavailable["available = false"]
+    expose_projections["toCatalogCard / toBasketLine / toMachineContext"]
+    __end([End])
+    __start --> resolve_definition
+    resolve_definition --> normalize_profile
+    normalize_profile --> detect_kind
+    detect_kind -->|PAX| resolve_pax_quantity
+    detect_kind -->|UNITS| resolve_units_quantity
+    detect_kind -->|TIME| resolve_time_quantity
+    detect_kind -->|NONE| compute_flat
+    resolve_pax_quantity --> check_init_mode_pax
+    check_init_mode_pax -->|FIXED_AMOUNT| use_pax_fixed
+    check_init_mode_pax -->|CONTEXT_PAX| use_global_pax
+    check_init_mode_pax -->|override set| use_pax_override
+    use_pax_fixed --> compute_total
+    use_global_pax --> compute_total
+    use_pax_override --> compute_total
+    resolve_units_quantity --> compute_total
+    resolve_time_quantity --> compute_total
+    compute_flat --> evaluate_rules
+    compute_total --> evaluate_rules
+    evaluate_rules --> check_rules
+    check_rules -->|yes| mark_unavailable
+    check_rules -->|no| expose_projections
+    mark_unavailable --> expose_projections
+    expose_projections --> __end

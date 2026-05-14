@@ -1,0 +1,120 @@
+# Migration: Rules Engine & GAS Data Flow
+
+## What
+
+The rules engine is **fully implemented in dev** — `RulesCoordinator` + JSON-Logic evaluates constraints client-side (browser). Rules data lives in `REGLAS_NEGOCIO.csv`, seeded into the GAS spreadsheet, and shipped to the browser via `getReferenceDataV2()`.
+
+The Data extraction pipeline (`generate_tables.py`) produces a `rules.csv` with 80 extracted rules. These are **not yet converted** into the `REGLAS_NEGOCIO.csv` format that dev consumes.
+
+## Data flow
+
+```
+rules.csv                        ← extraction pipeline output
+  ↓ (conversion needed)
+REGLAS_NEGOCIO.csv               ← dev/data/init/ seed format
+  ↓ (clasp push / sheet import)
+GAS Spreadsheet (REGLAS_NEGOCIO tab)
+  ↓ getReferenceDataV2()
+browser InMemoryStore
+  ↓ resolveItemDefinition(itemId, db)
+  ↓   → pre-filter: Scope=ITEM, Etapa=RESTRICCION_UI, Activo=true
+RulesCoordinator.evaluate(snapshot)
+  ↓ jsonLogic.apply(Condicion_JSON, snapshot)
+Item.available + errors + warnings
+```
+
+## REGLAS_NEGOCIO.csv schema
+
+| Column | Type | Notes |
+|---|---|---|
+| `ID_Regla` | string | e.g. `R_AUT_0001` |
+| `Nombre` | string | Human-readable description |
+| `Etapa` | string | `RESTRICCION_UI` for capacity/time checks |
+| `Scope` | string | `ITEM` \| `CATEGORY` \| `KIT` \| `CONTAINER` \| `BASKET` |
+| `Tipo_Accion` | string | `ERROR` (blocking) or `WARNING` (non-blocking) |
+| `Hook` | string | Usually empty at `RESTRICCION_UI` stage |
+| `Condicion_JSON` | JSON string | JSON-Logic condition |
+| `Payload_JSON` | JSON string | `{"message": "..."}` |
+| `Prioridad` | number | Lower = evaluated first (20 for capacity, 30 for warnings) |
+| `Acumulable` | boolean | `false` = stop after first match of same type |
+| `Activo` | boolean | `true` to enable |
+| `Updated_At` | ISO string | e.g. `2026-02-19T23:30:00.000Z` |
+
+## Snapshot variable namespace
+
+**Critical**: the coordinator passes `{ item: { ... } }` as the JSON-Logic data context.
+All conditions must use the `item.*` prefix:
+
+```json
+{ "var": "item.id" }      ← NOT "itemId"
+{ "var": "item.pax" }     ← NOT "pax"
+{ "var": "item.horaMin" } ← NOT "horaMin"
+```
+
+| Variable | Path in JSON-Logic | Type |
+|---|---|---|
+| Item ID | `item.id` | string |
+| Pax count | `item.pax` | number |
+| Unit count | `item.cantidad` | number |
+| Duration (min) | `item.duracion` | number |
+| Start time (display) | `item.hora` | string — do not compare |
+| Start time (minutes) | `item.horaMin` | number — use for comparisons |
+| End time (minutes) | `item.horaFinMin` | number = horaMin + duracion |
+| Day number | `item.dia` | number (1-based) |
+
+> `writing-rules.md` shows flat names (`pax`, `itemId`) in its examples — those describe an intended future flattened API. The current coordinator and all existing CSV rows use `item.*`. New rules must use `item.*` until the coordinator is updated.
+
+## Existing rules in dev/data/init/REGLAS_NEGOCIO.csv
+
+28 rules, all capacity checks at `RESTRICCION_UI/ITEM/ERROR`:
+- Rooms: Chinook (max 320), Coho (max 120), Fario (max 70), Arcoiris (max 70), Comedor Truchita (max 35)
+- Night events: Chinook+fogata (max 300), Domo (max 250), Bar karaoke (max 50), Comedor VIP (max 70)
+- Food/drink minimums: Desayuno horario cambio (min 30), Parrilla (min/max 30), Cata vinos (min 10), Picoteo parrilla (min 20), Aperitivo bar (min 20), Coctail básico/chileno (min 15)
+- Activities: Caballo (min 4, max 20)
+
+## How to convert extracted rules.csv to REGLAS_NEGOCIO format
+
+Each row in `processed_data/rules.csv` with `hint_unit = pax` and a `hint_min` or `hint_max` value maps to one or two REGLAS_NEGOCIO rows.
+
+```python
+# Minimal conversion sketch — needs item_id → full ITEM_CATALOGO ID mapping
+def rule_to_regla(row, item_catalog_id, seq):
+    rules = []
+    if row['hint_min']:
+        rules.append({
+            'ID_Regla': f"R_EXT_{seq:04d}",
+            'Nombre': row['raw_text'][:80],
+            'Etapa': 'RESTRICCION_UI',
+            'Scope': 'ITEM',
+            'Tipo_Accion': 'ERROR',
+            'Hook': '',
+            'Condicion_JSON': json.dumps({"and": [
+                {"===": [{"var": "item.id"}, item_catalog_id]},
+                {"<":   [{"var": "item.pax"}, int(float(row['hint_min']))]}
+            ]}),
+            'Payload_JSON': json.dumps({"message": f"Este item requiere mínimo {int(float(row['hint_min']))} pax."}),
+            'Prioridad': 20,
+            'Acumulable': False,
+            'Activo': True,
+            'Updated_At': '2026-04-26T00:00:00.000Z',
+        })
+    if row['hint_max']:
+        rules.append({
+            # ... mirror for max with ">" operator
+        })
+    return rules
+```
+
+The blocking step is resolving `item_id` (short key like `CATA_VINOS`) to the full `ITEM_CATALOGO` ID (like `ITEM_CATA_DE_VINOS_CON_SOMELIER_MINIMO_10_PERSONAS_Y_HASTA_40_DURACION_1_HORA`). That join requires the `ITEM_CATALOGO.csv` generated by the extraction pipeline.
+
+## What legacy does differently
+
+Legacy had inline checks in `ItemLogic`-equivalent code — no externalized rule table. The dev system externalizes ALL rules to `REGLAS_NEGOCIO.csv`, making them editable in the spreadsheet without redeploying. This is a significant improvement.
+
+## Files involved
+
+- `dev/data/init/REGLAS_NEGOCIO.csv` — seed data shipped to GAS spreadsheet
+- `dev/src/services/pricing/rules/coordinator.js` — evaluator
+- `dev/src/services/pricing/rules/RULES_EXECUTION.md` — authoritative snapshot variable reference
+- `dev/docs/GUIDES/writing-rules.md` — guide (note flat variable names there are not yet implemented; use `item.*`)
+- `processed_data/rules.csv` — extracted raw rules from price list CSVs

@@ -1,0 +1,108 @@
+item_name,item_extra,category,subcategory,source_row
+guias exclusivos para caminatas,,teambuilding_y_actividades_actividades,Actividades,1
+caminar la tenca exclusiva,"Caminata ""la tenca"" de forma exclusiva, 1,5 horas",teambuilding_y_actividades_actividades,Actividades,2
+caminar al mirador exclusiva,".  Dificultad media, duracion: 1 hora",teambuilding_y_actividades_actividades,Actividades,3
+fogon pequeño,(Fogata pequeña),teambuilding_y_actividades_actividades,Actividades,4
+fogata grande,,teambuilding_y_actividades_actividades,Actividades,5
+clasar de pesca con mosca 3 horas,(9 am a 12pm),teambuilding_y_actividades_actividades,Actividades,6
+arrendar de caña,,teambuilding_y_actividades_actividades,Actividades,7
+pasears a caballo exclusivos,", minimo 4 pasajeros, duracion 3-4 horas. Maximo 20 personas",teambuilding_y_actividades_actividades,Actividades,8
+pasear a caballo vertiente del toro,,teambuilding_y_actividades_actividades,Actividades,9
+pasear a caballo altos del guindo,,teambuilding_y_actividades_actividades,Actividades,10
+safari ecuestre en tractor,", maximo 15 personas. duracion 3 horas",teambuilding_y_actividades_actividades,Actividades,11
+usar de actividades,,teambuilding_y_actividades_actividades,Actividades,12
+usar de actividades por cortesía,,teambuilding_y_actividades_actividades,Actividades,13
+yoga,,teambuilding_y_actividades_actividades,Actividades,14
+laguna kayak,", 2 horas",teambuilding_y_actividades_actividades,Actividades,15
+arrendar de kayak o sup,"( valor unitario), 2 horas",teambuilding_y_actividades_actividades,Actividades,16
+canopy exclusivo,por 2 horas,teambuilding_y_actividades_actividades,Actividades,17
+cancha de futbol,por 2 horas,teambuilding_y_actividades_actividades,Actividades,18
+salon chinook,Chinook,capacidades_maximas_salones_y__chinook,Infraestructura,1
+salon arcoiris 1,Arcoiris 1,capacidades_maximas_salones_y__chinook,Infraestructura,2
+salon arcoiris 2,Arcoiris 2,capacidades_maximas_salones_y__chinook,Infraestructura,3
+salon coho,Coho,capacidades_maximas_salones_y__chinook,Infraestructura,4
+salon fario 1,Fario 1,capacidades_maximas_salones_y__chinook,Infraestructura,5
+salon fario 2,Fario 2,capacidades_maximas_salones_y__chinook,Infraestructura,6
+salon quincho,Quincho(fiesta uso recomendado),capacidades_maximas_salones_y__chinook,Infraestructura,7
+salon domo,Domo,capacidades_maximas_salones_y__chinook,Infraestructura,8
+salon directorio,Directorio,capacidades_maximas_salones_y__chinook,Infraestructura,9
+masajista exclusiva relax 30 min,"Masajista exclusiva, para masajes relax 30 minutos",precios_spa,Wellness,1
+masajear de relajacion 30 min,Masajes de relajacion de media hora,precios_spa,Wellness,2
+piscina temperada nocturna exclusiva,por 1 hora,precios_spa,Wellness,5
+cambiar de montaje chinook,Cambios de montaje  Chinook durante el arriendo de salon.,precios_block_1,General,1
+cambiar de montaje coho,Cambios de montaje Coho durante el arriendo de salon.,precios_block_1,General,2
+habitación single hotel b&b,,precios_alojamiento,Hospedaje,1
+habitación doble hotel b&b,,precios_alojamiento,Hospedaje,2
+habitación triple hotel b&b,,precios_alojamiento,Hospedaje,3
+habitación cuadruple hotel b&b,Habitación Cuadruple hotel  B&B,precios_alojamiento,Hospedaje,4
+habitación quintuple hotel b&b,,precios_alojamiento,Hospedaje,5
+cabaña 6 pasajeros b&b,"Valor 6 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,6
+cabaña 7 pasajeros b&b,"Valor 7 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,7
+cabaña 8 pasajeros b&b,"Valor 8 pasajeros, en cabaña B&B",precios_alojamiento,Hospedaje,8
+ticket de trago,,precios_bebidas__y_bar,General,1
+ticket de cerveza,,precios_bebidas__y_bar,General,2
+ticket de trago vip,,precios_bebidas__y_bar,General,3
+bar abierto 4 horas,", valor por persona",precios_bebidas__y_bar,General,4
+hora extra bar abierto,por persona,precios_bebidas__y_bar,General,5
+bar abierto sin alcohol 4 horas,", valor por persona",precios_bebidas__y_bar,General,6
+hora extra bar abierto sin alcohol,por persona,precios_bebidas__y_bar,General,7
+bar abierto vip  4 horas,", valor por persona",precios_bebidas__y_bar,General,8
+hora extra bar abierto vip,por persona,precios_bebidas__y_bar,General,9
+bar abierto de bebidas en vaso por 4 horas,", por persona",precios_bebidas__y_bar,General,10
+bar abierto de bebidas en vaso por 8 horas,", por persona",precios_bebidas__y_bar,General,11
+bebidas,,precios_bebidas__y_bar,General,12
+ticket de bebida o agua,,precios_bebidas__y_bar,General,13
+barril de cerveza kuntsman torobayo 30l,,precios_bebidas__y_bar,General,14
+bebestibles adicionales en salón,"(Bebidas, Jugos Naturales, Agua Mineral)",precios_bebidas__y_bar,General,15
+vino castillo molina,,precios_bebidas__y_bar,General,16
+vino lapostolle,,precios_bebidas__y_bar,General,17
+vino marques casa concha,,precios_bebidas__y_bar,General,18
+cena sugerencias del chef buffet,"Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros",cotizacion_tipo_dia_1,General,1
+bebidas lata ccu,Bebidas,cotizacion_tipo_dia_1,General,2
+ticket de trago,,cotizacion_tipo_dia_1,General,3
+habitación single hotel,,cotizacion_tipo_dia_1,General,4
+desayuno incluido por alojamiento,,cotizacion_tipo_dia_1,General,7
+naufrago para 12 personas,/ 3 grupos/ al azar / colores al azar,cotizacion_tipo_dia_1,General,8
+almuerzo sugerencias del chef buffet,"Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros",cotizacion_tipo_dia_1,General,9
+salon fario uso diurno,", hasta 70 personas",cotizacion_tipo_dia_1,General,11
+bar abierto vip 4 horas,"Bar abierto VIP  4 horas, valor por persona",cotizacion_tipo_dia_1,General,14
+salon chinook 4 horas noche,"Salon chinook, hasta 300 personas, 4 horas noche",cotizacion_tipo_dia_1,General,15
+dj por 4 horas,para grupos menores a  35 pax,cotizacion_tipo_dia_1,General,16
+desayuno,,cotizacion_tipo_dia_1,General,19
+paintball para 12 personas,,cotizacion_tipo_dia_1,General,20
+usar de actividades por cortesía,,cotizacion_tipo_dia_1,General,22
+comedor vip con fogata 4h,"Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",precios_comedor_vip_y_terraza_2do_piso,General,1
+almuerzo/cena buffet,*Almuerzo/Cena recomendaciones del chef formato buffet sobre 30 personas,cotizacion_tipo_presupuesto_valorizado,General,5
+salon chinook uso diurno,", hasta 320 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,1
+salon coho uso diurno,", hasta 120 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,2
+salon fario uso diurno,", hasta 70 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,3
+salón arcoiris uso diurno,", hasta 70 personas",precios_arriendo_de_salones_audios_y_c,Infraestructura,4
+directorio uso diurno,"para 16 personas, mesa imperial",precios_arriendo_de_salones_audios_y_c,Infraestructura,5
+domo para 240 personas,,precios_arriendo_de_salones_audios_y_c,Infraestructura,6
+paintball,,teambuilding_y_actividades_teambuilding,Actividades,1
+busqueda de tesoro,,teambuilding_y_actividades_teambuilding,Actividades,2
+"el naufrago, la balsa",,teambuilding_y_actividades_teambuilding,Actividades,6
+salon chinook,Chinook,capacidades_maximas_salones_y__salones,Infraestructura,1
+salon arcoiris 1,Arcoiris 1,capacidades_maximas_salones_y__salones,Infraestructura,2
+salon arcoiris 2,Arcoiris 2,capacidades_maximas_salones_y__salones,Infraestructura,3
+salon coho,Coho,capacidades_maximas_salones_y__salones,Infraestructura,4
+salon fario 1,Fario 1,capacidades_maximas_salones_y__salones,Infraestructura,5
+salon fario 2,Fario 2,capacidades_maximas_salones_y__salones,Infraestructura,6
+salon quincho,Quincho(fiesta uso recomendado),capacidades_maximas_salones_y__salones,Infraestructura,7
+salon domo,Domo,capacidades_maximas_salones_y__salones,Infraestructura,8
+salon directorio,Directorio,capacidades_maximas_salones_y__salones,Infraestructura,9
+coffee básico,,precios_coffes_y_servicios_relacionado,General,1
+coffee intermedio,,precios_coffes_y_servicios_relacionado,General,2
+coffe full,,precios_coffes_y_servicios_relacionado,General,3
+desayuno,,precios_alimentacion_y_banqueteria,Gastronomia,1
+desayuno incluido por alojamiento,,precios_alimentacion_y_banqueteria,Gastronomia,2
+almuerzo sugerencias del chef buffet,"Almuerzo Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",precios_alimentacion_y_banqueteria,Gastronomia,3
+cena sugerencias del chef buffet,"Cena Sugerencias del chef  en formato Buffet, mas de 30 pasajeros. Menos de 30 es carta",precios_alimentacion_y_banqueteria,Gastronomia,4
+almuerzo o cena a la carta,,precios_alimentacion_y_banqueteria,Gastronomia,5
+almuerzo o cena a la carta vip,,precios_alimentacion_y_banqueteria,Gastronomia,6
+"cena o almuerzo parrilla, minimo 30 pax",,precios_alimentacion_y_banqueteria,Gastronomia,7
+"cena o almuerzo parrilla, menos de 30 pax",,precios_alimentacion_y_banqueteria,Gastronomia,8
+once,,precios_alimentacion_y_banqueteria,Gastronomia,9
+hamburguesa+ bebida,,precios_alimentacion_y_banqueteria,Gastronomia,10
+box lunch,(Como una Once en cajitas individuales para que se la puedan llevar),precios_alimentacion_y_banqueteria,Gastronomia,11
+cata de vinos con somelier,", minimo 10 personas y hasta 40.  Duración 1 hora",precios_alimentacion_y_banqueteria,Gastronomia,12

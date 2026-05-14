@@ -1,0 +1,13 @@
+{
+  "items": [
+    {"item_id": "ALMUERZO_CENA_BUFFET", "name": "Almuerzo/Cena Buffet", "raw_name": "*Almuerzo/Cena recomendaciones del chef formato buffet sobre 30 personas", "category": "ALIMENTACION", "source_row": 5}
+  ],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "ALMUERZO_CENA_BUFFET", "raw_text": "sobre 30 personas", "rule_type": "capacity", "structured_hint": {"min": 31, "condition": "format buffet", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "PAYMENT_FORMAT", "raw_text": "*Formato de pago: Contado o Crédito", "rule_type": "dependency", "structured_hint": {"condition": "payment"}, "confidence": "high"},
+    {"item_id": "CHECK_IN_TIME", "raw_text": "La entrega de habitaciones es a las 16:00", "rule_type": "schedule", "structured_hint": {"effect": "16:00"}, "confidence": "high"},
+    {"item_id": "CHECK_OUT_TIME", "raw_text": "el check out es a las 12:00hrs", "rule_type": "schedule", "structured_hint": {"effect": "12:00"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

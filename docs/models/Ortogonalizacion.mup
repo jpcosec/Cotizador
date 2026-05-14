@@ -1,0 +1,545 @@
+{
+  "formatVersion": 3,
+  "id": "root",
+  "ideas": {
+    "1": {
+      "title": "Tipo cliente",
+      "id": 1,
+      "attr": {
+        "position": [
+          -931,
+          -379,
+          1
+        ]
+      },
+      "ideas": {
+        "1": {
+          "title": "persona",
+          "id": "5.bffc.e2d23a585-c395.95fd2f5b2"
+        },
+        "11": {
+          "title": "empresa",
+          "id": "6.bffc.e2d23a585-c395.95fd2f5b2"
+        }
+      }
+    },
+    "2": {
+      "title": "Alimentos y bebidas",
+      "id": "3.bffc.e2d23a585-c395.95fd2f5b2",
+      "attr": {
+        "position": [
+          -473,
+          264,
+          1
+        ]
+      },
+      "ideas": {
+        "12": {
+          "title": "items",
+          "id": "27.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Alimento",
+              "id": "7.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "sandwich",
+                  "id": "25.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "11": {
+                  "title": "torta",
+                  "id": "26.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "12": {
+                  "title": "Servicio",
+                  "id": "28.bffc.e2d23a585-c395.95fd2f5b2",
+                  "attr": {}
+                }
+              },
+              "attr": {}
+            },
+            "2": {
+              "title": "Bebida",
+              "id": "8.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            }
+          },
+          "attr": {
+            "note": {
+              "index": 5,
+              "text": "El alimento o bebida como item unitario comanda"
+            }
+          }
+        },
+        "-1": {
+          "title": "Servicio",
+          "id": "18.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "4": {
+              "title": "Almuerzo/cena",
+              "id": "19.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "A la carta",
+                  "id": "20.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "11": {
+                  "title": "Buffet",
+                  "id": "23.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "12": {
+                  "title": "Desayuno",
+                  "id": "30.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              },
+              "attr": {
+                "note": {
+                  "index": 14,
+                  "text": "Servicio estandar"
+                }
+              }
+            },
+            "5": {
+              "title": "Servicio extra empresa",
+              "id": "31.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "Parrilla",
+                  "id": "21.bffc.e2d23a585-c395.95fd2f5b2",
+                  "attr": {}
+                },
+                "2": {
+                  "title": "Coffe",
+                  "id": "22.bffc.e2d23a585-c395.95fd2f5b2",
+                  "attr": {}
+                },
+                "3": {
+                  "title": "Catas",
+                  "id": "32.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              }
+            }
+          },
+          "attr": {
+            "note": {
+              "index": 11,
+              "text": "Algo que compra la empresa; tiene locacion y tiene horario y items"
+            }
+          }
+        }
+      }
+    },
+    "3": {
+      "title": "Alojamiento",
+      "id": "4.bffc.e2d23a585-c395.95fd2f5b2",
+      "attr": {
+        "position": [
+          251,
+          377,
+          1
+        ]
+      },
+      "ideas": {
+        "1": {
+          "title": "Tipo",
+          "id": "66.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Cabaña",
+              "id": "62.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {},
+              "attr": {}
+            },
+            "2": {
+              "title": "Hotel",
+              "id": "61.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {},
+              "attr": {}
+            },
+            "3": {
+              "title": "Departamento",
+              "id": "69.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "2": {
+          "title": "Nivel",
+          "id": "70.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Estandar",
+              "id": "71.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "2": {
+              "title": "superior",
+              "id": "72.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "3": {
+              "title": "vip",
+              "id": "73.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "-3": {
+          "title": "Organizacion",
+          "id": "65.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Doble",
+              "id": "56.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {},
+              "ideas": {}
+            },
+            "2": {
+              "title": "Single",
+              "id": "54.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            },
+            "3": {
+              "title": "cuadruple",
+              "id": "60.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            },
+            "4": {
+              "title": "Triple",
+              "id": "57.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            },
+            "5": {
+              "title": "Quintuple",
+              "id": "67.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "6": {
+              "title": "N",
+              "id": "68.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "-4": {
+          "title": "Servicio extra",
+          "id": "74.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "early checkin",
+              "id": "75.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "2": {
+              "title": "Late checkout",
+              "id": "76.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        }
+      }
+    },
+    "4": {
+      "title": "Actividades/teambuilding",
+      "id": "9.bffc.e2d23a585-c395.95fd2f5b2",
+      "attr": {
+        "position": [
+          13,
+          -255,
+          1
+        ]
+      },
+      "ideas": {
+        "-4": {
+          "title": "Recreativa",
+          "id": "107.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Outdoor",
+              "id": "84.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "trecking",
+                  "id": "85.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "11": {
+                  "title": "Paseo caballo",
+                  "id": "83.bffc.e2d23a585-c395.95fd2f5b2",
+                  "attr": {}
+                }
+              },
+              "attr": {}
+            },
+            "2": {
+              "title": "Musicales",
+              "id": "103.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "11": {
+                  "title": "Fiesta",
+                  "id": "105.bffc.e2d23a585-c395.95fd2f5b2",
+                  "attr": {}
+                }
+              },
+              "attr": {}
+            },
+            "3": {
+              "title": "Relajacion",
+              "id": "93.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "11": {
+                  "title": "Clases de yoga",
+                  "id": "96.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "21": {
+                  "title": "Meditacion",
+                  "id": "97.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              },
+              "attr": {}
+            },
+            "4": {
+              "title": "Clases de pesca",
+              "id": "124.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "-5": {
+          "title": "Guiada",
+          "id": "114.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "2": {
+              "title": "Evento teambuilding",
+              "id": "115.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "Naufrago",
+                  "id": "116.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "2": {
+                  "title": "Alianzas",
+                  "id": "117.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "3": {
+                  "title": "Tesoro",
+                  "id": "118.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              }
+            },
+            "3": {
+              "title": "Taller",
+              "id": "120.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "Gastronomico",
+                  "id": "100.bffc.e2d23a585-c395.95fd2f5b2",
+                  "ideas": {
+                    "1": {
+                      "title": "Parrlla",
+                      "id": "101.bffc.e2d23a585-c395.95fd2f5b2"
+                    },
+                    "11": {
+                      "title": "pizza",
+                      "id": "102.bffc.e2d23a585-c395.95fd2f5b2"
+                    }
+                  },
+                  "attr": {}
+                },
+                "2": {
+                  "title": "Catas",
+                  "id": "121.bffc.e2d23a585-c395.95fd2f5b2",
+                  "ideas": {
+                    "1": {
+                      "title": "Cata de vino",
+                      "id": "99.bffc.e2d23a585-c395.95fd2f5b2",
+                      "attr": {}
+                    }
+                  }
+                }
+              }
+            },
+            "4": {
+              "title": "Karaoke",
+              "id": "104.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            }
+          }
+        }
+      }
+    },
+    "5": {
+      "title": "Spa-wellness",
+      "id": "13.bffc.e2d23a585-c395.95fd2f5b2",
+      "attr": {
+        "position": [
+          -836,
+          -596,
+          1
+        ]
+      },
+      "ideas": {
+        "2": {
+          "title": "Servicio",
+          "id": "125.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Masaje",
+              "id": "77.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            },
+            "2": {
+              "title": "Manicure",
+              "id": "129.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "3": {
+          "title": "Items",
+          "id": "131.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Gorro piscina",
+              "id": "132.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        },
+        "-1": {
+          "title": "Instalacion",
+          "id": "78.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Jacuzzi",
+              "id": "126.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "2": {
+              "title": "Piscina",
+              "id": "127.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "3": {
+              "title": "Sauna",
+              "id": "128.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        }
+      }
+    },
+    "6": {
+      "title": "Infra",
+      "id": "14.bffc.e2d23a585-c395.95fd2f5b2",
+      "attr": {
+        "position": [
+          490,
+          -147,
+          1
+        ]
+      },
+      "ideas": {
+        "11": {
+          "title": "Equipamiento",
+          "id": "16.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Espacios",
+              "id": "33.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "2": {
+              "title": "Servicio DJ",
+              "id": "35.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "3": {
+              "title": "Operador",
+              "id": "37.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "4": {
+              "title": "Outdoor",
+              "id": "49.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "Cañas de pescar",
+                  "id": "50.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "2": {
+                  "title": "Bote",
+                  "id": "51.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "3": {
+                  "title": "Arnés",
+                  "id": "52.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "4": {
+                  "title": "Arcos",
+                  "id": "53.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              }
+            }
+          }
+        },
+        "21": {
+          "title": "Locacion",
+          "id": "17.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Salon",
+              "id": "15.bffc.e2d23a585-c395.95fd2f5b2",
+              "attr": {}
+            },
+            "2": {
+              "title": "Outdoor",
+              "id": "39.bffc.e2d23a585-c395.95fd2f5b2",
+              "ideas": {
+                "1": {
+                  "title": "kayak",
+                  "id": "40.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "2": {
+                  "title": "Piscina",
+                  "id": "41.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "3": {
+                  "title": "Canopy",
+                  "id": "42.bffc.e2d23a585-c395.95fd2f5b2",
+                  "ideas": {}
+                },
+                "4": {
+                  "title": "Cancha",
+                  "id": "44.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "5": {
+                  "title": "Laguna",
+                  "id": "46.bffc.e2d23a585-c395.95fd2f5b2"
+                },
+                "6": {
+                  "title": "Sector",
+                  "id": "48.bffc.e2d23a585-c395.95fd2f5b2"
+                }
+              }
+            }
+          }
+        },
+        "-1": {
+          "title": "Personal",
+          "id": "86.bffc.e2d23a585-c395.95fd2f5b2",
+          "ideas": {
+            "1": {
+              "title": "Guias",
+              "id": "88.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "2": {
+              "title": "DJ",
+              "id": "89.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "3": {
+              "title": "Masajista",
+              "id": "90.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "4": {
+              "title": "Instructores",
+              "id": "91.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "5": {
+              "title": "Coach",
+              "id": "92.bffc.e2d23a585-c395.95fd2f5b2"
+            },
+            "6": {
+              "title": "Filmacion",
+              "id": "109.bffc.e2d23a585-c395.95fd2f5b2"
+            }
+          }
+        }
+      }
+    }
+  },
+  "title": "",
+  "links": []
+}

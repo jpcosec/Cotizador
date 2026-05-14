@@ -1,0 +1,57 @@
+@startuml DataModelMap
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam defaultFontName Arial
+left to right direction
+
+title Data Model Map
+
+package "Modelo base" {
+  [CategoriaCatalogo]
+  [ItemCatalogo]
+  [PropiedadBase]
+  [Area]
+  [CategoriaOperacional]
+}
+
+package "Cotizacion time" {
+  [Cotizacion]
+  [LineaCotizada]
+  [PropiedadRuntime]
+  [PropiedadEfectiva]
+}
+
+package "Operaciones logicas" {
+  [Pricing]
+  [Ruling]
+}
+
+[Area] --> [CategoriaCatalogo] : encapsulado_en
+[CategoriaOperacional] --> [CategoriaCatalogo] : encapsulado_en
+[PropiedadBase] --> [CategoriaCatalogo] : encapsulada_en
+[CategoriaCatalogo] --> [ItemCatalogo] : hereda_todo
+[ItemCatalogo] --> [LineaCotizada] : se_instancia_como
+[PropiedadRuntime] --> [LineaCotizada] : override_runtime
+[CategoriaCatalogo] --> [PropiedadEfectiva] : categoria_defaults
+[ItemCatalogo] --> [PropiedadEfectiva] : item_defaults
+[PropiedadRuntime] --> [PropiedadEfectiva] : runtime_values
+[PropiedadEfectiva] --> [Pricing] : input
+[PropiedadEfectiva] --> [Ruling] : input
+[LineaCotizada] --> [Cotizacion] : pertenece_a
+[CategoriaCatalogo] --> [Pricing] : define_operacion
+[CategoriaCatalogo] --> [Ruling] : define_operacion
+
+note right of [CategoriaCatalogo]
+Contenedor estructural real
+end note
+
+note right of [ItemCatalogo]
+Entidad tonta
+sin logica
+end note
+
+note right of [LineaCotizada]
+Solo contiene item + runtime
+end note
+@enduml

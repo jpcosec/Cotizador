@@ -1,0 +1,24 @@
+{
+  "items": [
+    {"item_id": "SALON_CHINOOK_USO_DIURNO", "name": "Salon Chinook uso diurno", "raw_name": "Salon Chinook uso diurno, hasta 320 personas ", "category": "SALON", "source_row": 1},
+    {"item_id": "SALON_COHO_USO_DIURNO", "name": "Salon Coho uso diurno", "raw_name": "Salon Coho uso diurno, hasta 120 personas ", "category": "SALON", "source_row": 2},
+    {"item_id": "SALON_FARIO_USO_DIURNO", "name": "Salon Fario uso diurno", "raw_name": "Salon Fario uso diurno, hasta 70 personas ", "category": "SALON", "source_row": 3},
+    {"item_id": "SALON_ARCOIRIS_USO_DIURNO", "name": "Salón Arcoiris uso diurno", "raw_name": "Salón Arcoiris uso diurno, hasta 70 personas ", "category": "SALON", "source_row": 4},
+    {"item_id": "SALON_DIRECTORIO_USO_DIURNO", "name": "Directorio uso diurno", "raw_name": "Directorio uso diurno para 16 personas, mesa imperial", "category": "SALON", "source_row": 5},
+    {"item_id": "SALON_DOMO_USO_DIURNO", "name": "Domo uso diurno", "raw_name": "Domo para 240 personas ", "category": "SALON", "source_row": 6}
+  ],
+  "price_expressions": [
+    {"item_id": "SALON_CHINOOK_USO_DIURNO", "raw_expression": "385000", "expression_type": "flat", "components": [{"type": "base", "value": 385000, "unit": "day"}], "confidence": "high"},
+    {"item_id": "SALON_COHO_USO_DIURNO", "raw_expression": "330000", "expression_type": "flat", "components": [{"type": "base", "value": 330000, "unit": "day"}], "confidence": "high"},
+    {"item_id": "SALON_FARIO_USO_DIURNO", "raw_expression": "242000", "expression_type": "flat", "components": [{"type": "base", "value": 242000, "unit": "day"}], "confidence": "high"},
+    {"item_id": "SALON_ARCOIRIS_USO_DIURNO", "raw_expression": "209000", "expression_type": "flat", "components": [{"type": "base", "value": 209000, "unit": "day"}], "confidence": "high"},
+    {"item_id": "SALON_DIRECTORIO_USO_DIURNO", "raw_expression": "319000", "expression_type": "flat", "components": [{"type": "base", "value": 319000, "unit": "day"}], "confidence": "high"},
+    {"item_id": "SALON_DOMO_USO_DIURNO", "raw_expression": "550000", "expression_type": "flat", "components": [{"type": "base", "value": 550000, "unit": "day"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "SALON_CHINOOK_USO_DIURNO", "raw_text": "hasta 320 personas", "rule_type": "capacity", "structured_hint": {"max": 320, "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK_USO_DIURNO", "raw_text": "8:30-19:30", "rule_type": "schedule", "structured_hint": {"condition": "uso diurno"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK_USO_DIURNO", "raw_text": "Equipado con papelógrafo, aire acondicionado y calefacción, 8 h Día", "rule_type": "inclusion", "structured_hint": {"condition": "8 hours"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

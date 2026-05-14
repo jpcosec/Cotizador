@@ -1,0 +1,122 @@
+id: pricing.engine.component
+title: Pricing Engine — Component Map
+type: component
+version: "0.1"
+
+data:
+  nodes:
+    ItemLogic:
+      label: ItemLogic (stateful item)
+      kind: core
+      contains:
+        - PricingDetection
+        - Formulas
+        - QuantityResolution
+
+    PricingDetection:
+      label: PricingDetection
+      kind: core
+
+    Formulas:
+      label: Formulas
+      kind: core
+
+    QuantityResolution:
+      label: QuantityResolution
+      kind: core
+
+    RulesCoordinator:
+      label: RulesCoordinator (JSON-Logic)
+      kind: core
+
+    JsonLogic:
+      label: json-logic-js
+      kind: boundary
+
+    ResolveItemDefinition:
+      label: resolveItemDefinition (5-way join)
+      kind: core
+
+    Database:
+      label: InMemoryStore / GasSheetAdapter
+      kind: database
+      contains:
+        - ITEM_CATALOGO
+        - PERFILES_PRECIO
+        - PERFILES_INICIALIZACION
+        - CATEGORIAS
+        - REGLAS_NEGOCIO
+
+    ITEM_CATALOGO:
+      label: ITEM_CATALOGO
+      kind: database
+
+    PERFILES_PRECIO:
+      label: PERFILES_PRECIO
+      kind: database
+
+    PERFILES_INICIALIZACION:
+      label: PERFILES_INICIALIZACION
+      kind: database
+
+    CATEGORIAS:
+      label: CATEGORIAS
+      kind: database
+
+    REGLAS_NEGOCIO:
+      label: REGLAS_NEGOCIO
+      kind: database
+
+    BasketMachine:
+      label: Basket / Item Machine
+      kind: boundary
+
+    UI:
+      label: Alpine UI Layer
+      kind: boundary
+
+  edges:
+    - from: BasketMachine
+      to: ResolveItemDefinition
+      relation: calls
+      label: resolve item definition
+
+    - from: ResolveItemDefinition
+      to: Database
+      relation: reads
+      label: 5-way join
+
+    - from: BasketMachine
+      to: ItemLogic
+      relation: uses
+      label: initialize / recalculate
+
+    - from: ItemLogic
+      to: PricingDetection
+      relation: uses
+      label: detectPricingKind / normalizeProfile
+
+    - from: ItemLogic
+      to: Formulas
+      relation: uses
+      label: formatCatalogTerms / evaluateRules
+
+    - from: ItemLogic
+      to: QuantityResolution
+      relation: uses
+      label: resolveBasketQuantity
+
+    - from: RulesCoordinator
+      to: JsonLogic
+      relation: uses
+      label: evaluate condition
+
+    - from: ItemLogic
+      to: UI
+      relation: exposes
+      label: toCatalogCard / toBasketLine / toMachineContext
+
+    - from: ResolveItemDefinition
+      to: RulesCoordinator
+      relation: feeds
+      label: pre-filtered reglas

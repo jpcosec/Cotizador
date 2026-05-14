@@ -1,0 +1,59 @@
+@startuml MasterTransactionServices
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam defaultFontName Arial
+left to right direction
+
+title Master Data / Transaction / Services
+
+package "Master Data" {
+  [Area]
+  [CategoriaOperacional]
+  [CategoriaCatalogo]
+  [ItemCatalogo]
+  [PropiedadBase]
+}
+
+package "Transaction" {
+  [Cotizacion]
+  [LineaCotizada]
+  [PropiedadRuntime]
+}
+
+package "Services" {
+  [Pricing]
+  [Ruling]
+}
+
+[Area] --> [ItemCatalogo] : contexto
+[CategoriaOperacional] --> [ItemCatalogo] : estructura
+[CategoriaCatalogo] --> [ItemCatalogo] : agrupacion
+[PropiedadBase] --> [ItemCatalogo] : defaults
+
+[ItemCatalogo] --> [LineaCotizada] : instancia
+[PropiedadRuntime] --> [LineaCotizada] : valores runtime
+[LineaCotizada] --> [Cotizacion] : pertenece
+
+[PropiedadRuntime] --> [Pricing] : input unico
+[Area] --> [Ruling] : contexto
+[CategoriaOperacional] --> [Ruling] : contrato
+[PropiedadBase] --> [Ruling] : configuracion
+[PropiedadRuntime] --> [Ruling] : estado runtime
+
+[Pricing] --> [LineaCotizada] : precio resuelto
+[Ruling] --> [LineaCotizada] : validacion
+
+note bottom of [ItemCatalogo]
+Master data
+Entidad tonta
+end note
+
+note bottom of [LineaCotizada]
+Transaction snapshot
+end note
+
+note bottom of [Pricing]
+Service layer
+end note
+@enduml

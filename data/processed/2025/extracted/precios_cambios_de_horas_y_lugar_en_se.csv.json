@@ -1,0 +1,21 @@
+{
+  "items": [
+    {"item_id": "CAMBIO_HORARIO_DESAYUNO_1H", "name": "Cambio de horario del desayuno 1 hora", "raw_name": "Cambio de horario del desayuno 1 hora, minimo 30 personas", "category": "ALIMENTACION", "source_row": 1},
+    {"item_id": "CAMBIO_HORARIO_DESAYUNO_30M", "name": "Cambio de horario del desayuno por media hora", "raw_name": "Cambio de horario del desayuno por media hora , minimo 30 personas", "category": "ALIMENTACION", "source_row": 2},
+    {"item_id": "CAMBIO_HORARIO_ALMUERZO_30M", "name": "Cambio de horario de almuerzo por media hora", "raw_name": "Cambio de horario de almuerzo por media hora, minimo 30 personas", "category": "ALIMENTACION", "source_row": 3},
+    {"item_id": "EXTENSION_CENA_30M", "name": "Extension media hora horario de cena", "raw_name": "Extension media hora horario de cena ", "category": "ALIMENTACION", "source_row": 4},
+    {"item_id": "CAMBIO_LUGAR_ALIMENTACION", "name": "Cambio de lugar de servicio de alimentacion", "raw_name": "Cambio de lugar de servicio de alimentacion", "category": "ALIMENTACION", "source_row": 5}
+  ],
+  "price_expressions": [
+    {"item_id": "CAMBIO_HORARIO_DESAYUNO_1H", "raw_expression": "6500", "expression_type": "per_person", "components": [{"type": "per_person", "value": 6500, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "CAMBIO_HORARIO_DESAYUNO_30M", "raw_expression": "4000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 4000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "CAMBIO_HORARIO_ALMUERZO_30M", "raw_expression": "6500", "expression_type": "per_person", "components": [{"type": "per_person", "value": 6500, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "EXTENSION_CENA_30M", "raw_expression": "8000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 8000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "CAMBIO_LUGAR_ALIMENTACION", "raw_expression": "10000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 10000, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "CAMBIO_HORARIO_DESAYUNO_1H", "raw_text": "minimo 30 personas", "rule_type": "capacity", "structured_hint": {"min": 30, "unit": "pax"}, "confidence": "high"},
+    {"item_id": "CAMBIO_LUGAR_ALIMENTACION", "raw_text": "se debe reservar adicionalmente el salon ( chinook, salon truchita o comedor vip)", "rule_type": "dependency", "structured_hint": {"condition": "cambio lugar", "effect": "reserve salon"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

@@ -1,0 +1,86 @@
+id: pricing.calculation.activity
+title: Price Calculation Flow
+type: activity
+version: "0.1"
+
+data:
+  start: resolve_definition
+
+  steps:
+    resolve_definition:
+      label: resolveItemDefinition(itemId, db)
+      next: normalize_profile
+
+    normalize_profile:
+      label: normalizeProfile(pricingProfile)
+      next: detect_kind
+
+    detect_kind:
+      label: detectPricingKind(profile)
+      kind: decision
+      branches:
+        PAX: resolve_pax_quantity
+        UNITS: resolve_units_quantity
+        TIME: resolve_time_quantity
+        NONE: compute_flat
+
+    resolve_pax_quantity:
+      label: resolveBasketQuantity — PAX
+      next: check_init_mode_pax
+
+    check_init_mode_pax:
+      label: InitMode?
+      kind: decision
+      branches:
+        FIXED_AMOUNT: use_pax_fixed
+        CONTEXT_PAX: use_global_pax
+        override set: use_pax_override
+
+    use_pax_fixed:
+      label: quantity = defaults.pax
+      next: compute_total
+
+    use_global_pax:
+      label: quantity = externalContext.paxGlobal
+      next: compute_total
+
+    use_pax_override:
+      label: quantity = overrides.pax
+      next: compute_total
+
+    resolve_units_quantity:
+      label: resolveBasketQuantity — UNITS
+      next: compute_total
+
+    resolve_time_quantity:
+      label: resolveBasketQuantity — TIME
+      next: compute_total
+
+    compute_flat:
+      label: total = baseFijo
+      next: evaluate_rules
+
+    compute_total:
+      label: total = baseFijo + (quantity × rate)
+      next: evaluate_rules
+
+    evaluate_rules:
+      label: evaluateRules(rules, snapshot)
+      next: check_rules
+
+    check_rules:
+      label: Any blocking rule fired?
+      kind: decision
+      branches:
+        "yes": mark_unavailable
+        "no": expose_projections
+
+    mark_unavailable:
+      label: available = false
+      next: expose_projections
+
+    expose_projections:
+      label: toCatalogCard / toBasketLine / toMachineContext
+      next: end
+
+  end: end

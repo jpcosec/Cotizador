@@ -1,0 +1,139 @@
+id: persistence.component
+title: Persistence Layer — Component Map
+type: component
+version: "0.1"
+
+data:
+  nodes:
+    PersistencePort:
+      label: PersistencePort (abstract interface)
+      kind: core
+      contains:
+        - save
+        - load
+        - listQuotations
+        - loadReferenceData
+
+    save:
+      label: save(payload)
+      kind: core
+
+    load:
+      label: load(id)
+      kind: core
+
+    listQuotations:
+      label: listQuotations(query)
+      kind: core
+
+    loadReferenceData:
+      label: loadReferenceData()
+      kind: core
+
+    GasSheetAdapter:
+      label: GasSheetAdapter (browser → GAS)
+      kind: core
+
+    LocalPersistenceAdapter:
+      label: LocalPersistenceAdapter (in-memory)
+      kind: core
+
+    RemotePersistenceAdapter:
+      label: RemotePersistenceAdapter (REST)
+      kind: core
+
+    GoogleScriptRun:
+      label: google.script.run
+      kind: boundary
+
+    GASServerFunctions:
+      label: GAS Server Functions
+      kind: boundary
+      contains:
+        - guardarCotizacion
+        - cargarCotizacion
+        - buscarCotizaciones
+        - getReferenceData
+
+    guardarCotizacion:
+      label: guardarCotizacion (server)
+      kind: boundary
+
+    cargarCotizacion:
+      label: cargarCotizacion (server)
+      kind: boundary
+
+    buscarCotizaciones:
+      label: buscarCotizaciones (server)
+      kind: boundary
+
+    getReferenceData:
+      label: getReferenceData (server)
+      kind: boundary
+
+    InMemoryStore:
+      label: InMemoryStore
+      kind: database
+
+    GoogleSheets:
+      label: Google Sheets
+      kind: database
+
+    serializeQuotation:
+      label: serializeQuotation
+      kind: core
+
+    QuotationFlowComponent:
+      label: QuotationFlow Machine
+      kind: boundary
+
+  edges:
+    - from: QuotationFlowComponent
+      to: serializeQuotation
+      relation: calls
+      label: on save event
+
+    - from: serializeQuotation
+      to: PersistencePort
+      relation: feeds
+      label: "{ cotizacion, lineas }"
+
+    - from: GasSheetAdapter
+      to: PersistencePort
+      relation: implements
+      label: extends
+
+    - from: LocalPersistenceAdapter
+      to: PersistencePort
+      relation: implements
+      label: extends
+
+    - from: RemotePersistenceAdapter
+      to: PersistencePort
+      relation: implements
+      label: extends
+
+    - from: GasSheetAdapter
+      to: GoogleScriptRun
+      relation: uses
+      label: withSuccessHandler
+
+    - from: GoogleScriptRun
+      to: GASServerFunctions
+      relation: calls
+      label: RPC over iframe
+
+    - from: GASServerFunctions
+      to: GoogleSheets
+      relation: reads_writes
+      label: SpreadsheetApp
+
+    - from: LocalPersistenceAdapter
+      to: InMemoryStore
+      relation: reads_writes
+      label: CRUD
+
+    - from: PersistencePort
+      to: QuotationFlowComponent
+      relation: returns
+      label: "{ ok, data } | { error }"

@@ -1,0 +1,97 @@
+{
+  "items": [
+    {
+      "item_id": "PAINTBALL",
+      "name": "Paintball",
+      "raw_name": "Paintball",
+      "category": "Teambuilding",
+      "source_row": 1
+    },
+    {
+      "item_id": "BUSQUEDA_TESORO",
+      "name": "Busqueda de tesoro",
+      "raw_name": "Busqueda de tesoro",
+      "category": "Teambuilding",
+      "source_row": 2
+    },
+    {
+      "item_id": "EL_NAUFRAGO_LA_BALSA",
+      "name": "El Naufrago, La balsa",
+      "raw_name": "El Naufrago, La balsa",
+      "category": "Teambuilding",
+      "source_row": 6
+    }
+  ],
+  "price_expressions": [
+    {
+      "item_id": "PAINTBALL",
+      "raw_expression": "1.000.000+ 35.000 por persona",
+      "expression_type": "base_plus_variable",
+      "components": [
+        {
+          "type": "base",
+          "value": 1000000,
+          "unit": null
+        },
+        {
+          "type": "per_person",
+          "value": 35000,
+          "unit": "persona"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "item_id": "BUSQUEDA_TESORO",
+      "raw_expression": "500.000+ 15.000 por persona",
+      "expression_type": "base_plus_variable",
+      "components": [
+        {
+          "type": "base",
+          "value": 500000,
+          "unit": null
+        },
+        {
+          "type": "per_person",
+          "value": 15000,
+          "unit": "persona"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "item_id": "EL_NAUFRAGO_LA_BALSA",
+      "raw_expression": "1.000.000 + 20.000 por persona",
+      "expression_type": "base_plus_variable",
+      "components": [
+        {
+          "type": "base",
+          "value": 1000000,
+          "unit": null
+        },
+        {
+          "type": "per_person",
+          "value": 20000,
+          "unit": "persona"
+        }
+      ],
+      "confidence": "high"
+    }
+  ],
+  "business_rules": [
+    {
+      "item_id": "PAINTBALL",
+      "raw_text": "Inlcuye primera carga de pelotas, con posibilidad de recarga por 15.000+ iva por persona",
+      "rule_type": "inclusion",
+      "structured_hint": {
+        "min": null,
+        "max": null,
+        "condition": "recarga",
+        "effect": "15000+iva",
+        "unit": "persona"
+      },
+      "confidence": "high"
+    }
+  ],
+  "unknowns": []
+}

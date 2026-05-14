@@ -1,0 +1,66 @@
+@startuml DataModelMap
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam defaultFontName Arial
+left to right direction
+
+title Data Model Map
+
+package "Modelo base" {
+  [Area]
+  [CategoriaOperacional]
+  [CategoriaCatalogo]
+  [ItemCatalogo]
+  [PropiedadBase]
+}
+
+package "Cotizacion time" {
+  [Cotizacion]
+  [LineaCotizada]
+  [PropiedadRuntime]
+}
+
+package "Motor logico" {
+  [Pricing]
+  [Ruling]
+}
+
+[Area] --> [ItemCatalogo] : contexto semantico
+[CategoriaOperacional] --> [ItemCatalogo] : tipo operacional
+[CategoriaCatalogo] --> [ItemCatalogo] : agrupa comercialmente
+[PropiedadBase] --> [ItemCatalogo] : configura
+
+[ItemCatalogo] --> [LineaCotizada] : se instancia como
+[PropiedadRuntime] --> [LineaCotizada] : fija valores efectivos
+[LineaCotizada] --> [Cotizacion] : pertenece a
+
+[PropiedadRuntime] --> [Pricing] : unico input
+[Area] --> [Ruling] : contexto
+[CategoriaOperacional] --> [Ruling] : contrato
+[PropiedadBase] --> [Ruling] : defaults/configuracion
+[PropiedadRuntime] --> [Ruling] : valores efectivos
+[LineaCotizada] --> [Pricing] : solicita calculo
+[LineaCotizada] --> [Ruling] : solicita evaluacion
+
+note right of [CategoriaCatalogo]
+Entidad tonta
+Sin logica
+end note
+
+note right of [ItemCatalogo]
+Entidad tonta
+Sin logica
+end note
+
+note right of [Pricing]
+Pricing = f(PropiedadRuntime)
+end note
+
+note right of [Ruling]
+Ruling = g(Area,
+CategoriaOperacional,
+PropiedadBase,
+PropiedadRuntime)
+end note
+@enduml

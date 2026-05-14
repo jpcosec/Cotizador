@@ -1,0 +1,48 @@
+{
+  "items": [
+    {"item_id": "TICKET_TRAGO", "name": "Ticket de trago", "raw_name": "Ticket de trago", "category": "BEBIDAS", "source_row": 1},
+    {"item_id": "TICKET_CERVEZA", "name": "Ticket de cerveza", "raw_name": "Ticket de cerveza", "category": "BEBIDAS", "source_row": 2},
+    {"item_id": "TICKET_TRAGO_VIP", "name": "Ticket de trago Vip", "raw_name": "Ticket de trago Vip", "category": "BEBIDAS", "source_row": 3},
+    {"item_id": "BAR_ABIERTO_4H", "name": "Bar abierto 4 horas", "raw_name": "Bar abierto 4 horas, valor por persona", "category": "BEBIDAS", "source_row": 4},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO", "name": "Hora extra Bar abierto", "raw_name": "Hora extra Bar abierto por persona", "category": "BEBIDAS", "source_row": 5},
+    {"item_id": "BAR_ABIERTO_SIN_ALCOHOL_4H", "name": "Bar abierto sin alcohol 4 horas", "raw_name": "Bar abierto sin alcohol 4 horas, valor por persona", "category": "BEBIDAS", "source_row": 6},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL", "name": "Hora extra Bar abierto sin alcohol", "raw_name": "Hora extra Bar abierto sin alcohol por persona", "category": "BEBIDAS", "source_row": 7},
+    {"item_id": "BAR_ABIERTO_VIP_4H", "name": "Bar abierto VIP  4 horas", "raw_name": "Bar abierto VIP  4 horas, valor por persona", "category": "BEBIDAS", "source_row": 8},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO_VIP", "name": "Hora extra Bar abierto Vip", "raw_name": "Hora extra Bar abierto Vip por persona", "category": "BEBIDAS", "source_row": 9},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_4H", "name": "Bar Abierto de bebidas en vaso por 4 horas", "raw_name": "Bar Abierto de bebidas en vaso por 4 horas, por persona", "category": "BEBIDAS", "source_row": 10},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_8H", "name": "Bar Abierto de bebidas en vaso por 8 horas", "raw_name": "Bar Abierto de bebidas en vaso por 8 horas, por persona", "category": "BEBIDAS", "source_row": 11},
+    {"item_id": "BEBIDAS_LATA", "name": "Bebidas ", "raw_name": "Bebidas ", "category": "BEBIDAS", "source_row": 12},
+    {"item_id": "TICKET_BEBIDA_AGUA", "name": "Ticket de bebida o agua", "raw_name": "Ticket de bebida o agua", "category": "BEBIDAS", "source_row": 13},
+    {"item_id": "BARRIL_CERVEZA_30L", "name": "Barril de cerveza kuntsman torobayo 30L", "raw_name": "Barril de cerveza kuntsman torobayo 30L", "category": "BEBIDAS", "source_row": 14},
+    {"item_id": "BEBESTIBLES_ADICIONALES_SALON", "name": "Bebestibles adicionales en Salón", "raw_name": "Bebestibles adicionales en Salón (Bebidas, Jugos Naturales, Agua Mineral)", "category": "BEBIDAS", "source_row": 15},
+    {"item_id": "VINO_CASTILLO_MOLINA", "name": "Vino Castillo Molina", "raw_name": "Vino Castillo Molina", "category": "BEBIDAS", "source_row": 16},
+    {"item_id": "VINO_LAPOSTOLLE", "name": "Vino Lapostolle", "raw_name": "Vino Lapostolle", "category": "BEBIDAS", "source_row": 17},
+    {"item_id": "VINO_MARQUES_CASA_CONCHA", "name": "Vino Marques Casa Concha", "raw_name": "Vino Marques Casa Concha", "category": "BEBIDAS", "source_row": 18}
+  ],
+  "price_expressions": [
+    {"item_id": "TICKET_TRAGO", "raw_expression": "6063", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 6063, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "TICKET_CERVEZA", "raw_expression": "4370", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 4370, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "TICKET_TRAGO_VIP", "raw_expression": "6800", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 6800, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_4H", "raw_expression": "30800", "expression_type": "per_person", "components": [{"type": "per_person", "value": 30800, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO", "raw_expression": "10010", "expression_type": "per_person", "components": [{"type": "per_person", "value": 10010, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_SIN_ALCOHOL_4H", "raw_expression": "32000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 32000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL", "raw_expression": "10400", "expression_type": "per_person", "components": [{"type": "per_person", "value": 10400, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_VIP_4H", "raw_expression": "38000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 38000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "HORA_EXTRA_BAR_ABIERTO_VIP", "raw_expression": "12350", "expression_type": "per_person", "components": [{"type": "per_person", "value": 12350, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_4H", "raw_expression": "12000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 12000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_8H", "raw_expression": "20000", "expression_type": "per_person", "components": [{"type": "per_person", "value": 20000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BEBIDAS_LATA", "raw_expression": "2436.97479", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 2436.97479, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "TICKET_BEBIDA_AGUA", "raw_expression": "2436.97479", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 2436.97479, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BARRIL_CERVEZA_30L", "raw_expression": "240000", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 240000, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BEBESTIBLES_ADICIONALES_SALON", "raw_expression": "ver listado de bar", "expression_type": "unknown", "components": [], "confidence": "low"},
+    {"item_id": "VINO_CASTILLO_MOLINA", "raw_expression": "13025.21008", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 13025.21008, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "VINO_LAPOSTOLLE", "raw_expression": "19328", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 19328, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "VINO_MARQUES_CASA_CONCHA", "raw_expression": "20168.06723", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 20168.06723, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "VINO_CASTILLO_MOLINA", "raw_text": "Se recomienda 1 botella para 5 personas", "rule_type": "ratio", "structured_hint": {"condition": "ratio", "effect": "1 per 5 pax"}, "confidence": "high"},
+    {"item_id": "VINO_LAPOSTOLLE", "raw_text": "Se recomienda 1 botella para 5 personas", "rule_type": "ratio", "structured_hint": {"condition": "ratio", "effect": "1 per 5 pax"}, "confidence": "high"},
+    {"item_id": "VINO_MARQUES_CASA_CONCHA", "raw_text": "Se recomienda 1 botella para 5 personas", "rule_type": "ratio", "structured_hint": {"condition": "ratio", "effect": "1 per 5 pax"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

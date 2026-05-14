@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "item_id": "COMEDOR_VIP_FOGATA_4H",
+      "name": "Comedor VIP con fogata 4h",
+      "raw_name": "Comedor VIP con fogata, 2 piso hasta 70 personas, 4 horas noche",
+      "category": "Comedor",
+      "source_row": 1
+    }
+  ],
+  "price_expressions": [
+    {
+      "item_id": "COMEDOR_VIP_FOGATA_4H",
+      "raw_expression": "360000",
+      "expression_type": "flat",
+      "components": [
+        {
+          "type": "base",
+          "value": 360000,
+          "unit": null
+        }
+      ],
+      "confidence": "high"
+    }
+  ],
+  "business_rules": [],
+  "unknowns": []
+}

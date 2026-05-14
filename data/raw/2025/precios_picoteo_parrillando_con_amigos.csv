@@ -1,0 +1,24 @@
+Picoteo parrillando con amigos: minimo 20 personas,1,1,400.000 fijo mas 20.000 por persona,,"Este apertivo consiste en hacer  su propia parrilla modo picoteo.  Podran escoger 2 unidades dentro de las siguientes alternativas: pisco sour, vino, espumpante o cerveza. Duracion 1 hora. No reemplaza  comida"
+"Aperitivo tematico: Jugando en la barra, minimo 20 personas. Maximo 1,5 horas",1,1,400.000 fijo mas 20.000 por persona,,"Bar abierto entretenido, donde ellos prepararan sus propios tragos con la ayuda de un bartender profesional. Acompañados con quesos y frutos secos. Duracion 1,5 horas"
+Tabla de Queso 6 Pax,1,1,30000,30000,"Queso mantecoso, queso azul, queso cabra, camembert, esferas queso crema con ciboulette y mix frutos secos."
+Tabla Fiambres 6 Pax,1,1,30000,30000,"Jamon pierna, jamon serrano, salame, mix frutos secos"
+Tabla Mixta Quesos y Fiambres 6 pax,1,1,30000,30000,"Jamon pierna, jamon serrano, salame, queso mantecoso, queso cabra, camembert, esferas queso crema y mix frutos secos."
+"Tabla Mix Tapaditos, Quiches y Mini Empanadas 6 pax ",1,1,60000,60000,"6 tapaditos salmon queso crema, 6 tapaditos Jamon serrano pesto aceituna, 6 mini quiches, 6 empanadas mini pino y empanadas napolitana."
+Tabla vegana 6 pax,,,60000,60000,"1 champiñon relleno, hummus, queso vegano especiado, crudites( bastones de verduras), grissinis de ajo, focaccia palmito, vegetales tempura, 1 brusqueta de rucula con tomate confit."
+"Coctail basico, minimo 15 pasajeros.",1,1,13200,13200,"1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza, 1 empanadita, 1 bruscheta queso crema tomate confit y reduccion de aceto, mix de quesos, brusqueta pesto con jamón serrano, queso azul frito con mermelada de frambuesa, y brocheta de fruta ."
+"Coctail chileno, minimo 15 pasajeros.",1,1,15000,15000,"1 Bebestible por persona entre: Pisco sour, espumante, vino,  bebida o cerveza. 1 empanadita de pino y 1 de queso, 1 bruscheta de prieta nogada, 1 mini anticucho, chorizo envuelto en masa de  hoja, chupe de camarón, mix de quesos y frutos secos."
+Cordero a la espada (Cordero con pan amasado y salsas para 20 pax),1,1,380000,380000,"Cordero a la espada para picoteo, acompañado de panes amasados con distintas salsas tales como pebre, lactonesa ajo merkén y criolla."
+"Pierna de cerdo 16 hrs al horno, con amasado y 3 salsas para picoteo",1,1,380000,380000,Recomendado para  maximo 50 personas 
+"Empanadas coctel( pino, queso y napolitana)",1,1,1000,1000,"Empanada pino, queso, napolitana, valor unitario"
+Servicio de trasnoche Consome 250cc con 2 tapaditos,1,1,Fijo 50.000 mas 10.000 por persona,,
+Punto de hidratación ,1,1,6000,6000,"1 barra de ceral, 1 agua mineral y 1 fruta de estación"
+1 fruta de estación,1,1,1500,1500,
+1 barra de cereal ,1,1,1500,1500,
+Torta Chocolate 16 pax,1,1,53000,53000,Torta de chocolate envuelta en chips de chocolate.
+Torta Carrotcake 14 pax,1,1,53000,53000,"Esponjoso de zanahoria nuez, rellena frosting de queso crema"
+Cheesecake de Oreo 14 pax,1,1,53000,53000,Imperdible cheesecake Oreo
+Torta San Francisco manjar nuez 15 pax,1,1,53000,53000,Esponjoso de chocolate rellena de dulce de leche y crema chantilly
+Trozo de torta servidas en comedores:,,,,,
+Trozo de torta de Chocolate + estacion cafe o té en comedor,1,1,7983,7983,Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.
+Trozo de torta Carrot Cake + estacion cafe o té en comedor,1,1,7983,7983,Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.
+Trozo de Cheese Cake Oreo + estacion cafe o té en comedor,1,1,7983,7983,Trozo servido a la mesa en el comedor con estacion de té y cafe disponible para autoservicio.

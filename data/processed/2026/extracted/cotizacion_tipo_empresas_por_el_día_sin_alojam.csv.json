@@ -1,0 +1,9 @@
+{
+  "items": [],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "GENERAL_POLICY", "raw_text": "Al no tener crédito, si necesitan tener consumos extras, deben dejar garantía. Un porcentaje de garantía del total del programa", "rule_type": "conditional", "structured_hint": {"condition": "no credit", "effect": "must leave guarantee"}, "confidence": "high"},
+    {"item_id": "GENERAL_POLICY", "raw_text": "En caso de que no se deje garantía, se deberá pagar los consumos en el momento que se soliciten", "rule_type": "conditional", "structured_hint": {"condition": "no guarantee", "effect": "pay on request"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

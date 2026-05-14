@@ -1,0 +1,157 @@
+pricing_id,item_id,year,expression_type,raw_expression,base_value,base_unit,variable_value,variable_unit,confidence,source_file
+PRICE_CENA_BUFFET_0001,CENA_BUFFET,2025,per_person,25210,,,25210.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_BEBIDAS_LATA_0002,BEBIDAS_LATA,2025,per_unit,1933,,,1933.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_TICKET_TRAGO_0003,TICKET_TRAGO,2025,per_unit,4850,,,4850.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_HABITACION_SINGLE_HOTEL_0004,HABITACION_SINGLE_HOTEL,2025,per_unit,120630,,,120630.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_NAUFRAGO_ACTIVITY_0005,NAUFRAGO_ACTIVITY,2025,flat,1144000,1144000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_SALON_FARIO_USO_DIURNO_0006,SALON_FARIO_USO_DIURNO,2025,flat,242000,242000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_BAR_ABIERTO_VIP_4H_0007,BAR_ABIERTO_VIP_4H,2025,per_person,38000,,,38000.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_SALON_CHINOOK_4H_NOCHE_0008,SALON_CHINOOK_4H_NOCHE,2025,flat,500000,500000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_DJ_4H_0009,DJ_4H,2025,flat,750000,750000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_PAINTBALL_0010,PAINTBALL,2025,flat,1525000,1525000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_DESAYUNO_0011,DESAYUNO,2025,per_person,12500,,,12500.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_BUFFET_0012,ALMUERZO_BUFFET,2025,per_person,27310.92437,,,27310.92437,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_CENA_BUFFET_0013,CENA_BUFFET,2025,per_person,27310.92437,,,27310.92437,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_A_LA_CARTA_0014,ALMUERZO_CENA_A_LA_CARTA,2025,per_person,35000,,,35000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_A_LA_CARTA_VIP_0015,ALMUERZO_CENA_A_LA_CARTA_VIP,2025,per_person,45000,,,45000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_PARRILLA_MIN_30_0016,ALMUERZO_CENA_PARRILLA_MIN_30,2025,per_person,35000,,,35000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_PARRILLA_LESS_30_0017,ALMUERZO_CENA_PARRILLA_LESS_30,2025,per_person,45000,,,45000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ONCE_0018,ONCE,2025,per_person,9800,,,9800.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_BOX_LUNCH_0019,BOX_LUNCH,2025,per_person,12000,,,12000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_CATA_VINOS_0020,CATA_VINOS,2025,base_plus_variable,$300.000 fijo mas $24.000 por persona,300000.0,CLP,24000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_HABITACION_SINGLE_HOTEL_BB_0021,HABITACION_SINGLE_HOTEL_BB,2025,per_unit,120630,,,120630.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_DOBLE_HOTEL_BB_0022,HABITACION_DOBLE_HOTEL_BB,2025,per_unit,189219,,,189219.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_TRIPLE_HOTEL_BB_0023,HABITACION_TRIPLE_HOTEL_BB,2025,per_unit,239712,,,239712.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_CUADRUPLE_HOTEL_BB_0024,HABITACION_CUADRUPLE_HOTEL_BB,2025,per_unit,290206,,,290206.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_QUINTUPLE_HOTEL_BB_0025,HABITACION_QUINTUPLE_HOTEL_BB,2025,per_unit,342097,,,342097.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_6_PAX_BB_0026,CABANA_6_PAX_BB,2025,per_unit,393987,,,393987.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_7_PAX_BB_0027,CABANA_7_PAX_BB,2025,per_unit,445870,,,445870.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_8_PAX_BB_0028,CABANA_8_PAX_BB,2025,per_unit,497769,,,497769.0,CLP,high,precios_alojamiento.csv
+PRICE_SALON_CHINOOK_USO_DIURNO_0029,SALON_CHINOOK_USO_DIURNO,2025,flat,385000,385000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_COHO_USO_DIURNO_0030,SALON_COHO_USO_DIURNO,2025,flat,330000,330000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_FARIO_USO_DIURNO_0031,SALON_FARIO_USO_DIURNO,2025,flat,242000,242000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_ARCOIRIS_USO_DIURNO_0032,SALON_ARCOIRIS_USO_DIURNO,2025,flat,209000,209000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_DIRECTORIO_USO_DIURNO_0033,SALON_DIRECTORIO_USO_DIURNO,2025,flat,319000,319000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_DOMO_USO_DIURNO_0034,SALON_DOMO_USO_DIURNO,2025,flat,550000,550000.0,day,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_TICKET_TRAGO_0035,TICKET_TRAGO,2025,per_person,4850,,,4850.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_TICKET_CERVEZA_0036,TICKET_CERVEZA,2025,per_person,3529.411765,,,3529.411765,CLP,high,precios_bebidas__y_bar.csv
+PRICE_TICKET_TRAGO_VIP_0037,TICKET_TRAGO_VIP,2025,per_person,6800,,,6800.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_4H_0038,BAR_ABIERTO_4H,2025,per_person,30800,,,30800.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_EXTRA_H_0039,BAR_ABIERTO_EXTRA_H,2025,per_person,10010,,,10010.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_VINO_CASTILLO_MOLINA_0040,VINO_CASTILLO_MOLINA,2025,per_unit,13025.21008,,,13025.21008,bottle,high,precios_bebidas__y_bar.csv
+PRICE_CAMBIO_MONTAJE_CHINOOK_0041,CAMBIO_MONTAJE_CHINOOK,2025,flat,150000,150000.0,CLP,,,high,precios_block_1.csv
+PRICE_CAMBIO_MONTAJE_COHO_0042,CAMBIO_MONTAJE_COHO,2025,flat,100000,100000.0,CLP,,,high,precios_block_1.csv
+PRICE_CAMBIO_MONTAJE_FARIOS_ARCOIRIS_0043,CAMBIO_MONTAJE_FARIOS_ARCOIRIS,2025,flat,80000,80000.0,CLP,,,high,precios_block_1.csv
+PRICE_CAMBIO_HORARIO_DESAYUNO_1H_0044,CAMBIO_HORARIO_DESAYUNO_1H,2025,per_person,6500,,,6500.0,CLP,high,precios_cambios_de_horas_y_lugar_en_se.csv
+PRICE_CAMBIO_HORARIO_DESAYUNO_30M_0045,CAMBIO_HORARIO_DESAYUNO_30M,2025,per_person,4000,,,4000.0,CLP,high,precios_cambios_de_horas_y_lugar_en_se.csv
+PRICE_CAMBIO_HORARIO_ALMUERZO_30M_0046,CAMBIO_HORARIO_ALMUERZO_30M,2025,per_person,6500,,,6500.0,CLP,high,precios_cambios_de_horas_y_lugar_en_se.csv
+PRICE_EXTENSION_CENA_30M_0047,EXTENSION_CENA_30M,2025,per_person,8000,,,8000.0,CLP,high,precios_cambios_de_horas_y_lugar_en_se.csv
+PRICE_CAMBIO_LUGAR_ALIMENTACION_0048,CAMBIO_LUGAR_ALIMENTACION,2025,per_person,10000,,,10000.0,CLP,high,precios_cambios_de_horas_y_lugar_en_se.csv
+PRICE_COFFEE_BASICO_0049,COFFEE_BASICO,2025,per_person,6380,,,6380.0,CLP,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_MAQUINA_CAFE_MILANO_0050,MAQUINA_CAFE_MILANO,2025,flat,200000,200000.0,load,,,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_DJ_KARAOKE_UNDER_50_4H_0051,DJ_KARAOKE_UNDER_50_4H,2025,flat,850000,850000.0,4 hours,,,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_LOUNGE_TERRAZA_PP_0052,LOUNGE_TERRAZA_PP,2025,per_person,8000,,,8000.0,CLP,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_COMEDOR_VIP_TERRAZA_8H_DIURNO_0053,COMEDOR_VIP_TERRAZA_8H_DIURNO,2025,flat,365000,365000.0,8 hours,,,high,precios_comedor_vip_y_terraza_2do_piso.csv
+PRICE_ARRIENDO_PERGOLA_PICADERO_0054,ARRIENDO_PERGOLA_PICADERO,2025,flat,100000,100000.0,CLP,,,high,precios_comedor_vip_y_terraza_2do_piso.csv
+PRICE_RAMO_FLORES_0055,RAMO_FLORES,2025,flat,50000,50000.0,unit,,,high,precios_otros_articulos.csv
+PRICE_ALMUERZO_PRODUCTORA_CHOFER_0056,ALMUERZO_PRODUCTORA_CHOFER,2025,per_person,16386.55462,,,16386.55462,CLP,high,precios_otros_articulos.csv
+PRICE_PICOTEO_PARRILLANDO_AMIGOS_0057,PICOTEO_PARRILLANDO_AMIGOS,2025,base_plus_variable,400.000 fijo mas 20.000 por persona,400000.0,CLP,20000.0,CLP,high,precios_picoteo_parrillando_con_amigos.csv
+PRICE_TABLA_QUESO_6PAX_0058,TABLA_QUESO_6PAX,2025,flat,30000,30000.0,6 pax,,,high,precios_picoteo_parrillando_con_amigos.csv
+PRICE_TRASNOCHE_CONSOME_TAPADITOS_0059,TRASNOCHE_CONSOME_TAPADITOS,2025,base_plus_variable,Fijo 50.000 mas 10.000 por persona,50000.0,CLP,10000.0,CLP,high,precios_picoteo_parrillando_con_amigos.csv
+PRICE_MASAJISTA_EXCLUSIVA_RELAX_30M_0060,MASAJISTA_EXCLUSIVA_RELAX_30M,2025,flat,300000,300000.0,day,,,high,precios_spa.csv
+PRICE_MASAJES_RELAX_30M_0061,MASAJES_RELAX_30M,2025,per_person,25210,,,25210.0,CLP,high,precios_spa.csv
+PRICE_PISCINA_TEMPERADA_NOCTURNA_EXCLUSIVA_1H_0062,PISCINA_TEMPERADA_NOCTURNA_EXCLUSIVA_1H,2025,flat,150000,150000.0,hour,,,high,precios_spa.csv
+PRICE_TECNICA_SALON_DIURNO_0063,TECNICA_SALON_DIURNO,2025,flat,165000,165000.0,day,,,high,precios_tecnica_para_salones_uso_diurn.csv
+PRICE_OPERADOR_AUDIO_8H_0064,OPERADOR_AUDIO_8H,2025,flat,144000,144000.0,8 hours,,,high,precios_tecnica_para_salones_uso_diurn.csv
+PRICE_PAX_ADICIONAL_MISMA_HABITACION_0065,PAX_ADICIONAL_MISMA_HABITACION,2025,per_person,43907.6,,,43907.6,CLP,high,precios_valor_pax_adicional_en_la_mism.csv
+PRICE_EARLY_CHECK_IN_HOTEL_0066,EARLY_CHECK_IN_HOTEL,2025,flat,29411.76471,29411.76471,room,,,high,precios_valor_pax_adicional_en_la_mism.csv
+PRICE_GUIAS_EXCLUSIVOS_CAMINATAS_0067,GUIAS_EXCLUSIVOS_CAMINATAS,2025,flat,80000,80000.0,guide,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_CAMINATA_LA_TENCA_EXCLUSIVA_0068,CAMINATA_LA_TENCA_EXCLUSIVA,2025,base_plus_variable,300.000+ 10.000 por persona,300000.0,CLP,10000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_YOGA_0069,YOGA,2025,base_plus_variable,300.000 + 10.000 pesos por persona,300000.0,CLP,10000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_TEAMBUILDING_PAINTBALL_0070,TEAMBUILDING_PAINTBALL,2025,base_plus_variable,1.000.000+ 35.000 por persona,1000000.0,CLP,35000.0,CLP,high,teambuilding_y_actividades_teambuilding.csv
+PRICE_TEAMBUILDING_BUSQUEDA_TESORO_0071,TEAMBUILDING_BUSQUEDA_TESORO,2025,base_plus_variable,500.000+ 15.000 por persona,500000.0,CLP,15000.0,CLP,high,teambuilding_y_actividades_teambuilding.csv
+PRICE_ACTIVIDAD_PAUSA_NEUMATICOS_0072,ACTIVIDAD_PAUSA_NEUMATICOS,2025,base_plus_variable,150.000 + 3.000 por persona,150000.0,CLP,3000.0,CLP,high,teambuilding_y_actividades_teambuilding_actividades_de_pa.csv
+PRICE_CENA_BUFFET_0073,CENA_BUFFET,2026,per_person,25210,,,25210.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_BEBIDAS_LATA_0074,BEBIDAS_LATA,2026,per_unit,1933,,,1933.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_TICKET_TRAGO_0075,TICKET_TRAGO,2026,per_unit,4850,,,4850.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_HABITACION_SINGLE_HOTEL_0076,HABITACION_SINGLE_HOTEL,2026,per_unit,120630,,,120630.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_NAUFRAGO_ACTIVITY_0077,NAUFRAGO_ACTIVITY,2026,flat,1144000,1144000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_SALON_FARIO_USO_DIURNO_0078,SALON_FARIO_USO_DIURNO,2026,flat,242000,242000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_BAR_ABIERTO_VIP_4H_0079,BAR_ABIERTO_VIP_4H,2026,per_person,38000,,,38000.0,CLP,high,cotizacion_tipo_dia_1.csv
+PRICE_SALON_CHINOOK_4H_NOCHE_0080,SALON_CHINOOK_4H_NOCHE,2026,flat,500000,500000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_DJ_4H_0081,DJ_4H,2026,flat,750000,750000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_PAINTBALL_0082,PAINTBALL,2026,flat,1525000,1525000.0,CLP,,,high,cotizacion_tipo_dia_1.csv
+PRICE_DESAYUNO_0083,DESAYUNO,2026,per_person,13750,,,13750.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_DESAYUNO_INCLUIDO_0084,DESAYUNO_INCLUIDO,2026,per_person,0,,,0.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_BUFFET_0085,ALMUERZO_BUFFET,2026,per_person,27731,,,27731.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_CENA_BUFFET_0086,CENA_BUFFET,2026,per_person,27731,,,27731.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_A_LA_CARTA_0087,ALMUERZO_CENA_A_LA_CARTA,2026,per_person,38500,,,38500.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_A_LA_CARTA_VIP_0088,ALMUERZO_CENA_A_LA_CARTA_VIP,2026,per_person,45000,,,45000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_PARRILLA_MIN_30_0089,ALMUERZO_CENA_PARRILLA_MIN_30,2026,per_person,38500,,,38500.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ALMUERZO_CENA_PARRILLA_LESS_30_0090,ALMUERZO_CENA_PARRILLA_LESS_30,2026,per_person,45000,,,45000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_ONCE_0091,ONCE,2026,per_person,10780,,,10780.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_HAMBURGUESA_BEBIDA_0092,HAMBURGUESA_BEBIDA,2026,per_person,7900,,,7900.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_BOX_LUNCH_0093,BOX_LUNCH,2026,per_person,12000,,,12000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_CATA_VINOS_0094,CATA_VINOS,2026,base_plus_variable,$300.000 fijo mas $24.000 por persona,300000.0,CLP,24000.0,CLP,high,precios_alimentacion_y_banqueteria.csv
+PRICE_HABITACION_SINGLE_HOTEL_BB_0095,HABITACION_SINGLE_HOTEL_BB,2026,per_unit,132693,,,132693.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_DOBLE_HOTEL_BB_0096,HABITACION_DOBLE_HOTEL_BB,2026,per_unit,208141,,,208141.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_TRIPLE_HOTEL_BB_0097,HABITACION_TRIPLE_HOTEL_BB,2026,per_unit,284501,,,284501.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_CUADRUPLE_HOTEL_BB_0098,HABITACION_CUADRUPLE_HOTEL_BB,2026,per_unit,319227,,,319227.0,CLP,high,precios_alojamiento.csv
+PRICE_HABITACION_QUINTUPLE_HOTEL_BB_0099,HABITACION_QUINTUPLE_HOTEL_BB,2026,per_unit,376307,,,376307.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_6_PAX_BB_0100,CABANA_6_PAX_BB,2026,per_unit,433386,,,433386.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_7_PAX_BB_0101,CABANA_7_PAX_BB,2026,per_unit,490567,,,490567.0,CLP,high,precios_alojamiento.csv
+PRICE_CABANA_8_PAX_BB_0102,CABANA_8_PAX_BB,2026,per_unit,547546,,,547546.0,CLP,high,precios_alojamiento.csv
+PRICE_SALON_CHINOOK_DIURNO_0103,SALON_CHINOOK_DIURNO,2026,flat,385000,385000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_COHO_DIURNO_0104,SALON_COHO_DIURNO,2026,flat,330000,330000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_FARIO_DIURNO_0105,SALON_FARIO_DIURNO,2026,flat,242000,242000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_SALON_ARCOIRIS_DIURNO_0106,SALON_ARCOIRIS_DIURNO,2026,flat,209000,209000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_DIRECTORIO_DIURNO_0107,DIRECTORIO_DIURNO,2026,flat,319000,319000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_DOMO_240_PAX_0108,DOMO_240_PAX,2026,flat,550000,550000.0,CLP,,,high,precios_arriendo_de_salones_audios_y_c.csv
+PRICE_TICKET_TRAGO_0109,TICKET_TRAGO,2026,per_unit,6063,,,6063.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_TICKET_CERVEZA_0110,TICKET_CERVEZA,2026,per_unit,4370,,,4370.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_TICKET_TRAGO_VIP_0111,TICKET_TRAGO_VIP,2026,per_unit,6800,,,6800.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_4H_0112,BAR_ABIERTO_4H,2026,per_person,30800,,,30800.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_HORA_EXTRA_BAR_ABIERTO_0113,HORA_EXTRA_BAR_ABIERTO,2026,per_person,10010,,,10010.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_SIN_ALCOHOL_4H_0114,BAR_ABIERTO_SIN_ALCOHOL_4H,2026,per_person,32000,,,32000.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL_0115,HORA_EXTRA_BAR_ABIERTO_SIN_ALCOHOL,2026,per_person,10400,,,10400.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_VIP_4H_0116,BAR_ABIERTO_VIP_4H,2026,per_person,38000,,,38000.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_HORA_EXTRA_BAR_ABIERTO_VIP_0117,HORA_EXTRA_BAR_ABIERTO_VIP,2026,per_person,12350,,,12350.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_BEBIDAS_VASO_4H_0118,BAR_ABIERTO_BEBIDAS_VASO_4H,2026,per_person,12000,,,12000.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BAR_ABIERTO_BEBIDAS_VASO_8H_0119,BAR_ABIERTO_BEBIDAS_VASO_8H,2026,per_person,20000,,,20000.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BEBIDAS_LATA_0120,BEBIDAS_LATA,2026,per_unit,2436.97479,,,2436.97479,CLP,high,precios_bebidas__y_bar.csv
+PRICE_TICKET_BEBIDA_AGUA_0121,TICKET_BEBIDA_AGUA,2026,per_unit,2436.97479,,,2436.97479,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BARRIL_CERVEZA_30L_0122,BARRIL_CERVEZA_30L,2026,per_unit,240000,,,240000.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_BEBESTIBLES_ADICIONALES_SALON_0123,BEBESTIBLES_ADICIONALES_SALON,2026,unknown,ver listado de bar,,,,,low,precios_bebidas__y_bar.csv
+PRICE_VINO_CASTILLO_MOLINA_0124,VINO_CASTILLO_MOLINA,2026,per_unit,13025.21008,,,13025.21008,CLP,high,precios_bebidas__y_bar.csv
+PRICE_VINO_LAPOSTOLLE_0125,VINO_LAPOSTOLLE,2026,per_unit,19328,,,19328.0,CLP,high,precios_bebidas__y_bar.csv
+PRICE_VINO_MARQUES_CASA_CONCHA_0126,VINO_MARQUES_CASA_CONCHA,2026,per_unit,20168.06723,,,20168.06723,CLP,high,precios_bebidas__y_bar.csv
+PRICE_CAMBIO_MONTAJE_CHINOOK_0127,CAMBIO_MONTAJE_CHINOOK,2026,flat,150000,150000.0,,,,high,precios_block_1.csv
+PRICE_CAMBIO_MONTAJE_COHO_0128,CAMBIO_MONTAJE_COHO,2026,flat,100000,100000.0,,,,high,precios_block_1.csv
+PRICE_COFFEE_BASICO_0129,COFFEE_BASICO,2026,flat,7656,7656.0,,,,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_COFFEE_INTERMEDIO_0130,COFFEE_INTERMEDIO,2026,flat,10395,10395.0,,,,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_COFFEE_FULL_0131,COFFEE_FULL,2026,flat,16500,16500.0,,,,high,precios_coffes_y_servicios_relacionado.csv
+PRICE_COMEDOR_VIP_FOGATA_4H_0132,COMEDOR_VIP_FOGATA_4H,2026,flat,360000,360000.0,,,,high,precios_comedor_vip_y_terraza_2do_piso.csv
+PRICE_MASAJISTA_EXCLUSIVA_RELAX_30M_0133,MASAJISTA_EXCLUSIVA_RELAX_30M,2026,flat,300000,300000.0,,,,high,precios_spa.csv
+PRICE_MASAJES_RELAX_30M_0134,MASAJES_RELAX_30M,2026,flat,25210,25210.0,,,,high,precios_spa.csv
+PRICE_PISCINA_TEMPERADA_NOCTURNA_0135,PISCINA_TEMPERADA_NOCTURNA,2026,flat,150000,150000.0,,,,high,precios_spa.csv
+PRICE_GUIAS_EXCLUSIVOS_CAMINATAS_0136,GUIAS_EXCLUSIVOS_CAMINATAS,2026,flat,80000,80000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_CAMINATA_LA_TENCA_EXCLUSIVA_0137,CAMINATA_LA_TENCA_EXCLUSIVA,2026,base_plus_variable,200.000+ 5.000 por persona,200000.0,CLP,5000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_CAMINATA_MIRADOR_EXCLUSIVA_0138,CAMINATA_MIRADOR_EXCLUSIVA,2026,base_plus_variable,200.000+ 5.000 por persona,200000.0,CLP,5000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_FOGON_PEQUENO_0139,FOGON_PEQUENO,2026,flat,100000,100000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_FOGATA_GRANDE_0140,FOGATA_GRANDE,2026,flat,250000,250000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_CLASE_PESCA_MOSCA_3H_0141,CLASE_PESCA_MOSCA_3H,2026,per_person,63025.21008,,,63025.21008,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_ARRIENDO_CANA_PESCA_0142,ARRIENDO_CANA_PESCA,2026,per_unit,12605,,,12605.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_PASEOS_CABALLO_EXCLUSIVOS_0143,PASEOS_CABALLO_EXCLUSIVOS,2026,per_person,42016.80672,,,42016.80672,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_PASEO_CABALLO_VERTIENTE_TORO_0144,PASEO_CABALLO_VERTIENTE_TORO,2026,per_person,109000,,,109000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_PASEO_CABALLO_ALTOS_GUINDO_0145,PASEO_CABALLO_ALTOS_GUINDO,2026,per_person,119000,,,119000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_SAFARI_ECUESTRE_TRACTOR_0146,SAFARI_ECUESTRE_TRACTOR,2026,base_plus_variable,200.000+ 55.000pp,200000.0,CLP,55000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_USO_ACTIVIDADES_PAID_0147,USO_ACTIVIDADES_PAID,2026,per_person,23109,,,23109.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_USO_ACTIVIDADES_CORTESIA_0148,USO_ACTIVIDADES_CORTESIA,2026,per_person,0,,,0.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_YOGA_0149,YOGA,2026,base_plus_variable,200.000 + 5.000 pesos por persona,200000.0,CLP,5000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_LAGUNA_KAYAK_0150,LAGUNA_KAYAK,2026,flat,250000,250000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_ARRIENDO_KAYAK_SUP_0151,ARRIENDO_KAYAK_SUP,2026,per_unit,30000,,,30000.0,CLP,high,teambuilding_y_actividades_actividades.csv
+PRICE_CANOPY_EXCLUSIVO_0152,CANOPY_EXCLUSIVO,2026,flat,250000,250000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_CANCHA_FUTBOL_0153,CANCHA_FUTBOL,2026,flat,300000,300000.0,CLP,,,high,teambuilding_y_actividades_actividades.csv
+PRICE_PAINTBALL_0154,PAINTBALL,2026,base_plus_variable,1.000.000+ 35.000 por persona,1000000.0,,35000.0,persona,high,teambuilding_y_actividades_teambuilding.csv
+PRICE_BUSQUEDA_TESORO_0155,BUSQUEDA_TESORO,2026,base_plus_variable,500.000+ 15.000 por persona,500000.0,,15000.0,persona,high,teambuilding_y_actividades_teambuilding.csv
+PRICE_EL_NAUFRAGO_LA_BALSA_0156,EL_NAUFRAGO_LA_BALSA,2026,base_plus_variable,1.000.000 + 20.000 por persona,1000000.0,,20000.0,persona,high,teambuilding_y_actividades_teambuilding.csv

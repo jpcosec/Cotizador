@@ -1,0 +1,9 @@
+{
+  "items": [],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "TIP_POLICY", "raw_text": "Valor no incluye propinas", "rule_type": "inclusion", "structured_hint": {"condition": "tips", "effect": "not included"}, "confidence": "high"},
+    {"item_id": "IVA_TAX", "raw_text": "IVA", "rule_type": "ratio", "structured_hint": {"condition": "tax", "effect": "19%"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

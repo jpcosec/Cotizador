@@ -1,0 +1,238 @@
+@startuml OntologiaCompleta
+hide circle
+skinparam backgroundColor white
+skinparam classBackgroundColor #FDFDFD
+skinparam classBorderColor #4F81BD
+skinparam ArrowColor #666666
+skinparam classAttributeIconSize 0
+left to right direction
+
+title CotizadorLodge - Ontologia completa propuesta
+
+class CATEGORIA_COMERCIAL <<navegacion>> {
+  +ID_Categoria_Comercial : string
+  --
+  Nombre : string
+  Dominio : string
+}
+
+class AREA <<dimension>> {
+  +ID_Area : string
+  --
+  Nombre : string
+  --
+  cocina, bebidas_bar,
+  alojamiento, spa_wellness,
+  teambuilding, infraestructura,
+  operacional
+}
+
+class TIPO_ITEM <<dimension>> {
+  +ID_Tipo_Item : string
+  --
+  Nombre : string
+  Descripcion : text
+  --
+  servicio, producto,
+  recurso, compuesto
+}
+
+class SUBTIPO_ITEM <<dimension>> {
+  +ID_Subtipo_Item : string
+  --
+  ID_Tipo_Item : fk
+  Nombre : string
+  --
+  personal, equipamiento,
+  locacion, evento, pack,
+  programa, consumible
+}
+
+class CLASE_CATALOGO <<central>> {
+  +ID_Clase_Catalogo : string
+  --
+  Nombre : string
+  ID_Categoria_Comercial : fk
+  ID_Area : fk
+  ID_Tipo_Item : fk
+  ID_Subtipo_Item : fk?
+  Es_Configurable : boolean
+  --
+  Patron reusable del negocio.
+  Ej: Sandwich, BuffetDesayuno,
+  HabitacionHotel, Masaje30Min.
+}
+
+class ITEM_CATALOGO <<central>> {
+  +ID_Item : string
+  --
+  ID_Clase_Catalogo : fk
+  Nombre_Comercial : string
+  Descripcion : text
+  Activo : boolean
+  --
+  Instancia concreta vendible.
+  Hereda defaults y overridea
+  lo necesario.
+}
+
+class TIPO_CLIENTE <<dimension>> {
+  +ID_Tipo_Cliente : string
+  --
+  Nombre : string
+}
+
+class LOCACION <<dimension>> {
+  +ID_Locacion : string
+  --
+  Nombre : string
+  Tipo_Locacion : string
+  Capacidad_Base : number
+}
+
+class HORARIO <<dimension>> {
+  +ID_Horario : string
+  --
+  Modo : string
+  Hora_Inicio_Default : time
+  Duracion_Default : number
+  Flexibilidad : string
+}
+
+class TIPO_VALORIZACION <<dimension>> {
+  +ID_Tipo_Valorizacion : string
+  --
+  Codigo : string
+  Unidad_Base : string
+}
+
+class PERFIL_PRECIO <<comportamiento>> {
+  +ID_Perfil_Precio : string
+  --
+  ID_Tipo_Valorizacion : fk
+  Costo_Base_Fijo : money
+  Costo_Unitario_Pax : money
+  Costo_Unitario_Item : money
+  Costo_Unitario_Tiempo : money
+  Moneda : string
+}
+
+class REGLA_NEGOCIO <<comportamiento>> {
+  +ID_Regla : string
+  --
+  Scope : string
+  Etapa : string
+  Condicion_JSON : json
+  Payload_JSON : json
+  Prioridad : int
+}
+
+class FACETA <<dimension>> {
+  +ID_Faceta : string
+  --
+  Nombre : string
+  Grupo : string
+}
+
+class INFRA_TIPO <<dimension>> {
+  +ID_Infra_Tipo : string
+  --
+  Nombre : string
+}
+
+class INFRA_RECURSO <<dimension>> {
+  +ID_Infra_Recurso : string
+  --
+  ID_Infra_Tipo : fk
+  Nombre : string
+  Capacidad_Unidad : string
+}
+
+class CLASE_FACETA <<puente>> {
+  +ID_Clase_Faceta : string
+  --
+  ID_Clase_Catalogo : fk
+  ID_Faceta : fk
+  Valor_Default : string?
+}
+
+class CLASE_DIMENSIONES <<puente>> {
+  +ID_Clase_Dimension : string
+  --
+  ID_Clase_Catalogo : fk
+  Tipo_Dimension : enum
+  Ref_ID : fk
+}
+
+class CLASE_PRECIO <<puente>> {
+  +ID_Clase_Precio : string
+  --
+  ID_Clase_Catalogo : fk
+  ID_Perfil_Precio : fk
+}
+
+class CLASE_REGLA <<puente>> {
+  +ID_Clase_Regla : string
+  --
+  ID_Clase_Catalogo : fk
+  ID_Regla : fk
+}
+
+class CLASE_INFRA <<puente>> {
+  +ID_Clase_Infra : string
+  --
+  ID_Clase_Catalogo : fk
+  ID_Infra_Recurso : fk
+  Cantidad_Default : number
+}
+
+class ITEM_OVERRIDE <<puente>> {
+  +ID_Item_Override : string
+  --
+  ID_Item : fk
+  Tipo_Override : enum
+  Ref_ID : fk?
+  Valor_JSON : json?
+}
+
+CATEGORIA_COMERCIAL "1" -- "0..*" CLASE_CATALOGO : agrupa
+AREA "1" -- "0..*" CLASE_CATALOGO : dominio
+TIPO_ITEM "1" -- "0..*" SUBTIPO_ITEM : especializa
+TIPO_ITEM "1" -- "0..*" CLASE_CATALOGO : tipa
+SUBTIPO_ITEM "0..1" -- "0..*" CLASE_CATALOGO : matiza
+CLASE_CATALOGO "1" -- "0..*" ITEM_CATALOGO : instancia
+FACETA "1" -- "0..*" CLASE_FACETA : reutiliza
+CLASE_CATALOGO "1" -- "0..*" CLASE_FACETA : define
+TIPO_CLIENTE "1" -- "0..*" CLASE_DIMENSIONES : puede_ser
+LOCACION "1" -- "0..*" CLASE_DIMENSIONES : ocurre_en
+HORARIO "1" -- "0..*" CLASE_DIMENSIONES : usa
+TIPO_VALORIZACION "1" -- "0..*" PERFIL_PRECIO : define_formula
+PERFIL_PRECIO "1" -- "0..*" CLASE_PRECIO : precio_base
+REGLA_NEGOCIO "1" -- "0..*" CLASE_REGLA : reglas_base
+INFRA_TIPO "1" -- "0..*" INFRA_RECURSO : tipa
+INFRA_RECURSO "1" -- "0..*" CLASE_INFRA : infra_base
+ITEM_CATALOGO "1" -- "0..*" ITEM_OVERRIDE : overridea
+
+note bottom of CLASE_CATALOGO
+La base semantica real ahora es:
+AREA + TIPO_ITEM + SUBTIPO_ITEM?
+La categoria comercial conversa con una CLASE_CATALOGO,
+no directamente con el item.
+end note
+
+note bottom of ITEM_CATALOGO
+Ejemplo:
+Clase = Sandwich
+Items = AveMayo, Vegetariano,
+JamonQueso, SalmonCrema
+end note
+
+legend right
+|= Estereotipo |= Significado |
+| <<central>> | entidad principal reusable o concreta |
+| <<dimension>> | eje ortogonal o descriptor |
+| <<puente>> | relacion N:M o asignacion |
+| <<comportamiento>> | capa de precio/reglas |
+| <<navegacion>> | agrupacion comercial |
+endlegend
+@enduml

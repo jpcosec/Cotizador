@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net" modified="2026-05-12T00:00:00.000Z" agent="OpenCode" version="24.7.17">
+  <diagram id="data-categorization" name="Items y categorias">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2339" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;font style=&quot;font-size:22px;&quot;&gt;&lt;b&gt;CotizadorLodge - Categorizacion de Items&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:12px;&quot;&gt;Vista conceptual: Subcategoria de negocio -&amp;gt; Categoria fuente -&amp;gt; Ejemplos de items&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f1f1f;align=center;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="467" y="30" width="520" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend" value="&lt;b&gt;Lectura&lt;/b&gt;&lt;br&gt;- Subcategoria: agrupacion comercial&lt;br&gt;- Categoria fuente: mini-tabla/hoja extraida&lt;br&gt;- Items: ejemplos representativos, no listado completo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="30" width="320" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="n1" value="&lt;b&gt;Actividades&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- teambuilding_y_actividades_actividades&lt;br&gt;- teambuilding_y_actividades_teambuilding&lt;br&gt;- teambuilding_y_actividades_teambuilding_actividades_de_pa&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Caminata la tenca exclusiva&lt;br&gt;- Teambuilding paintball&lt;br&gt;- Bob Esponja / Carrera de Sacos&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 68&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="180" width="320" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="n2" value="&lt;b&gt;Gastronomia&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- precios_alimentacion_y_banqueteria&lt;br&gt;- precios_bebidas__y_bar&lt;br&gt;- precios_coffes_y_servicios_relacionado&lt;br&gt;- precios_picoteo_parrillando_con_amigos&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Desayuno / Almuerzo buffet&lt;br&gt;- Bar abierto / Ticket trago&lt;br&gt;- Coffee break / Coctail basico&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 102&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="410" y="180" width="320" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="n3" value="&lt;b&gt;Hospedaje&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- precios_alojamiento&lt;br&gt;- precios_valor_pax_adicional_en_la_mism&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Habitacion single/doble/triple&lt;br&gt;- Cabana 6/7/8 pasajeros&lt;br&gt;- Early/Late check in-out&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 23&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="760" y="180" width="320" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="n4" value="&lt;b&gt;Infraestructura&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- capacidades_maximas_salones_y__chinook&lt;br&gt;- capacidades_maximas_salones_y__salones&lt;br&gt;- precios_arriendo_de_salones_audios_y_c&lt;br&gt;- precios_block_1&lt;br&gt;- precios_comedor_vip_y_terraza_2do_piso&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Salon Chinook / Coho / Domo&lt;br&gt;- Uso diurno / cambio de montaje&lt;br&gt;- Comedor VIP / pergola&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 52&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="180" width="320" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="n5" value="&lt;b&gt;Operacional&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- precios_cambios_de_horas_y_lugar_en_se&lt;br&gt;- precios_tecnica_para_salones_uso_diurn&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Cambio horario desayuno/almuerzo&lt;br&gt;- Cambio lugar alimentacion&lt;br&gt;- Tecnica salon / operador / microfonos&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 12&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d4e1f5;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="470" width="320" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="n6" value="&lt;b&gt;Wellness&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categoria fuente:&lt;/font&gt;&lt;br&gt;- precios_spa&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Masajes relax 30 min&lt;br&gt;- Masajista exclusiva&lt;br&gt;- Piscina temperada nocturna&lt;br&gt;- Gorros de piscina&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 8&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="410" y="470" width="320" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="n7" value="&lt;b&gt;Otros&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categoria fuente:&lt;/font&gt;&lt;br&gt;- precios_otros_articulos&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Ramo de flores&lt;br&gt;- Fotocopias / lapices / plumones&lt;br&gt;- Almuerzos productoras o choferes&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 10&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="760" y="470" width="320" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="n8" value="&lt;b&gt;Politica&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Categorias fuente:&lt;/font&gt;&lt;br&gt;- cotizacion_tipo_dia_1&lt;br&gt;- cotizacion_tipo_presupuesto_valorizado&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Ejemplos:&lt;/font&gt;&lt;br&gt;- Buffet dia 1&lt;br&gt;- Bar abierto VIP 4 horas&lt;br&gt;- Bloques de cotizacion tipo&lt;br&gt;&lt;font style=&quot;font-size:11px;&quot;&gt;Total items: 30&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;&quot;&gt;Nota: aqui se mezclan items comerciales con bloques/politicas de cotizacion extraidos desde hojas de plantilla.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce5cd;strokeColor=#d79b00;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="470" width="320" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="note2" value="&lt;b&gt;Problema actual detectado&lt;/b&gt;&lt;br&gt;La taxonomia mezcla:&lt;br&gt;1. categorias comerciales reales&lt;br&gt;2. nombres tecnicos de mini-tablas fuente&lt;br&gt;3. bloques de cotizacion/politica que no siempre son items puros&lt;br&gt;&lt;br&gt;Este diagrama separa primero por subcategoria de negocio para que el catalogo sea legible." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="467" y="740" width="520" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n6">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n7">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;rounded=0;html=1;" edge="1" parent="1" source="title" target="n8">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

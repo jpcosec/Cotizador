@@ -1,0 +1,33 @@
+{
+  "items": [
+    {"item_id": "TICKET_TRAGO", "name": "Ticket de trago", "raw_name": "Ticket de trago", "category": "ALIMENTACION", "source_row": 1},
+    {"item_id": "TICKET_CERVEZA", "name": "Ticket de cerveza", "raw_name": "Ticket de cerveza", "category": "ALIMENTACION", "source_row": 2},
+    {"item_id": "TICKET_TRAGO_VIP", "name": "Ticket de trago Vip", "raw_name": "Ticket de trago Vip", "category": "ALIMENTACION", "source_row": 3},
+    {"item_id": "BAR_ABIERTO_4H", "name": "Bar abierto 4 horas", "raw_name": "Bar abierto 4 horas, valor por persona", "category": "ALIMENTACION", "source_row": 4},
+    {"item_id": "BAR_ABIERTO_EXTRA_H", "name": "Hora extra Bar abierto", "raw_name": "Hora extra Bar abierto por persona", "category": "ALIMENTACION", "source_row": 5},
+    {"item_id": "BAR_ABIERTO_SIN_ALCOHOL_4H", "name": "Bar abierto sin alcohol 4 horas", "raw_name": "Bar abierto sin alcohol 4 horas, valor por persona", "category": "ALIMENTACION", "source_row": 6},
+    {"item_id": "BAR_ABIERTO_SIN_ALCOHOL_EXTRA_H", "name": "Hora extra Bar abierto sin alcohol", "raw_name": "Hora extra Bar abierto sin alcohol por persona", "category": "ALIMENTACION", "source_row": 7},
+    {"item_id": "BAR_ABIERTO_VIP_4H", "name": "Bar abierto VIP 4 horas", "raw_name": "Bar abierto VIP  4 horas, valor por persona", "category": "ALIMENTACION", "source_row": 8},
+    {"item_id": "BAR_ABIERTO_VIP_EXTRA_H", "name": "Hora extra Bar abierto Vip", "raw_name": "Hora extra Bar abierto Vip por persona", "category": "ALIMENTACION", "source_row": 9},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_4H", "name": "Bar Abierto de bebidas en vaso por 4 horas", "raw_name": "Bar Abierto de bebidas en vaso por 4 horas, por persona", "category": "ALIMENTACION", "source_row": 10},
+    {"item_id": "BAR_ABIERTO_BEBIDAS_VASO_8H", "name": "Bar Abierto de bebidas en vaso por 8 horas", "raw_name": "Bar Abierto de bebidas en vaso por 8 horas, por persona", "category": "ALIMENTACION", "source_row": 11},
+    {"item_id": "BEBIDAS_LATA", "name": "Bebidas Lata CCU", "raw_name": "Bebidas ", "category": "ALIMENTACION", "source_row": 12},
+    {"item_id": "TICKET_BEBIDA", "name": "Ticket de bebida o agua", "raw_name": "Ticket de bebida o agua", "category": "ALIMENTACION", "source_row": 13},
+    {"item_id": "BARRIL_CERVEZA_KUNTSMAN_30L", "name": "Barril de cerveza kuntsman torobayo 30L", "raw_name": "Barril de cerveza kuntsman torobayo 30L", "category": "ALIMENTACION", "source_row": 14},
+    {"item_id": "VINO_CASTILLO_MOLINA", "name": "Vino Castillo Molina", "raw_name": "Vino Castillo Molina", "category": "ALIMENTACION", "source_row": 16},
+    {"item_id": "VINO_CASILLERO_DIABLO", "name": "Vino Casillero del diablo Reserva Especial", "raw_name": "Vino Casillero del diablo Reserva Especial", "category": "ALIMENTACION", "source_row": 17},
+    {"item_id": "VINO_MARQUES_CASA_CONCHA", "name": "Vino Marques Casa Concha", "raw_name": "Vino Marques Casa Concha", "category": "ALIMENTACION", "source_row": 18}
+  ],
+  "price_expressions": [
+    {"item_id": "TICKET_TRAGO", "raw_expression": "4850", "expression_type": "per_person", "components": [{"type": "per_person", "value": 4850, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "TICKET_CERVEZA", "raw_expression": "3529.411765", "expression_type": "per_person", "components": [{"type": "per_person", "value": 3529.411765, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "TICKET_TRAGO_VIP", "raw_expression": "6800", "expression_type": "per_person", "components": [{"type": "per_person", "value": 6800, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_4H", "raw_expression": "30800", "expression_type": "per_person", "components": [{"type": "per_person", "value": 30800, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "BAR_ABIERTO_EXTRA_H", "raw_expression": "10010", "expression_type": "per_person", "components": [{"type": "per_person", "value": 10010, "unit": "CLP"}], "confidence": "high"},
+    {"item_id": "VINO_CASTILLO_MOLINA", "raw_expression": "13025.21008", "expression_type": "per_unit", "components": [{"type": "per_unit", "value": 13025.21008, "unit": "bottle"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "VINO_CASTILLO_MOLINA", "raw_text": "Se recomienda 1 botella para 5 personas", "rule_type": "ratio", "structured_hint": {"condition": "recommendation", "effect": "1 bottle per 5 pax"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

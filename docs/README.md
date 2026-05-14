@@ -1,64 +1,34 @@
-# Documentation Index
+# Docs Index
 
-Technical documentation for the active rebuild worktree.
+## Data Pipeline
 
-## Architecture
+- [`extraction.md`](extraction.md) — project goal, extraction strategy, 4-table data model, and current progress.
+- [`pricing_engine.md`](pricing_engine.md) — pricing calculation flow, PricingKind, InitializationMode, formula, rule engines.
 
-- `ARCHITECTURE/component-architecture.md` - current component layering and conventions.
-- `ARCHITECTURE/design-principles.md` - cross-cutting engineering principles for architecture and delivery.
-- `ARCHITECTURE/legacy-ui-recovery.md` - legacy parity scope split (backend contracts vs rebuild-native UI implementation).
-- `ARCHITECTURE/item-component.md` - Item-specific behavior and contracts.
-- `ARCHITECTURE/rules-engine-integration.md` - rule evaluation model.
-- `ARCHITECTURE/app-flow-state-screen-foundation.md` - app flow base taxonomy (screen/state/event).
-- `ARCHITECTURE/app-flow-screen-by-screen-spec.md` - screen contracts and transition matrix.
-- `ARCHITECTURE/actor-ownership-drift-diagnostics.md` - actor ownership drift analysis.
-- `ARCHITECTURE/mixins-style-drift-assessment.md` - mixin strategy drift assessment.
-- `ARCHITECTURE/mixin-arch/` - deeper mixin architecture notes.
-- `ARCHITECTURE/LEGACY_ARCHITECTURE.md` - legacy reference snapshot.
+## Analysis
 
-## Guides
+- [`notebook.md`](notebook.md) — how to use `cotizaciones_analysis.ipynb` with `Data_Historica.csv`.
 
-- `GUIDES/creating-a-component.md`
-- `GUIDES/testing-components.md`
-- `GUIDES/writing-rules.md`
+## Migration (dev worktree)
 
-## Package Reference
+Guides for porting legacy GAS logic to the new schema:
 
-- `PACKAGES/components.md` - package-level map for `packages/components/**`.
+- [`migration/migrate_gas_server_functions.md`](migration/migrate_gas_server_functions.md) — V2 GAS server function stubs, persistence layer diagram, `getSheetDB()` gap.
+- [`migration/migrate_pdf_generation.md`](migration/migrate_pdf_generation.md) — PDF export migration path.
+- [`migration/migrate_rules_engine.md`](migration/migrate_rules_engine.md) — rules engine migration path.
+- [`migration/migrate_rut_validation.md`](migration/migrate_rut_validation.md) — RUT validation migration path.
 
-## Deployment
+## Dev Architecture
 
-- `DEPLOYMENT/gas-bundling.md` - bundle generation, GAS workspace output, local preview.
+- [`dev-architecture.md`](dev-architecture.md) — index of architecture and deployment docs in the `dev` worktree (including docs still in `legacy/`).
 
-## Plans and Design Maps
+## Diagrams & Specs
 
-- `plans/2026-03-11-vistas-design-map.md` - implementation map from `Vistas.md` to rebuild status.
-- `plans/2026-03-11-vistas-parallel-design-graph.md` - dependency graph for parallel implementation paths.
-- `plans/2026-03-04-quotation-internal-rebuild-plan.md` - quotation internal runtime plan.
-- `plans/2026-03-04-legacy-functionality-recovery-mapping.md` - legacy parity and recovery gaps.
-- `plans/2026-03-04-legacy-quotation-ui-blueprint.md` - legacy UI layout blueprint.
+- [`diagrams/`](diagrams/) — Mermaid component and activity diagrams.
+- [`specs/`](specs/) — YAML specs for the same diagrams.
 
-## Active Implementation Plans (Urgent Track)
 
-- `../plan/README.md` - plan index and dependency graph.
-- `../plan/U-1-save/` - save vertical slice (local persistence).
-- `../plan/U-2-editor/` - editor basic drag&drop (timeline grid).
-- `../plan/U-3-gas/` - GAS persistence (Google Sheets).
-- `../plan/U-4-pdf/` - PDF export.
-- `../plan/implementation-status.json` - latest phase-by-phase execution status.
+## Modelado
 
-## Operational References
-
-- `../changelog.md` - major change history.
-- `../plan/legacy/` - archived component-build plans (I-1, I-3, III-1, etc.).
-
-## Quick Commands
-
-```bash
-npm test
-npm run serve:sandbox
-npm run build
-npm run dev:gas
-```
-
-Last update: 2026-03-15
+- `models/OntologiaPropuesta/`
+- `models/Ortogonalizacion.mup`

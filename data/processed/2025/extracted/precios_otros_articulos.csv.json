@@ -1,0 +1,22 @@
+{
+  "items": [
+    {"item_id": "RAMO_FLORES", "name": "1 Ramo de flores", "raw_name": "1 Ramo de flores, 6 rosas, rojas, blancas, rosadas, amarilla", "category": "OTROS", "source_row": 1},
+    {"item_id": "CHOCOLATE_SAHNE_NUSS_VIN_ESP", "name": "Sahne Nuss + espumante/vino", "raw_name": "1 Chocolate Sahne Nuss 250g + espumante o botella de vino ", "category": "OTROS", "source_row": 2},
+    {"item_id": "RESMA_HOJAS", "name": "Resma de Hojas", "raw_name": "Resma de Hojas ", "category": "OTROS", "source_row": 4},
+    {"item_id": "LAPICES_AZUL", "name": "Lapices azul Pasta", "raw_name": "Lapices azul Pasta ", "category": "OTROS", "source_row": 5},
+    {"item_id": "CORRECTOR_LAPIZ", "name": "Corrector lapiz", "raw_name": "Corrector lapiz ", "category": "OTROS", "source_row": 6},
+    {"item_id": "PLUMONES_PERMANENTE", "name": "Plumones permanente", "raw_name": "Plumones permanente ", "category": "OTROS", "source_row": 7},
+    {"item_id": "PLUMONES_PIZARRA", "name": "Plumones de pizarra", "raw_name": "Plumones de pizarra ", "category": "OTROS", "source_row": 8},
+    {"item_id": "FOTOCOPIA_IMPRESION_COLOR", "name": "Fotocopias o impresion color", "raw_name": "Fotocopias o impresion color ", "category": "OTROS", "source_row": 9},
+    {"item_id": "FOTOCOPIA_IMPRESION_NEGRO", "name": "Fotocopias o impresion negro", "raw_name": "Fotocopias o impresion negro", "category": "OTROS", "source_row": 10},
+    {"item_id": "ALMUERZO_PRODUCTORA_CHOFER", "name": "Almuerzos productoras o choferes", "raw_name": "Almuerzos productoras o choferes en buffet", "category": "ALIMENTACION", "source_row": 11}
+  ],
+  "price_expressions": [
+    {"item_id": "RAMO_FLORES", "raw_expression": "50000", "expression_type": "flat", "components": [{"type": "base", "value": 50000, "unit": "unit"}], "confidence": "high"},
+    {"item_id": "ALMUERZO_PRODUCTORA_CHOFER", "raw_expression": "16386.55462", "expression_type": "per_person", "components": [{"type": "per_person", "value": 16386.55462, "unit": "CLP"}], "confidence": "high"}
+  ],
+  "business_rules": [
+    {"item_id": "RAMO_FLORES", "raw_text": "encargar hasta 72 horas antes", "rule_type": "schedule", "structured_hint": {"min": 72, "unit": "hours", "condition": "order deadline"}, "confidence": "high"}
+  ],
+  "unknowns": []
+}

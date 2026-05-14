@@ -1,0 +1,26 @@
+{
+  "items": [
+    {"item_id": "SALON_CHINOOK", "name": "Salon Chinook", "raw_name": "Chinook", "category": "SALON", "source_row": 1},
+    {"item_id": "SALON_ARCOIRIS_1", "name": "Salon Arcoiris 1", "raw_name": "Arcoiris 1", "category": "SALON", "source_row": 2},
+    {"item_id": "SALON_ARCOIRIS_2", "name": "Salon Arcoiris 2", "raw_name": "Arcoiris 2", "category": "SALON", "source_row": 3},
+    {"item_id": "SALON_COHO", "name": "Salon Coho", "raw_name": "Coho", "category": "SALON", "source_row": 4},
+    {"item_id": "SALON_FARIO_1", "name": "Salon Fario 1", "raw_name": "Fario 1", "category": "SALON", "source_row": 5},
+    {"item_id": "SALON_FARIO_2", "name": "Salon Fario 2", "raw_name": "Fario 2", "category": "SALON", "source_row": 6},
+    {"item_id": "SALON_QUINCHO", "name": "Salon Quincho", "raw_name": "Quincho(fiesta uso recomendado)", "category": "SALON", "source_row": 7},
+    {"item_id": "SALON_DOMO", "name": "Salon Domo", "raw_name": "Domo", "category": "SALON", "source_row": 8},
+    {"item_id": "SALON_DIRECTORIO", "name": "Salon Directorio", "raw_name": "Directorio", "category": "SALON", "source_row": 9}
+  ],
+  "price_expressions": [],
+  "business_rules": [
+    {"item_id": "SALON_CHINOOK", "raw_text": "320 - 350", "rule_type": "capacity", "structured_hint": {"min": 320, "max": 350, "condition": "Auditorio", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK", "raw_text": "168", "rule_type": "capacity", "structured_hint": {"min": 168, "max": 168, "condition": "Mesas redondas de trabajo", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK", "raw_text": "216", "rule_type": "capacity", "structured_hint": {"min": 216, "max": 216, "condition": "Escuela", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK", "raw_text": "95", "rule_type": "capacity", "structured_hint": {"min": 95, "max": 95, "condition": "U c/mesas", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_CHINOOK", "raw_text": "Tarima chinook mide  4,1 x 7,4", "rule_type": "unknown", "structured_hint": {"condition": "Tarima"}, "confidence": "medium"},
+    {"item_id": "SALON_ARCOIRIS_1", "raw_text": "70", "rule_type": "capacity", "structured_hint": {"min": 70, "max": 70, "condition": "Auditorio", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_COHO", "raw_text": "145", "rule_type": "capacity", "structured_hint": {"min": 145, "max": 145, "condition": "Auditorio", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_DOMO", "raw_text": "240", "rule_type": "capacity", "structured_hint": {"min": 240, "max": 240, "condition": "Auditorio", "unit": "pax"}, "confidence": "high"},
+    {"item_id": "SALON_DOMO", "raw_text": "Tarima domo mide 1,5 x 7,5", "rule_type": "unknown", "structured_hint": {"condition": "Tarima"}, "confidence": "medium"}
+  ],
+  "unknowns": []
+}

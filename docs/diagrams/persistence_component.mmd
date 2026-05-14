@@ -1,0 +1,37 @@
+graph TD
+    PersistencePort["PersistencePort (abstract interface)"]
+    PersistencePort --> save
+    PersistencePort --> load
+    PersistencePort --> listQuotations
+    PersistencePort --> loadReferenceData
+    save["save(payload)"]
+    load["load(id)"]
+    listQuotations["listQuotations(query)"]
+    loadReferenceData["loadReferenceData()"]
+    GasSheetAdapter["GasSheetAdapter (browser → GAS)"]
+    LocalPersistenceAdapter["LocalPersistenceAdapter (in-memory)"]
+    RemotePersistenceAdapter["RemotePersistenceAdapter (REST)"]
+    GoogleScriptRun["google.script.run"]
+    GASServerFunctions["GAS Server Functions"]
+    GASServerFunctions --> guardarCotizacion
+    GASServerFunctions --> cargarCotizacion
+    GASServerFunctions --> buscarCotizaciones
+    GASServerFunctions --> getReferenceData
+    guardarCotizacion["guardarCotizacion (server)"]
+    cargarCotizacion["cargarCotizacion (server)"]
+    buscarCotizaciones["buscarCotizaciones (server)"]
+    getReferenceData["getReferenceData (server)"]
+    InMemoryStore["InMemoryStore"]
+    GoogleSheets["Google Sheets"]
+    serializeQuotation["serializeQuotation"]
+    QuotationFlowComponent["QuotationFlow Machine"]
+    QuotationFlowComponent -->|on save event| serializeQuotation
+    serializeQuotation -->|{ cotizacion, lineas }| PersistencePort
+    GasSheetAdapter -->|extends| PersistencePort
+    LocalPersistenceAdapter -->|extends| PersistencePort
+    RemotePersistenceAdapter -->|extends| PersistencePort
+    GasSheetAdapter -->|withSuccessHandler| GoogleScriptRun
+    GoogleScriptRun -->|RPC over iframe| GASServerFunctions
+    GASServerFunctions -->|SpreadsheetApp| GoogleSheets
+    LocalPersistenceAdapter -->|CRUD| InMemoryStore
+    PersistencePort -->|{ ok, data } | { error }| QuotationFlowComponent

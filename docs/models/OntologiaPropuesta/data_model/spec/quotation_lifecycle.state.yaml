@@ -1,0 +1,42 @@
+id: quotation-lifecycle
+title: Quotation Lifecycle
+version: "1.0"
+type: state
+data:
+  entity: Cotizacion
+  initial: borrador
+  states:
+    - id: borrador
+      label: Borrador
+    - id: guardada
+      label: Guardada
+    - id: enviada
+      label: Enviada
+    - id: aprobada
+      label: Aprobada
+    - id: cancelada
+      label: Cancelada
+  transitions:
+    - from: borrador
+      to: guardada
+      "on": GUARDAR
+      action: persistir cabecera y lineas
+    - from: guardada
+      to: enviada
+      "on": ENVIAR
+      guard: cotizacion valida
+      action: generar documento / compartir
+    - from: enviada
+      to: aprobada
+      "on": APROBAR
+      action: bloquear edicion critica
+    - from: enviada
+      to: borrador
+      "on": REABRIR
+      action: permitir cambios
+    - from: guardada
+      to: cancelada
+      "on": CANCELAR
+    - from: borrador
+      to: cancelada
+      "on": DESCARTAR

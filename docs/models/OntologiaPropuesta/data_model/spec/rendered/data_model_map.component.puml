@@ -1,0 +1,47 @@
+@startuml
+skinparam component<<core>> BackgroundColor #D8ECFF
+skinparam component<<core>> BorderColor #4C78A8
+skinparam component<<core>> FontColor #16324F
+skinparam rectangle<<core>> BackgroundColor #D8ECFF
+skinparam rectangle<<core>> BorderColor #4C78A8
+skinparam rectangle<<core>> FontColor #16324F
+skinparam database<<core>> BackgroundColor #D8ECFF
+skinparam database<<core>> BorderColor #4C78A8
+skinparam database<<core>> FontColor #16324F
+skinparam package<<core>> BackgroundColor #D8ECFF
+skinparam package<<core>> BorderColor #4C78A8
+skinparam package<<core>> FontColor #16324F
+
+package "Modelo base" as modelo_base <<domain>> {
+  component "CategoriaCatalogo" as categoria_catalogo <<core>>
+  component "ItemCatalogo" as item_catalogo <<entity>>
+  component "PropiedadBase" as propiedad_base <<data>>
+  component "Area" as area <<data>>
+  component "CategoriaOperacional" as categoria_operacional <<data>>
+}
+package "Cotizacion time" as cotizacion_time <<runtime>> {
+  component "Cotizacion" as cotizacion <<entity>>
+  component "LineaCotizada" as linea_cotizada <<entity>>
+  component "PropiedadRuntime" as propiedad_runtime <<data>>
+  component "PropiedadEfectiva" as propiedad_efectiva <<data>>
+}
+package "Operaciones logicas" as operaciones_logicas <<service>> {
+  component "Pricing" as pricing <<service>>
+  component "Ruling" as ruling <<service>>
+}
+
+area --> categoria_catalogo : contexto semantico
+categoria_operacional --> categoria_catalogo : forma operacional
+propiedad_base --> categoria_catalogo : defaults base
+categoria_catalogo --> item_catalogo : hereda todo
+item_catalogo --> linea_cotizada : se compra como
+propiedad_runtime --> linea_cotizada : overrides runtime
+categoria_catalogo --> propiedad_efectiva : defaults categoria
+item_catalogo --> propiedad_efectiva : defaults item
+propiedad_runtime --> propiedad_efectiva : valores runtime
+propiedad_efectiva --> pricing : input
+propiedad_efectiva --> ruling : input
+categoria_catalogo --> pricing : pricing op
+categoria_catalogo --> ruling : ruling op
+linea_cotizada --> cotizacion : pertenece a
+@enduml
